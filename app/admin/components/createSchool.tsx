@@ -5,7 +5,7 @@ import { createSchool } from "../actions";
 import { redirect } from "next/navigation";
 
 export default function CreateSchool({ adminId }: { adminId: number }) {
-    createSchool.bind(null, adminId)
+    createSchool.bind(null, adminId.toString())
 
     const [nameTooSmallError, setNameTooSmallError] = useState(false);
 

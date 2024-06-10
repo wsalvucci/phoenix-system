@@ -65,3 +65,24 @@ export async function createStudent(
     console.log("Successfully created student");
 
 }
+
+export async function createTeacher(
+    adminId: number,
+    schoolId: number,
+    firstName: string,
+    lastName: string
+) {
+
+    let { data, error } = await supabase
+        .rpc('create_teacher_for_admin', {
+            provided_admin_id: adminId,
+            provided_school_id: schoolId,
+            provided_first_name: firstName,
+            provided_last_name: lastName
+        })
+    if (error) {
+        console.error("Error creating teacher", error)
+        return
+    }
+    console.log("Successfully created teacher");
+}

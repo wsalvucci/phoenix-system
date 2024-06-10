@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import ClassesDashboard from "./classesDashboard";
 import StudentsDashboard from "./studentsDashboard";
+import TeachersDashboard from "./teachersDashboard";
 
 enum Content {
     HOME = "home",
@@ -85,7 +86,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                             selectedContent === Content.STUDENTS && <StudentsDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
-                            selectedContent === Content.TEACHERS && <div />
+                            selectedContent === Content.TEACHERS && <TeachersDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
                             selectedContent === Content.STUDENT_GROUPS && <div />

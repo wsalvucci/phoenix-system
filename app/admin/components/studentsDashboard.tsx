@@ -183,9 +183,9 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
         <div className="h-full w-full">
             <div className="h-1/6">
                 <div>
-                    <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
+                    {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
                         Add Student
-                    </button>
+                    </button> */}
                     <button
                         className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                         onClick={() => {
