@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import ClassesDashboard from "./classesDashboard";
+import StudentsDashboard from "./studentsDashboard";
 
 enum Content {
     HOME = "home",
@@ -56,7 +57,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                 <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
                     <h1 className="text-3xl font-bold">Dashboard</h1>
                 </header>
-                <div className="flex flex-grow bg-slate-100 dark:bg-slate-900">
+                <div className="h-full overflow-hidden flex flex-grow bg-slate-100 dark:bg-slate-900">
                     {/* Sidebar */}
                     <div className="h-full py-5 px-2 w-1/6 bg-slate-200 dark:bg-slate-800">
                         {sideBarButton("Home", () => setSelectedContent(Content.HOME))}
@@ -73,7 +74,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                         {sideBarButton("Point Groups", () => setSelectedContent(Content.POINT_GROUPS))}
                     </div>
                     {/* Main Content */}
-                    <div className="w-full">
+                    <div className="w-full h-full">
                         {
                             selectedContent === Content.HOME && <div />
                         }
@@ -81,7 +82,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                             selectedContent === Content.CLASSES && <ClassesDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
-                            selectedContent === Content.STUDENTS && <div />
+                            selectedContent === Content.STUDENTS && <StudentsDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
                             selectedContent === Content.TEACHERS && <div />

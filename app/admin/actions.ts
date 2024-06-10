@@ -35,3 +35,33 @@ export async function createClass(adminId: number, schoolId: number, name: strin
     }
     console.log("Successfully created class");
 }
+
+export async function createStudent(
+    adminId: number,
+    schoolId: number,
+    powerschoolId: number,
+    firstName: string,
+    lastName: string,
+    grade: number,
+    birthday: Date,
+    gender: string
+) {
+
+    let { data, error } = await supabase
+        .rpc('create_student_for_admin', {
+            provided_admin_id: adminId,
+            provided_school_id: schoolId,
+            provided_student_birthdate: birthday,
+            provided_student_first_name: firstName,
+            provided_student_gender: gender,
+            provided_student_grade: grade,
+            provided_student_last_name: lastName,
+            provided_student_powerschool_id: powerschoolId
+        })
+    if (error) {
+        console.error("Error creating student", error)
+        return
+    }
+    console.log("Successfully created student");
+
+}

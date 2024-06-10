@@ -54,7 +54,6 @@ export default function ClassesDashboard({ schoolId, adminId }: { schoolId: numb
                     Add New Class
                 </div>
                 <input
-                    // Absolute position center
                     className="w-full p-3 my-1 dark:bg-slate-700 border border-gray-300 rounded-md"
                     type="text"
                     placeholder="Class Name"
