@@ -5,9 +5,9 @@ import { createSchool } from "./actions";
 import { useState } from "react";
 import Dashboard from "./components/dashboard";
 
-const supabase = createClient();
-
 export default async function AdminPage() {
+
+    const supabase = createClient();
 
     const {
         data: { user },
