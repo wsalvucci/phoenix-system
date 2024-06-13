@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import CSVReader from 'react-csv-reader'
 import { createStudent } from '../actions';
 import { createClient } from '@/utils/supabase/client';
+import { link } from 'fs';
 
 class StudentData {
     id: number | null;
@@ -12,6 +13,8 @@ class StudentData {
     birthdate: Date;
     gender: string;
     linkCode: string | null;
+    selected: boolean;
+    edited: boolean;
 
     constructor(
         id: number | null,
@@ -22,6 +25,8 @@ class StudentData {
         birthdate: string,
         gender: string,
         linkCode: string | null,
+        selected: boolean,
+        edited: boolean,
     ) {
         this.id = id;
         this.powerschoolId = powerschoolId;
@@ -31,7 +36,24 @@ class StudentData {
         this.birthdate = new Date(birthdate);
         this.gender = gender;
         this.linkCode = linkCode;
+        this.selected = selected;
+        this.edited = edited;
     }
+}
+
+enum SortDirections {
+    ASC = "ASC",
+    DESC = "DESC"
+}
+
+enum SortFilterOptions {
+    ID = "ID",
+    POWERSCHOOL_ID = "POWERSCHOOL_ID",
+    LAST_NAME = "LAST_NAME",
+    FIRST_NAME = "FIRST_NAME",
+    GRADE = "GRADE",
+    BIRTHDATE = "BIRTHDATE",
+    GENDER = "GENDER"
 }
 
 export default function StudentsDashboard({ schoolId, adminId }: { schoolId: number, adminId: number }) {
@@ -44,6 +66,9 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
     const [studentSearchString, setStudentSearchString] = useState<string>("")
 
     const [activelyBulkAddingStudents, setActivelyBulkAddingStudents] = useState<boolean>(false)
+
+    const [currentSortDirection, setCurrentSortDirection] = useState<SortDirections>(SortDirections.ASC)
+    const [currentSortFilter, setCurrentSortFilter] = useState<SortFilterOptions>(SortFilterOptions.ID)
 
     const fetchStudents = async () => {
         const { data: studentData, error } = await supabase.from("student").select("*").eq("school_id", schoolId);
@@ -63,7 +88,9 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                     student.grade,
                     student.birthdate,
                     student.gender,
-                    student.link_code
+                    student.link_code,
+                    false,
+                    false
                 ))
             })
             setStudents(studentArray);
@@ -73,6 +100,15 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
     useEffect(() => {
         fetchStudents();
     }, []);
+
+    const updateStudentState = async (student: StudentData) => {
+        setStudents(students.map((s: StudentData) => {
+            if (s.id === student.id) {
+                return student
+            }
+            return s
+        }))
+    }
 
     const bulkAddStudents = async (students: StudentData[]) => {
         if (activelyBulkAddingStudents) {
@@ -96,6 +132,35 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
         setPreviewStudents([])
         setBulkAddStudentsDialogueOpen(false)
         fetchStudents()
+    }
+
+    const tableHeader = ({
+        title,
+        sortFilter,
+    }: {
+        title: string,
+        sortFilter: SortFilterOptions,
+    }) => {
+        return (
+            <th className="border border-slate-500 text-md">
+                <div className="w-full">
+                    {title}
+                </div>
+                <div className="w-full">
+                    <button
+                        className="w-full p-1 bg-slate-600 hover:bg-slate-500 rounded-t-lg"
+                        onClick={
+                            () => {
+                                setCurrentSortFilter(sortFilter)
+                                setCurrentSortDirection(currentSortDirection === SortDirections.ASC ? SortDirections.DESC : SortDirections.ASC)
+                            }
+                        }
+                    >
+                        Sort: {sortFilter === currentSortFilter ? currentSortDirection : "---"}
+                    </button>
+                </div>
+            </th>
+        )
     }
 
     const bulkAddStudentsDialogue = () => {
@@ -124,7 +189,9 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                 student.Grade,
                                 student.Birthday,
                                 student.Gender,
-                                null
+                                null,
+                                false,
+                                false
                             ))
                         })
                         setPreviewStudents(studentData)
@@ -148,6 +215,7 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                     <table className="my-5 border-collapse border border-slate-500 w-full">
                         <thead>
                             <tr>
+                                <th className="border border-slate-500">Select</th>
                                 <th className="border border-slate-500">Powerschool ID</th>
                                 <th className="border border-slate-500">Last Name</th>
                                 <th className="border border-slate-500">First Name</th>
@@ -182,41 +250,115 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
     return (
         <div className="h-full w-full">
             <div className="h-1/6">
-                <div>
-                    {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
+                <div className='flex justify-between'>
+                    <div>
+                        <div>
+                            {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
                         Add Student
                     </button> */}
-                    <button
-                        className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                        onClick={() => {
-                            setBulkAddStudentsDialogueOpen(!bulkAddStudentsDialogueOpen)
-                            setPreviewStudents([])
-                        }}
-                    >
-                        Bulk Add Students (CSV)
-                    </button>
-                </div>
-                <div>
-                    <input
-                        className="w-1/2 p-3 m-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                        type="text"
-                        placeholder="Search Students"
-                        onChange={(e) => setStudentSearchString(e.target.value)}
-                    />
+                            <button
+                                className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                onClick={() => {
+                                    setBulkAddStudentsDialogueOpen(!bulkAddStudentsDialogueOpen)
+                                    setPreviewStudents([])
+                                }}
+                            >
+                                Bulk Add Students (CSV)
+                            </button>
+                        </div>
+                        <div>
+                            <input
+                                className="w-full p-3 m-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                type="text"
+                                placeholder="Search Students"
+                                onChange={(e) => setStudentSearchString(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        {/* <button
+                            className={`p-3 m-1 rounded-lg ${students.filter((student: StudentData) => student.selected).length === 0 ?
+                                "bg-slate-500 text-slate-700" :
+                                "bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
+                                }`}
+                            disabled={students.filter((student: StudentData) => student.selected).length === 0}
+                            onClick={() => {
+                                students.forEach(async (student: StudentData) => {
+                                    if (student.selected) {
+                                        await supabase.from("student").delete().eq("id", student.id)
+                                    }
+                                })
+                                fetchStudents()
+                            }}
+                        >
+                            Delete Selected
+                        </button> */}
+                        <button
+                            className={`p-3 m-1 rounded-lg ${students.filter((student: StudentData) => student.edited).length === 0 ?
+                                "bg-slate-500 text-slate-700" :
+                                "bg-yellow-300 dark:bg-yellow-700 hover:bg-yellow-400 dark:hover:bg-yellow-600"
+                                }`}
+                            disabled={students.filter((student: StudentData) => student.edited).length === 0}
+                            onClick={() => {
+                                students.forEach(async (student: StudentData) => {
+                                    if (student.edited) {
+                                        console.log("Updating student: ", student)
+                                        const result = await supabase.from("student").update({
+                                            last_name: student.lastName,
+                                            first_name: student.firstName,
+                                            grade: student.grade,
+                                            birthdate: student.birthdate,
+                                            gender: student.gender,
+                                        }).eq("id", student.id).select("*")
+                                        console.log("Result: ", result)
+                                    }
+                                    student.edited = false
+                                })
+                                fetchStudents()
+                                console.log("Successfully updated students")
+                            }}
+                        >
+                            Save Changes
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className="w-full h-5/6 overflow-y-scroll">
-                <table className="w-full border-collapse border border-slate-500">
+                <table className="w-full border-separate table-fixed">
                     <thead>
-                        <tr>
-                            <th className="border border-slate-500">ID</th>
-                            <th className="border border-slate-500">Powerschool ID</th>
-                            <th className="border border-slate-500">Last Name</th>
-                            <th className="border border-slate-500">First Name</th>
-                            <th className="border border-slate-500">Grade</th>
-                            <th className="border border-slate-500">Birthday</th>
-                            <th className="border border-slate-500">Gender</th>
-                            <th className="border border-slate-500">Link Code</th>
+                        <tr className="border border-slate-500 bg-slate-300 dark:bg-slate-700 sticky top-0">
+                            <th className="border border-slate-500">
+                                Delete
+                            </th>
+                            {tableHeader({
+                                title: "ID",
+                                sortFilter: SortFilterOptions.ID,
+                            })}
+                            {tableHeader({
+                                title: "Powerschool ID",
+                                sortFilter: SortFilterOptions.POWERSCHOOL_ID,
+                            })}
+                            {tableHeader({
+                                title: "Last Name",
+                                sortFilter: SortFilterOptions.LAST_NAME,
+                            })}
+                            {tableHeader({
+                                title: "First Name",
+                                sortFilter: SortFilterOptions.FIRST_NAME,
+                            })}
+                            {tableHeader({
+                                title: "Grade",
+                                sortFilter: SortFilterOptions.GRADE,
+                            })}
+                            {tableHeader({
+                                title: "Birthdate",
+                                sortFilter: SortFilterOptions.BIRTHDATE,
+                            })}
+                            {tableHeader({
+                                title: "Birthdate",
+                                sortFilter: SortFilterOptions.GENDER,
+                            })}
+                            <th className="border border-slate-500 text-xl">Link Code</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -227,16 +369,126 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                         student.firstName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
                                         studentSearchString === ""
                                 })
+                                .sort((a: StudentData, b: StudentData) => {
+                                    if (currentSortDirection === SortDirections.ASC) {
+                                        if (currentSortFilter === SortFilterOptions.ID) {
+                                            return (a.id || 0) - (b.id || 0)
+                                        } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
+                                            return a.powerschoolId - b.powerschoolId
+                                        } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
+                                            return a.lastName.localeCompare(b.lastName)
+                                        } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
+                                            return a.firstName.localeCompare(b.firstName)
+                                        } else if (currentSortFilter === SortFilterOptions.GRADE) {
+                                            return a.grade - b.grade
+                                        } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
+                                            return a.birthdate.getTime() - b.birthdate.getTime()
+                                        } else {
+                                            return 0
+                                        }
+                                    } else {
+                                        if (currentSortFilter === SortFilterOptions.ID) {
+                                            return (b.id || 0) - (a.id || 0)
+                                        } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
+                                            return b.powerschoolId - a.powerschoolId
+                                        } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
+                                            return b.lastName.localeCompare(a.lastName)
+                                        } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
+                                            return b.firstName.localeCompare(a.firstName)
+                                        } else if (currentSortFilter === SortFilterOptions.GRADE) {
+                                            return b.grade - a.grade
+                                        } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
+                                            return b.birthdate.getTime() - a.birthdate.getTime()
+                                        } else {
+                                            return 0
+                                        }
+                                    }
+                                })
                                 .map((student: StudentData) => {
                                     return (
-                                        <tr key={student.powerschoolId}>
-                                            <td className="border border-slate-500">{student.id}</td>
+                                        <tr
+                                            className={`${student.selected ? "bg-red-300 dark:bg-red-700" :
+                                                student.edited ? "bg-yellow-300 dark:bg-yellow-700" : ""
+                                                }`}
+                                            key={student.powerschoolId}
+                                        >
+                                            <td className="border border-slate-500">
+                                                <input
+                                                    type="checkbox"
+                                                    onChange={(e) => {
+                                                        student.selected = e.target.checked
+                                                        updateStudentState(student)
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-500">
+                                                {student.id}
+                                            </td>
                                             <td className="border border-slate-500">{student.powerschoolId}</td>
-                                            <td className="border border-slate-500">{student.lastName}</td>
-                                            <td className="border border-slate-500">{student.firstName}</td>
-                                            <td className="border border-slate-500">{student.grade}</td>
-                                            <td className="border border-slate-500">{student.birthdate.toDateString()}</td>
-                                            <td className="border border-slate-500">{student.gender}</td>
+                                            <td className="border border-slate-500">
+                                                <input
+                                                    className='w-full bg-transparent border-none'
+                                                    type="text"
+                                                    value={student.lastName}
+                                                    onChange={(e) => {
+                                                        student.lastName = e.target.value
+                                                        student.edited = true
+                                                        updateStudentState(student)
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-500">
+                                                <input
+                                                    className='w-full bg-transparent border-none'
+                                                    type="text"
+                                                    value={student.firstName}
+                                                    onChange={(e) => {
+                                                        student.firstName = e.target.value
+                                                        student.edited = true
+                                                        updateStudentState(student)
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-500">
+                                                <input
+                                                    className='w-full bg-transparent border-none'
+                                                    type="number"
+                                                    value={student.grade}
+                                                    onChange={(e) => {
+                                                        student.grade = parseInt(e.target.value)
+                                                        student.edited = true
+                                                        updateStudentState(student)
+                                                    }}
+                                                />
+                                            </td>
+                                            {/* <td className="border border-slate-500">{student.birthdate.toDateString()}</td> */}
+                                            <td className="border border-slate-500">
+                                                <input
+                                                    className='w-full bg-transparent border-none'
+                                                    type="date"
+                                                    value={student.birthdate.toISOString().split("T")[0]}
+                                                    onChange={(e) => {
+                                                        student.birthdate = new Date(e.target.value)
+                                                        student.edited = true
+                                                        updateStudentState(student)
+                                                    }}
+                                                />
+                                            </td>
+                                            {/* <td className="border border-slate-500">{student.gender}</td> */}
+                                            <td className="border border-slate-500">
+                                                <select
+                                                    className='w-full bg-transparent border-none'
+                                                    value={student.gender}
+                                                    onChange={(e) => {
+                                                        student.gender = e.target.value
+                                                        student.edited = true
+                                                        updateStudentState(student)
+                                                    }}
+                                                >
+                                                    <option value="M">M</option>
+                                                    <option value="F">F</option>
+                                                </select>
+                                            </td>
                                             <td className="border border-slate-500">{student.linkCode}</td>
                                         </tr>
                                     )
