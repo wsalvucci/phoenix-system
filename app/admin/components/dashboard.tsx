@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import ClassesDashboard from "./classesDashboard";
 import StudentsDashboard from "./studentsDashboard";
 import TeachersDashboard from "./teachersDashboard";
+import StudentGroupsDashboard from "./studentGroupsDashboard";
 
 enum Content {
     HOME = "home",
@@ -89,7 +90,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                             selectedContent === Content.TEACHERS && <TeachersDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
-                            selectedContent === Content.STUDENT_GROUPS && <div />
+                            selectedContent === Content.STUDENT_GROUPS && <StudentGroupsDashboard schoolId={selectedSchoolId} adminId={adminId} />
                         }
                         {
                             selectedContent === Content.POINT_GROUPS && <div />

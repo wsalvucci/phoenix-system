@@ -464,7 +464,7 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                             {/* <td className="border border-slate-500">{student.birthdate.toDateString()}</td> */}
                                             <td className="border border-slate-500">
                                                 <input
-                                                    className='w-full bg-transparent border-none'
+                                                    className='w-full bg-transparent border-none dark:[color-scheme:dark]'
                                                     type="date"
                                                     value={student.birthdate.toISOString().split("T")[0]}
                                                     onChange={(e) => {
