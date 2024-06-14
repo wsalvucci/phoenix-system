@@ -107,18 +107,7 @@ export default function ClassesDashboard({ schoolId, adminId }: { schoolId: numb
 
 
     return (
-        // <div className="grid grid-cols-3 gap-3 p-5">
-        //     {classes.map((classData: any) => {
-        //         return (
-        //             <div key={classData.id} className="bg-slate-300 dark:bg-slate-700 p-3 rounded-lg">
-        //                 {classContent(classData.name, classData.id)}
-        //             </div>
-        //         )
-        //     })}
-        //     {addClassButton()}
-        //     {addClassDialogOpen && addClassDialog()}
-        // </div>
-        <div className="h-full w-full">
+        <div className="animate-in h-full w-full">
             <div className="h-1/6 p-3">
                 <div className="flex justify-between items-center">
                     <button
@@ -153,7 +142,7 @@ export default function ClassesDashboard({ schoolId, adminId }: { schoolId: numb
                 </div>
             </div>
             <div className="h-5/6 overflow-y-scroll">
-                <table className="my-5 border-separate border border-slate-500 w-full">
+                <table className="my-5 border-separate border border-slate-500 w-full table-fixed">
                     <thead>
                         <tr>
                             <th className="border border-slate-500">Delete</th>
@@ -190,9 +179,9 @@ export default function ClassesDashboard({ schoolId, adminId }: { schoolId: numb
                                             }}
                                         />
                                     </td>
-                                    <td className="border border-slate-500">
+                                    <td>
                                         <button
-                                            className="p-1 rounded-lg bg-orange-300 dark:bg-orange-700 w-full"
+                                            className="rounded-lg bg-orange-200 dark:bg-orange-800 w-full"
                                         >
                                             <Link href={`/admin/editClass/${classData.id}`}>
                                                 Edit

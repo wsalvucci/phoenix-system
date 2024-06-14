@@ -97,8 +97,8 @@ export default function TeachersDashboard({ schoolId, adminId }: { schoolId: num
     }
 
     return (
-        <div>
-            <div>
+        <div className="animate-in h-full w-full">
+            <div className="h-1/6">
                 <button
                     className="p-3 m-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                     onClick={() => setAddTeacherDialogOpen(true)}
@@ -106,8 +106,31 @@ export default function TeachersDashboard({ schoolId, adminId }: { schoolId: num
                     Add New Teacher
                 </button>
             </div>
-            <div className="grid grid-cols-3 gap-3 p-5">
-                {teachers.map((teacher) => teacherContent(teacher))}
+            <div className="w-full h-5/6 overflow-y-scroll">
+                <table className="w-full border-separate table-fixed">
+                    <thead>
+                        <tr className="border border-slate-500 bg-slate-300 dark:bg-slate-700 sticky top-0">
+                            <th className="border border-slate-500">ID</th>
+                            <th className="border border-slate-500">First Name</th>
+                            <th className="border border-slate-500">Last Name</th>
+                            <th className="border border-slate-500">Link Code</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {
+                            teachers.map((teacher: TeacherData) => {
+                                return (
+                                    <tr key={teacher.id} className="border border-slate-500">
+                                        <td className="border border-slate-500">{teacher.id}</td>
+                                        <td className="border border-slate-500">{teacher.firstName}</td>
+                                        <td className="border border-slate-500">{teacher.lastName}</td>
+                                        <td className="border border-slate-500">{teacher.linkCode}</td>
+                                    </tr>
+                                )
+                            })
+                        }
+                    </tbody>
+                </table>
             </div>
             {addTeacherDialogOpen && addTeacherDialog()}
         </div>

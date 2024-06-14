@@ -248,7 +248,7 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
     }
 
     return (
-        <div className="h-full w-full">
+        <div className="animate-in h-full w-full">
             <div className="h-1/6">
                 <div className='flex justify-between'>
                     <div>
@@ -461,7 +461,6 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                                     }}
                                                 />
                                             </td>
-                                            {/* <td className="border border-slate-500">{student.birthdate.toDateString()}</td> */}
                                             <td className="border border-slate-500">
                                                 <input
                                                     className='w-full bg-transparent border-none dark:[color-scheme:dark]'
@@ -474,7 +473,6 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                                     }}
                                                 />
                                             </td>
-                                            {/* <td className="border border-slate-500">{student.gender}</td> */}
                                             <td className="border border-slate-500">
                                                 <select
                                                     className='w-full bg-transparent border-none'
