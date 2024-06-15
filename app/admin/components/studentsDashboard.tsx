@@ -215,7 +215,6 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                     <table className="my-5 border-collapse border border-slate-500 w-full">
                         <thead>
                             <tr>
-                                <th className="border border-slate-500">Select</th>
                                 <th className="border border-slate-500">Powerschool ID</th>
                                 <th className="border border-slate-500">Last Name</th>
                                 <th className="border border-slate-500">First Name</th>
