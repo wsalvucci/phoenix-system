@@ -56,6 +56,28 @@ enum SortFilterOptions {
     GENDER = "GENDER"
 }
 
+class StudentFilters {
+    searchString: string;
+    birthdateMin: Date | null;
+    birthdateMax: Date | null;
+    gradeMin: number | null;
+    gradeMax: number | null;
+
+    constructor(
+        searchString: string,
+        birthdateMin: Date | null,
+        birthdateMax: Date | null,
+        gradeMin: number | null,
+        gradeMax: number | null,
+    ) {
+        this.searchString = searchString;
+        this.birthdateMin = birthdateMin;
+        this.birthdateMax = birthdateMax;
+        this.gradeMin = gradeMin;
+        this.gradeMax = gradeMax;
+    }
+}
+
 export default function StudentsDashboard({ schoolId, adminId }: { schoolId: number, adminId: number }) {
 
     const supabase = createClient();
@@ -69,6 +91,8 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
 
     const [currentSortDirection, setCurrentSortDirection] = useState<SortDirections>(SortDirections.ASC)
     const [currentSortFilter, setCurrentSortFilter] = useState<SortFilterOptions>(SortFilterOptions.ID)
+
+    const [studentFilters, setStudentFilters] = useState<StudentFilters>(new StudentFilters("", null, null, null, null))
 
     const fetchStudents = async () => {
         const { data: studentData, error } = await supabase.from("student").select("*").eq("school_id", schoolId);
@@ -108,6 +132,16 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
             }
             return s
         }))
+    }
+
+    const updateStudentFilterState = async () => {
+        setStudentFilters(new StudentFilters(
+            studentFilters.searchString,
+            studentFilters.birthdateMin,
+            studentFilters.birthdateMax,
+            studentFilters.gradeMin,
+            studentFilters.gradeMax,
+        ))
     }
 
     const bulkAddStudents = async (students: StudentData[]) => {
@@ -275,6 +309,104 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                         </div>
                     </div>
                     <div>
+                        {/* Filter on birthdate using date range */}
+                        <div>
+                            Filter by Birthdate Range
+                            <div>
+                                <div className="flex w-full my-1">
+                                    <div className="w-1/4">
+                                        Min
+                                    </div>
+                                    <input
+                                        className="w-full mx-1 p-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        type="date"
+                                        onChange={(e) => {
+                                            studentFilters.birthdateMin = new Date(e.target.value)
+                                            updateStudentFilterState()
+                                        }}
+                                    />
+                                </div>
+                                <div className="flex w-full my-1">
+                                    <div className="w-1/4">
+                                        Max
+                                    </div>
+                                    <input
+                                        className="w-full mx-1 p-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        type="date"
+                                        onChange={(e) => {
+                                            studentFilters.birthdateMax = new Date(e.target.value)
+                                            updateStudentFilterState()
+                                        }}
+                                    />
+                                </div>
+                                {/* <div>
+                                    <button
+                                        className="w-full p-1 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        onClick={() => {
+                                            studentFilters.birthdateMin = null
+                                            studentFilters.birthdateMax = null
+                                            updateStudentFilterState()
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                </div> */}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        {/* Filter on grade range */}
+                        <div>
+                            Filter by Grade Range
+                            <div>
+                                <div className="flex w-full my-1">
+                                    <div className="w-1/4">
+                                        Min
+                                    </div>
+                                    <input
+                                        className="w-fit mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        type="number"
+                                        placeholder="Min Grade"
+                                        min={9}
+                                        max={12}
+                                        onChange={(e) => {
+                                            studentFilters.gradeMin = parseInt(e.target.value)
+                                            updateStudentFilterState()
+                                        }}
+                                    />
+                                </div>
+                                <div className="flex w-full my-1">
+                                    <div className="w-1/4">
+                                        Max
+                                    </div>
+                                    <input
+                                        className="w-fit mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        type="number"
+                                        placeholder="Max Grade"
+                                        min={9}
+                                        max={12}
+                                        onChange={(e) => {
+                                            studentFilters.gradeMax = parseInt(e.target.value)
+                                            updateStudentFilterState()
+                                        }}
+                                    />
+                                </div>
+                                {/* <div>
+                                    <button
+                                        className="w-full p-1 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        onClick={() => {
+                                            studentFilters.gradeMin = null
+                                            studentFilters.gradeMax = null
+                                            updateStudentFilterState()
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                </div> */}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
                         {/* <button
                             className={`p-3 m-1 rounded-lg ${students.filter((student: StudentData) => student.selected).length === 0 ?
                                 "bg-slate-500 text-slate-700" :
@@ -354,7 +486,7 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                 sortFilter: SortFilterOptions.BIRTHDATE,
                             })}
                             {tableHeader({
-                                title: "Birthdate",
+                                title: "Gender",
                                 sortFilter: SortFilterOptions.GENDER,
                             })}
                             <th className="border border-slate-500 text-xl">Link Code</th>
@@ -367,6 +499,12 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
                                     return student.lastName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
                                         student.firstName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
                                         studentSearchString === ""
+                                })
+                                .filter((student: StudentData) => {
+                                    return (studentFilters.birthdateMin === null || student.birthdate >= studentFilters.birthdateMin)
+                                        && (studentFilters.birthdateMax === null || student.birthdate <= studentFilters.birthdateMax)
+                                        && (studentFilters.gradeMin === null || student.grade >= studentFilters.gradeMin)
+                                        && (studentFilters.gradeMax === null || student.grade <= studentFilters.gradeMax)
                                 })
                                 .sort((a: StudentData, b: StudentData) => {
                                     if (currentSortDirection === SortDirections.ASC) {
