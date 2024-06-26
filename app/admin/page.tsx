@@ -1,90 +1,65 @@
-import { createClient } from "@/utils/supabase/server";
-import CreateSchool from "./components/createSchool";
-import { redirect } from "next/navigation";
-import { createSchool } from "./actions";
-import { useState } from "react";
-import Dashboard from "./components/dashboard";
+"use client";
 
-export default async function AdminPage() {
+import { createClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
+import { School } from "./school/[schoolId]/dataClasses";
+import Link from "next/link";
+
+export default function AdminHome() {
 
     const supabase = createClient();
+    const [schoolData, setSchoolData] = useState<School[] | null>(null);
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-        return redirect("/login");
+    const getSchoolData = async () => {
+        const { data: schoolData, error } = await supabase.from("school").select("*");
+        if (error) {
+            console.error("Error fetching school", error);
+        } else if (schoolData === null || schoolData.length === 0) {
+            console.log("No school found");
+        } else {
+            setSchoolData(schoolData);
+        }
     }
 
-    const userData = await supabase.from("user").select("*").eq("supabase_id", user.id);
+    useEffect(() => {
+        getSchoolData();
+    }, []);
 
-    if (userData.data === null || userData.data.length === 0) {
+    const schoolCard = (school: School) => {
         return (
-            <div>
-                <div className="flex items-center justify-center h-screen m-5 text-slate-700 dark:text-slate-300">
-                    <div>
-                        <div>
-                            Fatal Error: User has an account but no user data. Contact support.
-                        </div>
-                    </div>
+            <Link href={`/admin/school/${school.id}`} key={school.id}>
+                <div className="bg-slate-500 shadow-md rounded p-3 mb-4">
+                    <div className="flex items-center justify-center text-3xl font-bold">{school.name}</div>
                 </div>
-            </div>
-        )
-    }
-
-    const adminData = await supabase.from("admin").select("*").eq("id", userData.data[0].admin_id);
-
-    if (adminData.data === null || adminData.data.length === 0) {
-        // User is not an admin and shouldn't be here
-        redirect("/")
-    }
-    const adminId: number = adminData.data[0].id;
-
-    let schoolIds: number[] = [];
-    const adminSchools = await supabase.from("admin_school_pair").select("*").eq("admin_id", adminId);
-    if (adminSchools.error) {
-        console.error("Error fetching admin_school_pair", adminSchools.error);
-    } else if (adminSchools.data === null || adminSchools.data.length === 0) {
-        console.log("No schools found for admin: " + adminId);
-    } else {
-        // adminSchools.data.forEach(async (pairing: any) => {
-        //     console.log(pairing);
-        //     const schoolData = await supabase.from("school").select("*").eq("id", pairing.school_id);
-        //     if (schoolData.error) {
-        //         console.error("Error fetching school", schoolData.error);
-        //     } else if (schoolData.data === null || schoolData.data.length === 0) {
-        //         console.log("No school found for id: " + pairing.school_id);
-        //     } else {
-        //         console.log("School found: " + schoolData.data[0].name);
-        //         setSchools([...schools, schoolData.data[0]]);
-        //     }
-        // });
-        schoolIds = adminSchools.data.map((pairing: any) => pairing.school_id);
-    }
-
-
-
-    const addNewSchoolPrompt = () => {
-        return (
-            <div>
-                <div className="flex items-center justify-center h-screen m-5 text-slate-700 dark:text-slate-300">
-                    <div>
-                        <div>
-                            It doesn't look like you have a school setup yet. Let's get started by creating a new school.
-                        </div>
-                        <div>
-                            <CreateSchool adminId={adminId} />
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </Link>
         )
     }
 
     return (
-        <div>
-            {schoolIds.length === 0 ? addNewSchoolPrompt() : <Dashboard schoolIds={schoolIds} adminId={adminId} />}
+        <div className="w-full h-full">
+            <header className="flex items-center justify-center w-full p-5 bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                <div>
+                    <div>
+                        <div>
+                            <h1 className="text-3xl font-bold">Welcome to the admin dashboard</h1>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <div className="m-5">
+                <div>
+                    <div>
+                        <h1 className="text-3xl font-bold">Your Schools</h1>
+                        <div className="grid grid-cols-4 gap-5">
+                            {schoolData?.map((school) => {
+                                return (
+                                    schoolCard(school)
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    )
+    );
 }

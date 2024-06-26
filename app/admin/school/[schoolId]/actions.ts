@@ -4,6 +4,25 @@ import { createClient } from "@/utils/supabase/server"
 
 const supabase = createClient();
 
+async function getAdminData() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        return null;
+    }
+
+    const userData = await supabase.from("user").select("*").eq("supabase_id", user.id);
+    if (userData.data === null || userData.data.length === 0) {
+        return null;
+    }
+
+    const adminData = await supabase.from("admin").select("*").eq("id", userData.data[0].admin_id);
+    if (adminData.data === null || adminData.data.length === 0) {
+        return null;
+    }
+
+    return adminData.data[0].id;
+}
+
 export async function createSchool(name: string, adminId: number) {
     let { data, error } = await supabase
         .rpc('create_school_and_pair_admin', {
@@ -17,23 +36,26 @@ export async function createSchool(name: string, adminId: number) {
     console.log("Successfully created school and updated admin");
 }
 
-export async function createClass(adminId: number, schoolId: number, name: string) {
+export async function createGroup(schoolId: number, name: string, parentGroupID: number | null) {
     if (name.length < 3) {
-        console.error("Class name too short");
+        console.error("Group name too short");
         return
     }
 
+    const adminId = await getAdminData();
+
     let { data, error } = await supabase
-        .rpc('create_class_for_admin', {
+        .rpc('create_group_for_admin', {
             provided_admin_id: adminId,
             provided_school_id: schoolId,
-            provided_class_name: name
+            provided_group_name: name,
+            provided_parent_group_id: parentGroupID
         })
     if (error) {
-        console.error("Error creating class", error)
+        console.error("Error creating group", error)
         return
     }
-    console.log("Successfully created class");
+    console.log("Successfully created group");
 }
 
 export async function createStudent(

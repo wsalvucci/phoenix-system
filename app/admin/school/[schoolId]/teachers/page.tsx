@@ -1,3 +1,4 @@
+"use client";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { createTeacher } from "../actions";
@@ -16,7 +17,7 @@ class TeacherData {
     }
 }
 
-export default function TeachersDashboard({ schoolId, adminId }: { schoolId: number, adminId: number }) {
+export default function TeachersDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
     const supabase = createClient();
 
@@ -26,7 +27,7 @@ export default function TeachersDashboard({ schoolId, adminId }: { schoolId: num
     const [newTeacherLastName, setNewTeacherLastName] = useState<string>("");
 
     const fetchTeachers = async () => {
-        const { data: teacherData, error } = await supabase.from("teacher").select("*").eq("school_id", schoolId);
+        const { data: teacherData, error } = await supabase.from("teacher").select("*").eq("school_id", parseInt(schoolId));
         if (error) {
             console.error("Error fetching teachers", error);
         } else if (teacherData === null || teacherData.length === 0) {
@@ -41,7 +42,13 @@ export default function TeachersDashboard({ schoolId, adminId }: { schoolId: num
     }, []);
 
     const addNewTeacher = async (firstName: string, lastName: string) => {
-        await createTeacher(adminId, schoolId, firstName, lastName);
+        supabase.from("teacher").insert([
+            {
+                first_name: firstName,
+                last_name: lastName,
+                school_id: parseInt(schoolId)
+            }
+        ]);
         setAddTeacherDialogOpen(false);
         await fetchTeachers();
     }

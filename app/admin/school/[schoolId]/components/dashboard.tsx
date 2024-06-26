@@ -2,10 +2,10 @@
 
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import ClassesDashboard from "./classesDashboard";
+import ClassesDashboard from "../school/[schoolId]/classes/page";
 import StudentsDashboard from "./studentsDashboard";
-import TeachersDashboard from "./teachersDashboard";
-import StudentGroupsDashboard from "./studentGroupsDashboard";
+import TeachersDashboard from "../teachers/page";
+import StudentGroupsDashboard from "../studentGroups/page";
 
 enum Content {
     HOME = "home",
@@ -13,7 +13,8 @@ enum Content {
     STUDENTS = "students",
     TEACHERS = "teachers",
     STUDENT_GROUPS = "student_groups",
-    POINT_GROUPS = "point_groups"
+    POINT_GROUPS = "point_groups",
+    RANKING_GROUPS = "ranking_groups"
 }
 
 export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[], adminId: number }) {
@@ -74,6 +75,7 @@ export default function Dashboard({ schoolIds, adminId }: { schoolIds: number[],
                         </div>
                         {sideBarButton("Student Groups", () => setSelectedContent(Content.STUDENT_GROUPS))}
                         {sideBarButton("Point Groups", () => setSelectedContent(Content.POINT_GROUPS))}
+                        {sideBarButton("Ranking Groups", () => setSelectedContent(Content.RANKING_GROUPS))}
                     </div>
                     {/* Main Content */}
                     <div className="w-full h-full">

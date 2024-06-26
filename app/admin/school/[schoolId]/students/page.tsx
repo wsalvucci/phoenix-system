@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from 'react'
 import CSVReader from 'react-csv-reader'
 import { createStudent } from '../actions';
@@ -78,7 +80,7 @@ class StudentFilters {
     }
 }
 
-export default function StudentsDashboard({ schoolId, adminId }: { schoolId: number, adminId: number }) {
+export default function StudentsDashboard({ adminId, params: { schoolId } }: { adminId: number, params: { schoolId: string } }) {
 
     const supabase = createClient();
 
@@ -152,7 +154,7 @@ export default function StudentsDashboard({ schoolId, adminId }: { schoolId: num
         await students.forEach(async (student: StudentData) => {
             await createStudent(
                 adminId,
-                schoolId,
+                parseInt(schoolId),
                 student.powerschoolId,
                 student.firstName,
                 student.lastName,
