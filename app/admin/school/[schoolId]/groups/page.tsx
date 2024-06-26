@@ -38,7 +38,7 @@ class GroupData {
     }
 }
 
-export default function GroupsDashboard({ adminId, params: { schoolId } }: { adminId: number, params: { schoolId: string } },) {
+export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } },) {
 
     const supabase = createClient();
 
