@@ -55,7 +55,7 @@ const dummyData = [
     ]),
 ]
 
-export default function RankingGroupsDashboard({ schoolId, adminId }: { schoolId: number, adminId: number }) {
+export default function RankingGroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
     const supabase = createClient();
 

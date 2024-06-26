@@ -80,7 +80,7 @@ class StudentFilters {
     }
 }
 
-export default function StudentsDashboard({ adminId, params: { schoolId } }: { adminId: number, params: { schoolId: string } }) {
+export default function StudentsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
     const supabase = createClient();
 
@@ -151,18 +151,7 @@ export default function StudentsDashboard({ adminId, params: { schoolId } }: { a
             return
         }
         setActivelyBulkAddingStudents(true)
-        await students.forEach(async (student: StudentData) => {
-            await createStudent(
-                adminId,
-                parseInt(schoolId),
-                student.powerschoolId,
-                student.firstName,
-                student.lastName,
-                student.grade,
-                student.birthdate,
-                student.gender
-            )
-        })
+        await supabase.from("student").upsert(students)
         setActivelyBulkAddingStudents(false)
         console.log("Successfully bulk added students")
         setPreviewStudents([])
