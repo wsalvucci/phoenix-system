@@ -70,3 +70,34 @@ export class Teacher {
         this.lastName = lastName;
     }
 }
+
+export class GroupData {
+    id: number;
+    name: string;
+    selected: boolean;
+    edited: boolean;
+    parentGroup: number | null;
+    childGroups: GroupData[] | null;
+    teachers: Teacher[] | null;
+    students: Student[] | null;
+
+    constructor(
+        id: number,
+        name: string,
+        selected: boolean,
+        edited: boolean,
+        parentGroup: number | null = null,
+        childGroups: GroupData[] | null = null,
+        teachers: Teacher[] | null = null,
+        students: Student[] | null = null
+    ) {
+        this.id = id;
+        this.name = name;
+        this.selected = selected;
+        this.edited = edited;
+        this.parentGroup = parentGroup;
+        this.childGroups = childGroups;
+        this.teachers = teachers;
+        this.students = students;
+    }
+}

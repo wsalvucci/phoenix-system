@@ -5,38 +5,9 @@ import { useEffect, useState } from "react";
 import { createGroup } from "../actions";
 import Link from "next/link";
 import { group } from "console";
-import { Student, Teacher } from "../dataClasses";
+import { Student, Teacher, GroupData } from "../dataClasses";
 
-class GroupData {
-    id: number;
-    name: string;
-    selected: boolean;
-    edited: boolean;
-    parentGroup: number | null;
-    childGroups: GroupData[] | null;
-    teachers: Teacher[] | null;
-    students: Student[] | null;
 
-    constructor(
-        id: number,
-        name: string,
-        selected: boolean,
-        edited: boolean,
-        parentGroup: number | null = null,
-        childGroups: GroupData[] | null = null,
-        teachers: Teacher[] | null = null,
-        students: Student[] | null = null
-    ) {
-        this.id = id;
-        this.name = name;
-        this.selected = selected;
-        this.edited = edited;
-        this.parentGroup = parentGroup;
-        this.childGroups = childGroups;
-        this.teachers = teachers;
-        this.students = students;
-    }
-}
 
 export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
@@ -322,11 +293,18 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
         console.log("Successfully removed student from group");
     }
 
-    const commitStudentGroupChanges = async () => {
+    const recursivelyRemoveStudentFromGroup = async (studentId: number, groupData: GroupData) => {
+        groupData.childGroups?.forEach(async (childGroup: GroupData) => {
+            await recursivelyRemoveStudentFromGroup(studentId, childGroup)
+        })
+        await removeStudentFromGroup(studentId, groupData.id)
+    }
+
+    const commitStudentGroupChanges = async (groupData: GroupData) => {
         setLoading(true);
         originalGroupStudents.forEach(async (student: Student) => {
             if (!groupStudents.map((student: Student) => student.id).includes(student.id)) {
-                await removeStudentFromGroup(student.id, manageStudentsGroup?.id || 0)
+                recursivelyRemoveStudentFromGroup(student.id, groupData)
             }
         })
         groupStudents.forEach(async (student: Student) => {
@@ -440,7 +418,9 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
                         onClick={() => {
                             setLoading(true);
                             setManageStudentsDialogOpen(false);
-                            commitStudentGroupChanges();
+                            if (manageStudentsGroup !== null) {
+                                commitStudentGroupChanges(manageStudentsGroup);
+                            }
                         }}
                     >
                         Commit Changes
@@ -465,6 +445,15 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
                 <div className="flex justify-between items-center mx-5 gap-1">
                     <div className="flex items-center gap-2">
                         <div className="text-lg font-bold">{groupData.name}</div>
+                        <div>
+                            <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`}>
+                                <button
+                                    className="rounded-lg bg-orange-200 dark:bg-orange-800 px-2"
+                                >
+                                    /
+                                </button>
+                            </Link>
+                        </div>
                         <div>
                             <button
                                 className="rounded-lg bg-green-200 dark:bg-green-800 px-2"
