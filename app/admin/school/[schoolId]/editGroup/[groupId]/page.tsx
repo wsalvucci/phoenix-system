@@ -14,8 +14,16 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
     const [loading, setLoading] = useState<boolean>(true);
     const [loadingState, setLoadingState] = useState<string>("Loading...");
 
+    const [teacherSearchText, setTeacherSearchText] = useState<string>("");
+    const [teachersSelectedForRemoval, setTeachersSelectedForRemoval] = useState<number[]>([]);
+
+    const [teacherAddSearchText, setTeacherAddSearchText] = useState<string>("");
+    const [addTeachersModalOpen, setAddTeachersModalOpen] = useState<boolean>(false);
+    const [availableTeachersToAdd, setAvailableTeachersToAdd] = useState<Teacher[]>([]);
+    const [teachersSelectedForAddition, setTeachersSelectedForAddition] = useState<number[]>([]);
+
+
     const [studentSearchText, setStudentSearchText] = useState<string>("");
-    const [removeMultipleStudentsEnabled, setRemoveMultipleStudentsEnabled] = useState<boolean>(false);
     const [studentsSelectedForRemoval, setStudentsSelectedForRemoval] = useState<number[]>([]);
 
     const [studentAddSearchText, setStudentAddSearchText] = useState<string>("");
@@ -45,8 +53,6 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                             new GroupData(
                                 parentGroupData.id,
                                 parentGroupData.name,
-                                false,
-                                false,
                                 null,
                                 null,
                                 null,
@@ -106,8 +112,6 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
             return new GroupData(
                 data.id,
                 data.name,
-                false,
-                false,
                 data.parent_id,
                 childGroups,
                 data.teachers.map((teacher: any) =>
@@ -134,9 +138,20 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         setParentGroup(null);
         setGroupData(null);
         const pulledGroupData = await recursivelyGetGroupData(id, true);
+        setGroupData(pulledGroupData);
+        pullTeachersToAdd();
+    }
+
+    async function pullTeachersToAdd() {
+        setLoadingState("Loading Teachers To Add...");
+        const { data, error } = await supabase.from("teacher").select("*").eq("school_id", schoolId);
+        if (error) {
+            console.error("Error fetching teachers", error);
+            return;
+        }
+        setAvailableTeachersToAdd(data.map((teacher: any) => new Teacher(teacher.id, teacher.first_name, teacher.last_name)));
         setLoadingState("Loading Complete");
         setLoading(false);
-        setGroupData(pulledGroupData);
     }
 
     useEffect(() => {
@@ -247,6 +262,127 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         pullGroupData(groupId);
     }
 
+    const addSelectedTeachersToGroup = async (groupId: number) => {
+        setLoadingState("Adding Selected Teachers...");
+        setLoading(true);
+        await Promise.all(teachersSelectedForAddition.map(async teacherId => {
+            const { data, error } = await supabase.from("teacher_student_group_pair").insert({
+                teacher_id: teacherId,
+                group_id: groupId
+            })
+            if (error) {
+                console.error("Error adding teacher to group", error)
+                setLoading(false);
+                return
+            }
+        }))
+        setTeachersSelectedForAddition([]);
+        pullGroupData(groupId);
+    }
+
+    const removeSelectedTeachersFromGroup = async (groupId: number) => {
+        setLoadingState("Removing Selected Teachers...");
+        setLoading(true);
+        await Promise.all(teachersSelectedForRemoval.map(async teacherId => {
+            const { data, error } = await supabase.from("teacher_student_group_pair").delete().eq("teacher_id", teacherId).eq("group_id", groupId)
+            if (error) {
+                console.error("Error removing teacher from group", error)
+                setLoading(false);
+                return
+            }
+        })
+        )
+        setTeachersSelectedForRemoval([]);
+        pullGroupData(groupId);
+    }
+
+    const addTeachersModal = (groupData: GroupData) => {
+        return (
+            <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
+                    <div className="text-2xl">Add Teachers</div>
+                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                    <div className="pt-1">
+                        <input
+                            className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                            type="text"
+                            placeholder="Search Teachers..."
+                            value={teacherAddSearchText}
+                            onChange={e => setTeacherAddSearchText(e.target.value)}
+                        />
+                        <div className="grid grid-cols-3 border-b items-center bg-slate-300 dark:bg-slate-700">
+                            <div>First Name</div>
+                            <div>Last Name</div>
+                            <button
+                                className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
+                                onClick={
+                                    () => {
+                                        addSelectedTeachersToGroup(groupData.id)
+                                        setAddTeachersModalOpen(false)
+                                    }
+                                }
+                            >Add Selected</button>
+                        </div>
+                        <div className="min-h-96 max-h-96 overflow-y-scroll">
+                            {availableTeachersToAdd
+                                .filter(teacher => !groupData.teachers?.map(teacher => teacher.id).includes(teacher.id))
+                                .filter(teacher => teacher.firstName.toLowerCase().includes(teacherAddSearchText.toLowerCase()) || teacher.lastName.toLowerCase().includes(teacherAddSearchText.toLowerCase()))
+                                .map(teacher => (
+                                    <div
+                                        className={`grid grid-cols-3 border-b items-center ${teachersSelectedForAddition.includes(teacher.id) ? "bg-green-200 dark:bg-green-800" : ""}`}
+                                        key={teacher.id}
+                                    >
+                                        <div>{teacher.firstName}</div>
+                                        <div>{teacher.lastName}</div>
+                                        <input
+                                            type="checkbox"
+                                            checked={teachersSelectedForAddition.includes(teacher.id)}
+                                            onChange={() => {
+                                                if (teachersSelectedForAddition.includes(teacher.id)) {
+                                                    setTeachersSelectedForAddition(teachersSelectedForAddition.filter(id => id !== teacher.id))
+                                                } else {
+                                                    setTeachersSelectedForAddition([...teachersSelectedForAddition, teacher.id])
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                    <div className="flex justify-between">
+                        <div className="flex gap-1">
+                            <div className="pt-3">
+                                <button
+                                    className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
+                                    onClick={() => {
+                                        setTeachersSelectedForAddition(availableTeachersToAdd.map(teacher => teacher.id))
+                                    }}
+                                >Select All</button>
+                            </div>
+                            <div className="pt-3">
+                                <button
+                                    className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
+                                    onClick={() => {
+                                        setTeachersSelectedForAddition([])
+                                    }}
+                                >Deselect All</button>
+                            </div>
+                        </div>
+                        <div className="pt-3">
+                            <button
+                                className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
+                                onClick={() => {
+                                    setAddTeachersModalOpen(false)
+                                    setAvailableTeachersToAdd([])
+                                }}
+                            >Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     const addStudentsModal = (groupData: GroupData) => {
         return (
             <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
@@ -344,45 +480,87 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                     <div className="w-fit px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded-lg">{"< Back to Groups"}</div>
                 </Link>
             </div>
-            <div>
+            <div className="px-2">
                 <div className="text-2xl">Editing Group: {groupData?.name}</div>
                 <div className="h-1 bg-slate-300 dark:bg-slate-700" />
                 {groupData && (
-                    <div className="pt-3">
-                        <div className="border rounded-lg p-1">
-                            <div className="text-lg">Group Teachers</div>
+                    <div className="pt-3 grid grid-cols-3">
+                        <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
+                            <div className="flex gap-1 py-1">
+                                <div className="text-lg">Teachers</div>
+                                <button
+                                    className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
+                                    onClick={() => setAddTeachersModalOpen(true)}
+                                >Add</button>
+                            </div>
                             <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                            <input
+                                className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                                type="text"
+                                placeholder="Search Teachers..."
+                                value={teacherSearchText}
+                                onChange={e => setTeacherSearchText(e.target.value)}
+                            />
                             <div className="pt-1">
-                                <div className="flex">
-                                    {groupData.teachers && groupData.teachers.map(teacher => (
+                                <div className="grid grid-cols-3 border-b items-center bg-slate-300 dark:bg-slate-700">
+                                    <div>First Name</div>
+                                    <div>Last Name</div>
+                                    <button
+                                        className="w-full border bg-transparent hover:bg-red-500 rounded-lg p-1"
+                                        onClick={() => {
+                                            removeSelectedTeachersFromGroup(groupData.id)
+                                        }}
+                                    >Remove Selected</button>
+                                </div>
+                                {groupData.teachers && groupData.teachers
+                                    .filter(teacher => teacher.firstName.toLowerCase().includes(teacherSearchText.toLowerCase()) || teacher.lastName.toLowerCase().includes(teacherSearchText.toLowerCase()))
+                                    .map(teacher => (
                                         <div
-                                            className="px-2 py-1 w-fit bg-slate-200 dark:bg-slate-800 rounded-lg"
+                                            className={`grid grid-cols-3 border-b items-center ${teachersSelectedForRemoval.includes(teacher.id) ? "bg-red-200 dark:bg-red-800" : ""}`}
                                             key={teacher.id}
                                         >
-                                            <div>{teacher.firstName} {teacher.lastName}</div>
+                                            <div>{teacher.firstName}</div>
+                                            <div>{teacher.lastName}</div>
+                                            <input
+                                                className="dark:[color-scheme:dark]"
+                                                type="checkbox"
+                                                checked={teachersSelectedForRemoval.includes(teacher.id)}
+                                                onChange={() => {
+                                                    if (teachersSelectedForRemoval.includes(teacher.id)) {
+                                                        setTeachersSelectedForRemoval(teachersSelectedForRemoval.filter(id => id !== teacher.id))
+                                                    } else {
+                                                        setTeachersSelectedForRemoval([...teachersSelectedForRemoval, teacher.id])
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     ))}
-                                </div>
                             </div>
                         </div>
                         {
-                            parentGroup && (
-                                <div className="border rounded-lg p-1 mt-3">
+                            parentGroup ? (
+                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
                                     <div className="text-lg">Parent Group</div>
                                     <div className="h-1 bg-slate-300 dark:bg-slate-700" />
                                     <div className="pt-1">
-                                        <div className="px-2 py-1 w-fit bg-slate-200 dark:bg-slate-800 rounded-lg">
+                                        <div className="px-2 py-1 w-fit border bg-slate-200 dark:bg-slate-800 rounded-lg">
                                             <Link href={`/admin/school/${schoolId}/editGroup/${parentGroup.id}`}>
                                                 <div>{parentGroup.name}</div>
                                             </Link>
                                         </div>
                                     </div>
                                 </div>
+                            ) : (
+                                <div className="h-full w-full flex justify-center align-middle border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800">
+                                    <div>
+                                        No Parent Group
+                                    </div>
+                                </div>
                             )
                         }
                         {
-                            groupData.childGroups && groupData.childGroups.length > 0 && (
-                                <div className="border rounded-lg p-1">
+                            groupData.childGroups && groupData.childGroups.length > 0 ? (
+                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
                                     <div className="text-lg">Child Groups [# Students]</div>
                                     <div className="h-1 bg-slate-300 dark:bg-slate-700" />
                                     <div className="pt-1">
@@ -391,9 +569,13 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                         </div>
                                     </div>
                                 </div>
+                            ) : (
+                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
+                                    <div className="text-lg">No Child Groups</div>
+                                </div>
                             )
                         }
-                        <div className="border rounded-lg p-1">
+                        <div className="border-2 rounded-lg p-1 my-2 bg-slate-200 dark:bg-slate-800 w-full col-span-3">
                             <div className="flex gap-1 py-1">
                                 <div className="text-lg">Students</div>
                                 <button
