@@ -475,6 +475,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
     return (
         <div className="w-full h-full overflow-y-scroll">
             {addStudentsModalOpen && groupData && addStudentsModal(groupData)}
+            {addTeachersModalOpen && groupData && addTeachersModal(groupData)}
             <div className="m-3">
                 <Link href={`/admin/school/${schoolId}/groups`}>
                     <div className="w-fit px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded-lg">{"< Back to Groups"}</div>
@@ -510,6 +511,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                         onClick={() => {
                                             removeSelectedTeachersFromGroup(groupData.id)
                                         }}
+                                        disabled={teachersSelectedForRemoval.length === 0}
                                     >Remove Selected</button>
                                 </div>
                                 {groupData.teachers && groupData.teachers
@@ -602,6 +604,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                         onClick={() => {
                                             removeSelectedStudents(groupData)
                                         }}
+                                        disabled={studentsSelectedForRemoval.length === 0}
                                     >Remove Selected</button>
                                 </div>
                                 {groupData.students && groupData.students

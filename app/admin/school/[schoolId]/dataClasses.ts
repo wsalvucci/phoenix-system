@@ -95,3 +95,28 @@ export class GroupData {
         this.students = students;
     }
 }
+
+export class PointGroup {
+    id: number;
+    name: string;
+    parentGroup: number | null;
+    childGroups: PointGroup[] | null;
+    ranked: boolean;
+    color: string;
+
+    constructor(
+        id: number,
+        name: string,
+        parentGroup: number | null = null,
+        childGroups: PointGroup[] | null = null,
+        ranked: boolean,
+        color: string
+    ) {
+        this.id = id;
+        this.name = name;
+        this.parentGroup = parentGroup;
+        this.childGroups = childGroups;
+        this.ranked = ranked;
+        this.color = color;
+    }
+}
