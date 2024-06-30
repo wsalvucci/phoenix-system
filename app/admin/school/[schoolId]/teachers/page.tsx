@@ -2,18 +2,27 @@
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { createTeacher } from "../actions";
+import { createHash } from "crypto";
 
 class TeacherData {
     id: number;
     firstName: string;
     lastName: string;
     linkCode: string;
+    connectedUserId: number | null;
 
-    constructor(id: number, firstName: string, lastName: string, linkCode: string) {
+    constructor(
+        id: number,
+        firstName: string,
+        lastName: string,
+        linkCode: string,
+        connectedUserId: number | null
+    ) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.linkCode = linkCode;
+        this.connectedUserId = connectedUserId;
     }
 }
 
@@ -33,7 +42,19 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
         } else if (teacherData === null || teacherData.length === 0) {
             console.log("No teachers found for school: " + schoolId);
         } else {
-            setTeachers(teacherData.map((teacher: any) => new TeacherData(teacher.id, teacher.first_name, teacher.last_name, teacher.link_code)));
+            const connectedTeacherData = await Promise.all(teacherData.map(async (teacher: any) => {
+                const { data: connectedUserData, error: connectedUserError } = await supabase.from("user").select("*").eq("teacher_id", teacher.id).limit(1);
+                if (connectedUserError) {
+                    console.error("Error fetching connected user data", connectedUserError);
+                }
+
+                console.log(connectedUserData);
+                const connectedUserId = connectedUserData && connectedUserData.length > 0 ? connectedUserData[0].id : null;
+
+                return new TeacherData(teacher.id, teacher.first_name, teacher.last_name, teacher.link_code, connectedUserId);
+            }));
+
+            setTeachers(await Promise.all(connectedTeacherData));
         }
     }
 
@@ -42,7 +63,7 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
     }, []);
 
     const addNewTeacher = async (firstName: string, lastName: string) => {
-        supabase.from("teacher").insert([
+        await supabase.from("teacher").insert([
             {
                 first_name: firstName,
                 last_name: lastName,
@@ -87,20 +108,16 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
         )
     }
 
-    const teacherContent = (teacher: TeacherData) => {
-        return (
-            <div className="p-3 rounded-lg bg-slate-300 dark:bg-slate-700">
-                <div>
-                    ID: {teacher.id}
-                </div>
-                <div>
-                    Name: {teacher.firstName} {teacher.lastName}
-                </div>
-                <div>
-                    Link Code: {teacher.linkCode}
-                </div>
-            </div>
-        )
+    const generateLinkCode = (): string => {
+        const hash = createHash("md5").update(Date.now().toString()).digest("hex").slice(0, 7);
+        return hash;
+    }
+
+    const revokeTeacher = async (teacherId: number, userId: number | null) => {
+        if (userId === null) return
+        await supabase.from("user").update({ teacher_id: null }).eq("id", userId);
+        await supabase.from("teacher").update({ link_code: generateLinkCode() }).eq("id", teacherId);
+        await fetchTeachers();
     }
 
     return (
@@ -121,6 +138,7 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
                             <th className="border border-slate-500">First Name</th>
                             <th className="border border-slate-500">Last Name</th>
                             <th className="border border-slate-500">Link Code</th>
+                            <th className="border border-slate-500">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -131,7 +149,27 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
                                         <td className="border border-slate-500">{teacher.id}</td>
                                         <td className="border border-slate-500">{teacher.firstName}</td>
                                         <td className="border border-slate-500">{teacher.lastName}</td>
-                                        <td className="border border-slate-500">{teacher.linkCode}</td>
+                                        <td className="border border-slate-500">
+                                            {teacher.linkCode}
+                                        </td>
+                                        <td className="border border-slate-500">
+                                            {
+                                                teacher.connectedUserId ? (
+                                                    <button
+                                                        className="w-full p-1 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
+                                                        onClick={() => revokeTeacher(teacher.id, teacher.connectedUserId)}
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                ) : (
+                                                    <div
+                                                        className="w-full p-1 rounded-lg flex justify-center border"
+                                                    >
+                                                        Not Connected
+                                                    </div>
+                                                )
+                                            }
+                                        </td>
                                     </tr>
                                 )
                             })
