@@ -2,7 +2,6 @@
 import { createClient } from "@/utils/supabase/client"
 import { PointGroup } from "../dataClasses";
 import { useEffect, useState } from "react";
-import { ColorPicker, IColor, useColor } from "react-color-palette";
 
 export default function PointGroups({ params: { schoolId } }: { params: { schoolId: string } }) {
 
