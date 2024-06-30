@@ -1,6 +1,6 @@
 "use client";
 
-import { School } from "./dataClasses";
+import { School } from "@/app/dataClasses";
 
 export default function SchoolSelectComponent({ startingId, schools }: { startingId: number, schools: School[] }) {
     {/* Dropdown menu that, on click, navigates the user to /admin/school/[schoolId] */ }

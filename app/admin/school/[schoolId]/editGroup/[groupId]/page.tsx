@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/utils/supabase/client";
-import { GroupData, Student, Teacher } from "../../dataClasses";
+import { Teacher, GroupData, Student } from "@/app/dataClasses"
 import { useEffect, useState } from "react";
 import Link from "next/link";
 

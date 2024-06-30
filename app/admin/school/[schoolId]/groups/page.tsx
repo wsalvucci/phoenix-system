@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/client"
 import { useEffect, useState } from "react";
 import { createGroup } from "../actions";
 import Link from "next/link";
-import { GroupData } from "../dataClasses";
+import { GroupData } from "@/app/dataClasses";
 
 export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 

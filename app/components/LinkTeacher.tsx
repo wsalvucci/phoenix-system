@@ -73,11 +73,13 @@ export default function LinkTeacher({ user }: { user: User }) {
         <div>
             {
                 userData && userData.teacherId !== null ? (
-                    <button
-                        className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
-                    >
-                        Teacher Portal
-                    </button>
+                    <Link href={`teacher/${userData.teacherId}`}>
+                        <button
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                        >
+                            Teacher Portal
+                        </button>
+                    </Link>
                 ) : (
                     <Link href="/linkAccount/teacher">
                         <button

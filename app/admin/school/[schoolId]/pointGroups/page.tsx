@@ -1,6 +1,6 @@
 "use client";
 import { createClient } from "@/utils/supabase/client"
-import { PointGroup } from "../dataClasses";
+import { PointGroup } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
 
 export default function PointGroups({ params: { schoolId } }: { params: { schoolId: string } }) {

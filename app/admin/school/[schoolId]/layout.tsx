@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import React from "react";
 import SchoolSelectComponent from "./schoolSelectComponent";
-import { School } from "./dataClasses";
+import { School } from "@/app/dataClasses";
 
 export default async function AdminPage({ children, params: { schoolId } }: { children: React.ReactNode, params: { schoolId: string } }) {
 

@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/client"
 import { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
-import { School } from "./dataClasses";
+import { School } from "@/app/dataClasses";
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
     const supabase = createClient();

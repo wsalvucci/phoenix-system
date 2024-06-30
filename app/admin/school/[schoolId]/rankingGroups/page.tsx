@@ -1,6 +1,6 @@
 "use client";
 import { createClient } from "@/utils/supabase/client"
-import { Group, GroupData } from "../dataClasses";
+import { GroupData } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
 
 class RankingGroup {
