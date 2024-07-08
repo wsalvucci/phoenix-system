@@ -2,6 +2,7 @@
 import { createClient } from "@/utils/supabase/client"
 import { PointGroup } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
+import { clientGetSchoolPointGroups } from "@/app/supaApi/client/admin/pointGroups/adminPointGroupsApi";
 
 export default function PointGroups({ params: { schoolId } }: { params: { schoolId: string } }) {
 
@@ -10,53 +11,10 @@ export default function PointGroups({ params: { schoolId } }: { params: { school
     const [pointGroups, setPointGroups] = useState<PointGroup[]>([]);
     const [tempPointGroups, setTempPointGroups] = useState<PointGroup[]>([]);
 
-    const getGroupData = async (pointGroupId: number): Promise<PointGroup | null> => {
-        const { data: pointGroupData, error } = await supabase.from("point_group").select("*, child_groups:point_group (id)").eq("id", pointGroupId);
-        if (error) {
-            console.error("Error fetching point group", error);
-            return null;
-        } else if (pointGroupData === null || pointGroupData.length === 0) {
-            console.log("No point group found for id: " + pointGroupId);
-            return null;
-        } else {
-            const firstPointGroup = pointGroupData[0];
-            var childGroups: PointGroup[] = [];
-            await Promise.all(firstPointGroup.child_groups.map(async (childGroup: any) => {
-                const newPointGroup = await getGroupData(childGroup.id);
-                if (newPointGroup !== null) {
-                    childGroups.push(newPointGroup);
-                }
-            }))
-            const newPointGroup = new PointGroup(
-                firstPointGroup.id,
-                firstPointGroup.name,
-                firstPointGroup.parent_id,
-                childGroups,
-                firstPointGroup.ranked,
-                firstPointGroup.color
-            );
-            return newPointGroup;
-        }
-    }
-
     const fetchPointGroups = async () => {
-        const { data: pointGroupData, error } = await supabase.from("point_group").select("id").eq("school_id", schoolId).is("parent_id", null);
-        if (error) {
-            console.error("Error fetching point groups", error);
-        } else if (pointGroupData === null || pointGroupData.length === 0) {
-            console.log("No point groups found for school: " + schoolId);
-        } else {
-            console.log("Point groups found for school: " + schoolId);
-            var fetchedParentGroups: PointGroup[] = [];
-            await Promise.all(pointGroupData.map(async (pointGroup: any) => {
-                const newPointGroup = await getGroupData(pointGroup.id);
-                if (newPointGroup !== null) {
-                    fetchedParentGroups.push(newPointGroup);
-                }
-            }))
-            setPointGroups(fetchedParentGroups);
-            setTempPointGroups(fetchedParentGroups);
-        }
+        const pointGroups = await clientGetSchoolPointGroups(parseInt(schoolId)) ?? [];
+        setPointGroups(pointGroups);
+        setTempPointGroups(pointGroups);
     }
 
     useEffect(() => {

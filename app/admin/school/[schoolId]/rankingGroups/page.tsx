@@ -1,23 +1,9 @@
 "use client";
 import { createClient } from "@/utils/supabase/client"
-import { GroupData } from "@/app/dataClasses";
+import { RankingGroup, StudentGroup } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
-
-class RankingGroup {
-    id: number;
-    name: string;
-    groups: GroupData[];
-
-    constructor(
-        id: number,
-        name: string,
-        groups: GroupData[]
-    ) {
-        this.id = id;
-        this.name = name;
-        this.groups = groups;
-    }
-}
+import { clientAddSchoolRankingGroup, clientAddStudentGroupToRankingGroup, clientGetSchoolRankingGroups, clientRemoveStudentGroupFromRankingGroup } from "@/app/supaApi/client/admin/rankingGroups/adminRankingGroupsApi";
+import { clientGetStudentGroups } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
 
 export default function RankingGroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
@@ -26,57 +12,14 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
     const [rankingGroups, setRankingGroups] = useState<RankingGroup[]>([]);
     const [addRankingGroupDialogOpen, setAddRankingGroupDialogOpen] = useState<boolean>(false);
     const [newRankingGroupName, setNewRankingGroupName] = useState<string>("");
-    const [studentGroups, setStudentGroups] = useState<GroupData[]>([]);
+    const [studentGroups, setStudentGroups] = useState<StudentGroup[]>([]);
     const [addStudentGroupToRankingGroupDialogOpen, setAddStudentGroupToRankingGroupDialogOpen] = useState<boolean>(false);
     const [selectedRankingGroup, setSelectedRankingGroup] = useState<RankingGroup | null>(null);
-    const [selectedRankingGroupStudentGroups, setSelectedRankingGroupStudentGroups] = useState<GroupData[]>([]);
+    const [selectedRankingGroupStudentGroups, setSelectedRankingGroupStudentGroups] = useState<StudentGroup[]>([]);
 
-    const getGroup = async (groupId: number): Promise<GroupData | null> => {
-        const { data: groupData, error } = await supabase.from("student_group").select("*, child_groups:student_group (id)").eq("id", groupId);
-        if (error) {
-            console.error("Error fetching groups", error);
-            return null;
-        } else if (groupData === null || groupData.length === 0) {
-            console.log("No groups found for id: " + groupId);
-            return null;
-        } else {
-            const firstGroup = groupData[0];
-            var childGroups: GroupData[] = [];
-            await Promise.all(firstGroup.child_groups.map(async (childGroup: any) => {
-                const newGroupData = await getGroup(childGroup.id);
-                if (newGroupData !== null) {
-                    childGroups.push(newGroupData);
-                }
-            }))
-            const newGroup = new GroupData(
-                firstGroup.id,
-                firstGroup.name,
-                firstGroup.parent_id,
-                childGroups,
-                null,
-                null
-            );
-            return newGroup;
-        }
-    }
-
-    const fetchGroups = async () => {
-        const { data: groupData, error } = await supabase.from("student_group").select("id").eq("school_id", schoolId).is("parent_id", null);
-        if (error) {
-            console.error("Error fetching classes", error);
-        } else if (groupData === null || groupData.length === 0) {
-            console.log("No classes found for school: " + schoolId);
-        } else {
-            var newGroups: GroupData[] = [];
-            await Promise.all(groupData.map(async (group: any) => {
-                const newGroupData = await getGroup(group.id);
-                if (newGroupData !== null) {
-                    newGroups.push(newGroupData);
-                }
-            }))
-            console.log("New Groups: ", newGroups);
-            setStudentGroups(newGroups);
-        }
+    const fetchData = async () => {
+        setRankingGroups(await clientGetSchoolRankingGroups(parseInt(schoolId)) ?? []);
+        setStudentGroups(await clientGetStudentGroups(parseInt(schoolId)) ?? []);
     }
 
     const rankingGroupCard = (rankingGroup: RankingGroup) => {
@@ -116,21 +59,9 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
     }
 
     const addRankingGroup = async () => {
-        const { data, error } = await supabase
-            .from('ranking_group')
-            .insert([
-                {
-                    school_id: schoolId,
-                    name: newRankingGroupName
-                }
-            ]);
+        await clientAddSchoolRankingGroup(parseInt(schoolId), newRankingGroupName);
 
-        if (error) {
-            console.error(error);
-            return;
-        }
-
-        fetchRankingGroups();
+        fetchData();
     }
 
     const addStudentGroupToRankingGroup = async (groupId: number, rankingGroupId: number | undefined) => {
@@ -138,21 +69,10 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
             console.error("No ranking group selected");
             return;
         }
-        const { data, error } = await supabase
-            .from('ranking_group_pair')
-            .insert([
-                {
-                    ranking_group_id: rankingGroupId,
-                    student_group_id: groupId
-                }
-            ]);
 
-        if (error) {
-            console.error(error);
-            return;
-        }
+        await clientAddStudentGroupToRankingGroup(groupId, rankingGroupId);
 
-        fetchRankingGroups();
+        fetchData();
     }
 
     const removeStudentGroupFromRankingGroup = async (groupId: number, rankingGroupId: number | undefined) => {
@@ -160,18 +80,11 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
             console.error("No ranking group selected");
             return;
         }
-        const { data, error } = await supabase
-            .from('ranking_group_pair')
-            .delete()
-            .eq('ranking_group_id', rankingGroupId)
-            .eq('student_group_id', groupId);
 
-        if (error) {
-            console.error(error);
-            return;
-        }
+        console.log(groupId, rankingGroupId);
+        await clientRemoveStudentGroupFromRankingGroup(groupId, rankingGroupId);
 
-        fetchRankingGroups();
+        fetchData();
     }
 
     const addRankingGroupDialog = () => {
@@ -198,11 +111,11 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
         )
     }
 
-    const recursiveAddStudenGroupButton = (group: GroupData, level: number) => {
+    const recursiveAddStudenGroupButton = (group: StudentGroup, level: number) => {
         level++
         return (
             <div className="grid grid-cols-1 gap-1">
-                <div className="flex items-center justify-between border-b p-1">
+                <div className="flex items-center justify-between border-b p-1 hover:bg-slate-200 dark:hover:bg-slate-800">
                     <div className="flex items-center gap-2">
                         <div className="pl-3" style={{ paddingLeft: `${level * 10}px` }}>{group.name}</div>
                     </div>
@@ -230,7 +143,7 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
             <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="bg-slate-300 dark:bg-slate-700 shadow-md rounded p-3 mb-4">
                     <div className="flex items-center justify-center text-3xl font-bold">Add Student Group to {selectedRankingGroup?.name}</div>
-                    <div className="grid grid-cols-1 gap-1">
+                    <div className="grid grid-cols-1 gap-1 max-h-96 overflow-y-scroll">
                         {
                             studentGroups
                                 .filter((group) => {
@@ -240,50 +153,18 @@ export default function RankingGroupsDashboard({ params: { schoolId } }: { param
                                     return recursiveAddStudenGroupButton(group, 0);
                                 })
                         }
-                        <button
-                            className="border hover:bg-green-300 dark:hover:bg-green-700 shadow-md rounded p-3 mb-4 dark:[color-scheme:dark]"
-                            onClick={() => setAddStudentGroupToRankingGroupDialogOpen(false)}
-                        >Close</button>
                     </div>
+                    <button
+                        className="w-full mt-1 border hover:bg-green-300 dark:hover:bg-green-700 shadow-md rounded p-3 mb-4 dark:[color-scheme:dark]"
+                        onClick={() => setAddStudentGroupToRankingGroupDialogOpen(false)}
+                    >Close</button>
                 </div>
             </div>
         )
     }
 
-    const fetchRankingGroups = async () => {
-        const { data, error } = await supabase
-            .from('ranking_group')
-            .select('*, student_groups:student_group(*)')
-            .eq('school_id', schoolId);
-
-        if (error) {
-            console.error(error);
-            return [];
-        }
-
-        const mappedRankingGroupData = await Promise.all(data.map((rankingGroup: any) => {
-            return new RankingGroup(
-                rankingGroup.id,
-                rankingGroup.name,
-                rankingGroup.student_groups.map((group: any) => {
-                    return new GroupData(
-                        group.id,
-                        group.name,
-                        group.parent_id,
-                        null,
-                        null,
-                        null
-                    );
-                })
-            );
-        }));
-
-        setRankingGroups(mappedRankingGroupData);
-    }
-
     useEffect(() => {
-        fetchRankingGroups();
-        fetchGroups();
+        fetchData();
     }, []);
 
     return (

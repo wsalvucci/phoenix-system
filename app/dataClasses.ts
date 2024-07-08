@@ -1,24 +1,8 @@
-export class Teacher {
-    id: number;
-    firstName: string;
-    lastName: string;
-
-    constructor(
-        id: number,
-        firstName: string,
-        lastName: string
-    ) {
-        this.id = id;
-        this.firstName = firstName;
-        this.lastName = lastName;
-    }
-}
-
-export class GroupData {
+export class StudentGroup {
     id: number;
     name: string;
     parentGroup: number | null;
-    childGroups: GroupData[] | null;
+    childGroups: StudentGroup[] | null;
     teachers: Teacher[] | null;
     students: Student[] | null;
 
@@ -26,7 +10,7 @@ export class GroupData {
         id: number,
         name: string,
         parentGroup: number | null = null,
-        childGroups: GroupData[] | null = null,
+        childGroups: StudentGroup[] | null = null,
         teachers: Teacher[] | null = null,
         students: Student[] | null = null
     ) {
@@ -58,9 +42,9 @@ export class Student {
     powerSchoolId: number;
     firstName: string;
     lastName: string;
-    brithdate: Date;
+    birthdate: Date | null;
     grade: number;
-    gender: string;
+    gender: string | null;
 
     constructor(
         id: number,
@@ -68,16 +52,16 @@ export class Student {
         powerSchoolId: number,
         firstName: string,
         lastName: string,
-        brithdate: Date,
+        brithdate: Date | null,
         grade: number,
-        gender: string
+        gender: string | null
     ) {
         this.id = id;
         this.linkCode = linkCode;
         this.powerSchoolId = powerSchoolId;
         this.firstName = firstName;
         this.lastName = lastName;
-        this.brithdate = brithdate;
+        this.birthdate = brithdate;
         this.grade = grade;
         this.gender = gender;
     }
@@ -105,5 +89,109 @@ export class PointGroup {
         this.childGroups = childGroups;
         this.ranked = ranked;
         this.color = color;
+    }
+}
+
+export class PhoenixUser {
+    id: number;
+    createdAt: Date;
+    firstName: string | null;
+    lastName: string | null;
+    adminId: number | null;
+    studentId: number | null;
+    supabaseId: string;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        firstName: string | null,
+        lastName: string | null,
+        adminId: number | null,
+        studentId: number | null,
+        supabaseId: string
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.adminId = adminId;
+        this.studentId = studentId;
+        this.supabaseId = supabaseId;
+    }
+}
+
+export class Admin {
+    id: number;
+    createdAt: Date;
+    phoenixUser: PhoenixUser;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        phoenixUser: PhoenixUser
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.phoenixUser = phoenixUser;
+    }
+}
+
+export class AdminSchoolPair {
+    adminId: number;
+    schoolId: number;
+
+    constructor(
+        adminId: number,
+        schoolId: number
+    ) {
+        this.adminId = adminId;
+        this.schoolId = schoolId;
+    }
+}
+
+export class Teacher {
+    id: number;
+    createdAt: Date;
+    firstName: string;
+    lastName: string;
+    linkCode: string;
+    linkedUserId: number | null;
+    linkedUser: PhoenixUser | null;
+    schoolId: number;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        firstName: string,
+        lastName: string,
+        linkCode: string,
+        linkedUserId: number | null,
+        linkedUser: PhoenixUser | null,
+        schoolId: number
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.linkCode = linkCode;
+        this.linkedUserId = linkedUserId;
+        this.linkedUser = linkedUser;
+        this.schoolId = schoolId;
+    }
+}
+
+export class RankingGroup {
+    id: number;
+    name: string;
+    groups: StudentGroup[];
+
+    constructor(
+        id: number,
+        name: string,
+        groups: StudentGroup[]
+    ) {
+        this.id = id;
+        this.name = name;
+        this.groups = groups;
     }
 }

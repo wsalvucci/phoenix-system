@@ -1,28 +1,20 @@
 "use client";
 
-import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import { School } from "./school/[schoolId]/dataClasses";
+import { School } from "@/app/dataClasses";
 import Link from "next/link";
+import { getSchoolsAsAdmin } from "../supaApi/client/admin/schools/adminSchoolsApi";
 
 export default function AdminHome() {
-
-    const supabase = createClient();
     const [schoolData, setSchoolData] = useState<School[] | null>(null);
 
     const getSchoolData = async () => {
-        const { data: schoolData, error } = await supabase.from("school").select("*");
-        if (error) {
-            console.error("Error fetching school", error);
-        } else if (schoolData === null || schoolData.length === 0) {
-            console.log("No school found");
-        } else {
-            setSchoolData(schoolData);
-        }
+        const schools = await getSchoolsAsAdmin();
+        setSchoolData(schools)
     }
 
     useEffect(() => {
-        getSchoolData();
+        getSchoolData()
     }, []);
 
     const schoolCard = (school: School) => {

@@ -1,18 +1,19 @@
 "use client";
 
-import { createClient } from "@/utils/supabase/client";
-import { Teacher, GroupData, Student } from "@/app/dataClasses"
+import { Teacher, StudentGroup, Student } from "@/app/dataClasses"
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { clientAddStudentGroup, clientAddStudentToStudentGroup, clientAddTeacherToStudentGroup, clientGetStudentGroup, clientRemoveStudentFromStudentGroup, clientRemoveTeacherFromStudentGroup } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
+import { clientGetSchoolTeachers } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
 
 export default function EditGroupDashboard({ params: { schoolId, groupId } }: { params: { schoolId: string, groupId: string } }) {
 
-    const supabase = createClient();
+    const [groupData, setGroupData] = useState<StudentGroup | null>(null);
+    const [parentGroup, setParentGroup] = useState<StudentGroup | null>(null);
 
-    const [groupData, setGroupData] = useState<GroupData | null>(null);
-    const [parentGroup, setParentGroup] = useState<GroupData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [loadingState, setLoadingState] = useState<string>("Loading...");
+    const [loadingState, setLoadingState] = useState<string>("");
+    const [loadingProgress, setLoadingProgress] = useState<number>(0);
 
     const [teacherSearchText, setTeacherSearchText] = useState<string>("");
     const [teachersSelectedForRemoval, setTeachersSelectedForRemoval] = useState<number[]>([]);
@@ -22,7 +23,6 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
     const [availableTeachersToAdd, setAvailableTeachersToAdd] = useState<Teacher[]>([]);
     const [teachersSelectedForAddition, setTeachersSelectedForAddition] = useState<number[]>([]);
 
-
     const [studentSearchText, setStudentSearchText] = useState<string>("");
     const [studentsSelectedForRemoval, setStudentsSelectedForRemoval] = useState<number[]>([]);
 
@@ -31,127 +31,40 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
     const [availableStudentsToAdd, setAvailableStudentsToAdd] = useState<Student[]>([]);
     const [studentsSelectedForAddition, setStudentsSelectedForAddition] = useState<number[]>([]);
 
-    async function recursivelyGetGroupData(id: number, topGroup: boolean): Promise<GroupData | null> {
-        setLoadingState("Loading Group Data For Group ID: " + id);
-        const { data, error } = await supabase
-            .from('student_group')
-            .select('*, child_groups:student_group (id), school (*), teachers:teacher (*), students:student (*)')
-            .eq('id', id)
-            .single();
-
-        if (error) {
-            console.error(error);
-            return null;
-        } else {
-            var childGroups: GroupData[] | null = null;
-            if (topGroup) {
-                setLoadingState("Loading Group Data For Group ID: " + id + " (Top Group)");
-                if (data.parent_id) {
-                    const parentGroupData = await recursivelyGetGroupData(data.parent_id, false);
-                    if (parentGroupData !== null) {
-                        setParentGroup(
-                            new GroupData(
-                                parentGroupData.id,
-                                parentGroupData.name,
-                                null,
-                                null,
-                                null,
-                                parentGroupData.students?.map((student: any) =>
-                                    new Student(
-                                        student.id,
-                                        student.link_code,
-                                        student.powerschool_id,
-                                        student.first_name,
-                                        student.last_name,
-                                        student.birthdate,
-                                        student.grade,
-                                        student.gender
-                                    )
-                                )
-                            )
-                        );
-                        setLoadingState("Loading Available Students To Add For Group ID: " + id);
-                        setAvailableStudentsToAdd(parentGroupData.students ?? []);
-                    }
-                } else {
-                    setLoadingState("Loading All Students For School ID: " + schoolId);
-                    const availableStudents = await supabase.from("student").select("*").eq("school_id", schoolId).then(({ data, error }) => {
-                        if (error) {
-                            console.error("Error fetching students", error)
-                            return []
-                        }
-                        return data.map((student: any) => new Student(
-                            student.id,
-                            student.link_code,
-                            student.powerschool_id,
-                            student.first_name,
-                            student.last_name,
-                            student.birthdate,
-                            student.grade,
-                            student.gender,
-                        ))
-                    })
-                    setAvailableStudentsToAdd(availableStudents);
-                }
-            }
-            if (topGroup) {
-                setLoadingState("Loading Child Groups For Group ID: " + id)
-            }
-            await Promise.all(data.child_groups.map(async (childGroup: any) => {
-                const childGroupData = await recursivelyGetGroupData(childGroup.id, false);
-                if (childGroupData) {
-                    if (!childGroups) {
-                        childGroups = [];
-                    }
-                    childGroups.push(childGroupData);
-                }
-            }));
-            if (topGroup) {
-                setLoadingState("Loading Teachers For Group ID: " + id)
-            }
-            return new GroupData(
-                data.id,
-                data.name,
-                data.parent_id,
-                childGroups,
-                data.teachers.map((teacher: any) =>
-                    new Teacher(teacher.id, teacher.first_name, teacher.last_name)
-                ),
-                data.students.map((student: any) =>
-                    new Student(
-                        student.id,
-                        student.link_code,
-                        student.powerschool_id,
-                        student.first_name,
-                        student.last_name,
-                        student.birthdate,
-                        student.grade,
-                        student.gender
-                    )
-                )
-            );
-        }
-    }
+    const [addChildGroupModalOpen, setAddChildGroupModalOpen] = useState<boolean>(false);
+    const [newChildGroupName, setNewChildGroupName] = useState<string>("");
 
     async function pullGroupData(id: number) {
-        setLoadingState("Loading Group Data...");
         setParentGroup(null);
         setGroupData(null);
-        const pulledGroupData = await recursivelyGetGroupData(id, true);
-        setGroupData(pulledGroupData);
-        pullTeachersToAdd();
-    }
+        setLoadingProgress(0);
+        setLoadingState("Loading Group Data...");
 
-    async function pullTeachersToAdd() {
-        setLoadingState("Loading Teachers To Add...");
-        const { data, error } = await supabase.from("teacher").select("*").eq("school_id", schoolId);
-        if (error) {
-            console.error("Error fetching teachers", error);
-            return;
-        }
-        setAvailableTeachersToAdd(data.map((teacher: any) => new Teacher(teacher.id, teacher.first_name, teacher.last_name)));
-        setLoadingState("Loading Complete");
-        setLoading(false);
+        await Promise.all([
+            (async () => {
+                const pulledGroupData = await clientGetStudentGroup(id)
+                setGroupData(pulledGroupData);
+                setLoadingProgress(loadingProgress + 33);
+                setLoadingState("Loaded Base Group Data");
+                if (pulledGroupData?.parentGroup && pulledGroupData?.parentGroup !== null) {
+                    const parentGroup = await clientGetStudentGroup(pulledGroupData.parentGroup);
+                    setParentGroup(parentGroup);
+                    setAvailableStudentsToAdd(parentGroup?.students?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? [])
+                    setLoadingProgress(loadingProgress + 33);
+                    setLoadingState("Loaded Parent Group Data");
+                }
+            })(),
+            (async () => {
+                const allTeachers = await clientGetSchoolTeachers(parseInt(schoolId));
+                const availableTeachers = allTeachers?.filter(teacher => !groupData?.teachers?.map(teacher => teacher.id).includes(teacher.id)) ?? [];
+                setAvailableTeachersToAdd(availableTeachers);
+                setLoadingProgress(loadingProgress + 33);
+                setLoadingState("Loaded Teachers To Add");
+            })()
+        ])
+
+        setLoadingProgress(100);
+        setLoading(false)
     }
 
     useEffect(() => {
@@ -163,7 +76,10 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
             <div className="flex items-center justify-center h-screen">
                 <div>
                     <div className="text-2xl">Loading...</div>
-                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                    {/* Loading Progress Bar */}
+                    <div className="w-96 h-3 bg-slate-300 dark:bg-slate-700 rounded-lg">
+                        <div className="h-full bg-green-400 dark:bg-green-600 rounded-lg" style={{ width: `${loadingProgress}%` }} />
+                    </div>
                     <div className="pt-3">
                         <div className="flex items-center">
                             <div className="w-full text-center">{loadingState}</div>
@@ -178,31 +94,26 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         return loadingScreen();
     }
 
-    const recursiveChildGroupCard = (group: GroupData) => {
+    const recursiveChildGroupCard = (group: StudentGroup) => {
         return (
-            <div className="rounded-lg p-1">
-                <div className="flex">
-                    {group.childGroups && group.childGroups
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map(childGroup => (
-                            <div
-                                className="border px-2 py-1 mx-1 w-fit bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
-                                key={childGroup.id}
-                            >
+            <div className="w-fit rounded-lg p-1">
+                {group.childGroups && group.childGroups
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(childGroup => (
+                        <div
+                            className="px-2 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
+                            key={childGroup.id}
+                        >
+                            <div>
                                 <Link href={`/admin/school/${schoolId}/editGroup/${childGroup.id}`}>
-                                    <div>{childGroup.name} [{childGroup.students?.length}]</div>
-                                    {
-                                        childGroup.childGroups && childGroup.childGroups.length > 0 && (
-                                            <div>
-                                                <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                                                {recursiveChildGroupCard(childGroup)}
-                                            </div>
-                                        )
-                                    }
+                                    <div className="px-1 rounded-lg hover:bg-slate-500">{childGroup.name} [{childGroup.students?.length}]</div>
                                 </Link>
                             </div>
-                        ))}
-                </div>
+                            <div>
+                                {recursiveChildGroupCard(childGroup)}
+                            </div>
+                        </div>
+                    ))}
             </div>
         )
     }
@@ -210,39 +121,26 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
     const addStudentToGroup = async (studentId: number, groupId: number) => {
         setLoadingState("Adding Student To Group...");
         setLoading(true);
-        const { data, error } = await supabase.from("student_group_pair").insert({
-            student_id: studentId,
-            student_group_id: groupId
-        })
-        if (error) {
-            console.error("Error adding student to group", error)
-            setLoading(false);
-            return
-        }
+        await clientAddStudentToStudentGroup(studentId, groupId)
         console.log("Successfully added student to group");
     }
 
     const removeStudentFromGroup = async (studentId: number, groupId: number) => {
         setLoadingState("Removing Student From Group...");
         setLoading(true);
-        const { data, error } = await supabase.from("student_group_pair").delete().eq("student_id", studentId).eq("student_group_id", groupId)
-        if (error) {
-            console.error("Error removing student from group", error)
-            setLoading(false);
-            return
-        }
+        await clientRemoveStudentFromStudentGroup(studentId, groupId)
         console.log("Successfully removed student from group");
     }
 
-    const recursivelyRemoveStudentFromGroup = async (studentId: number, groupData: GroupData) => {
+    const recursivelyRemoveStudentFromGroup = async (studentId: number, groupData: StudentGroup) => {
         await removeStudentFromGroup(studentId, groupData.id)
-        groupData.childGroups?.forEach(async (childGroup: GroupData) => {
+        groupData.childGroups?.forEach(async (childGroup: StudentGroup) => {
             await recursivelyRemoveStudentFromGroup(studentId, childGroup)
         })
         pullGroupData(parseInt(groupId))
     }
 
-    const removeSelectedStudents = async (groupData: GroupData) => {
+    const removeSelectedStudents = async (groupData: StudentGroup) => {
         setLoadingState("Removing Selected Students...");
         setLoading(true);
         await Promise.all(studentsSelectedForRemoval.map(async studentId => {
@@ -266,15 +164,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         setLoadingState("Adding Selected Teachers...");
         setLoading(true);
         await Promise.all(teachersSelectedForAddition.map(async teacherId => {
-            const { data, error } = await supabase.from("teacher_student_group_pair").insert({
-                teacher_id: teacherId,
-                group_id: groupId
-            })
-            if (error) {
-                console.error("Error adding teacher to group", error)
-                setLoading(false);
-                return
-            }
+            await clientAddTeacherToStudentGroup(teacherId, groupId)
         }))
         setTeachersSelectedForAddition([]);
         pullGroupData(groupId);
@@ -284,19 +174,13 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         setLoadingState("Removing Selected Teachers...");
         setLoading(true);
         await Promise.all(teachersSelectedForRemoval.map(async teacherId => {
-            const { data, error } = await supabase.from("teacher_student_group_pair").delete().eq("teacher_id", teacherId).eq("group_id", groupId)
-            if (error) {
-                console.error("Error removing teacher from group", error)
-                setLoading(false);
-                return
-            }
-        })
-        )
+            await clientRemoveTeacherFromStudentGroup(teacherId, groupId)
+        }))
         setTeachersSelectedForRemoval([]);
         pullGroupData(groupId);
     }
 
-    const addTeachersModal = (groupData: GroupData) => {
+    const addTeachersModal = (groupData: StudentGroup) => {
         return (
             <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
@@ -373,7 +257,6 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                 className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
                                 onClick={() => {
                                     setAddTeachersModalOpen(false)
-                                    setAvailableTeachersToAdd([])
                                 }}
                             >Close</button>
                         </div>
@@ -383,7 +266,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         )
     }
 
-    const addStudentsModal = (groupData: GroupData) => {
+    const addStudentsModal = (groupData: StudentGroup) => {
         return (
             <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
@@ -462,7 +345,6 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                 className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
                                 onClick={() => {
                                     setAddStudentsModalOpen(false)
-                                    setAvailableStudentsToAdd([])
                                 }}
                             >Close</button>
                         </div>
@@ -472,10 +354,54 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         )
     }
 
+    const addChildGroup = async () => {
+        setLoadingState("Adding Child Group...");
+        setLoading(true);
+        await clientAddStudentGroup(parseInt(schoolId), newChildGroupName, groupData ? groupData.id : null)
+        setAddChildGroupModalOpen(false);
+        setNewChildGroupName("");
+        pullGroupData(parseInt(groupId));
+    }
+
+    const addChildGroupModal = () => {
+        return (
+            <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
+                    <div className="text-2xl">Add Child Group</div>
+                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                    <div className="pt-1">
+                        <input
+                            className="w-full p-3 my-1 dark:bg-slate-700 border border-gray-300 rounded-md dark:[color-scheme:dark]"
+                            type="text"
+                            placeholder="Group Name"
+                            onChange={e => setNewChildGroupName(e.target.value)}
+                        />
+                        <button
+                            className="w-full p-3 my-1 rounded-lg bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600"
+                            onClick={addChildGroup}
+                        >
+                            Confirm
+                        </button>
+                        <button
+                            className="w-full p-3 my-1 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
+                            onClick={() => {
+                                setAddChildGroupModalOpen(false)
+                                setNewChildGroupName("")
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
-        <div className="w-full h-full overflow-y-scroll">
+        <div className="animate-in w-full h-full overflow-y-scroll">
             {addStudentsModalOpen && groupData && addStudentsModal(groupData)}
             {addTeachersModalOpen && groupData && addTeachersModal(groupData)}
+            {addChildGroupModalOpen && addChildGroupModal()}
             <div className="m-3">
                 <Link href={`/admin/school/${schoolId}/groups`}>
                     <div className="w-fit px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded-lg">{"< Back to Groups"}</div>
@@ -485,7 +411,7 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                 <div className="text-2xl">Editing Group: {groupData?.name}</div>
                 <div className="h-1 bg-slate-300 dark:bg-slate-700" />
                 {groupData && (
-                    <div className="pt-3 grid grid-cols-3">
+                    <div className="pt-3 grid grid-cols-2 h-fit">
                         <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
                             <div className="flex gap-1 py-1">
                                 <div className="text-lg">Teachers</div>
@@ -539,44 +465,58 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                                     ))}
                             </div>
                         </div>
-                        {
-                            parentGroup ? (
-                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
-                                    <div className="text-lg">Parent Group</div>
-                                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                                    <div className="pt-1">
-                                        <div className="px-2 py-1 w-fit border bg-slate-200 dark:bg-slate-800 rounded-lg">
-                                            <Link href={`/admin/school/${schoolId}/editGroup/${parentGroup.id}`}>
-                                                <div>{parentGroup.name}</div>
-                                            </Link>
+                        <div>
+                            {
+                                parentGroup ? (
+                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-fit w-full">
+                                        <div className="text-lg">Parent Group</div>
+                                        <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                                        <div className="pt-1">
+                                            <div className="px-2 py-1 w-fit bg-slate-200 dark:bg-slate-800 rounded-lg hover:bg-slate-500">
+                                                <Link href={`/admin/school/${schoolId}/editGroup/${parentGroup.id}`}>
+                                                    <div>{parentGroup.name}</div>
+                                                </Link>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="h-full w-full flex justify-center align-middle border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800">
-                                    <div>
-                                        No Parent Group
-                                    </div>
-                                </div>
-                            )
-                        }
-                        {
-                            groupData.childGroups && groupData.childGroups.length > 0 ? (
-                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
-                                    <div className="text-lg">Child Groups [# Students]</div>
-                                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                                    <div className="pt-1">
-                                        <div className="flex">
-                                            {recursiveChildGroupCard(groupData)}
+                                ) : (
+                                    <div className="h-fit w-full flex justify-center align-middle border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800">
+                                        <div>
+                                            No Parent Group
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
-                                    <div className="text-lg">No Child Groups</div>
-                                </div>
-                            )
-                        }
+                                )
+                            }
+                            {
+                                groupData.childGroups && groupData.childGroups.length > 0 ? (
+                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-fit w-full">
+                                        <div className="flex gap-1">
+                                            <div className="text-lg">Child Groups [# Students]</div>
+                                            <button
+                                                className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
+                                                onClick={() => setAddChildGroupModalOpen(true)}
+                                            >Add</button>
+                                        </div>
+                                        <div className="h-1 bg-slate-300 dark:bg-slate-700" />
+                                        <div className="pt-1">
+                                            <div>
+                                                {recursiveChildGroupCard(groupData)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
+                                        <div className="flex gap-1">
+                                            <div className="text-lg">No Child Groups</div>
+                                            <button
+                                                className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
+                                                onClick={() => setAddChildGroupModalOpen(true)}
+                                            >Add</button>
+                                        </div>
+                                    </div>
+                                )
+                            }
+                        </div>
                         <div className="border-2 rounded-lg p-1 my-2 bg-slate-200 dark:bg-slate-800 w-full col-span-3">
                             <div className="flex gap-1 py-1">
                                 <div className="text-lg">Students</div>

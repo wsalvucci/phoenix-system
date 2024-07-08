@@ -2,46 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import CSVReader from 'react-csv-reader'
-import { createStudent } from '../actions';
-import { createClient } from '@/utils/supabase/client';
-import { link } from 'fs';
-
-class StudentData {
-    id: number | null;
-    powerschoolId: number;
-    lastName: string;
-    firstName: string;
-    grade: number;
-    birthdate: Date;
-    gender: string;
-    linkCode: string | null;
-    selected: boolean;
-    edited: boolean;
-
-    constructor(
-        id: number | null,
-        powerschoolId: number,
-        lastName: string,
-        firstName: string,
-        grade: number,
-        birthdate: string,
-        gender: string,
-        linkCode: string | null,
-        selected: boolean,
-        edited: boolean,
-    ) {
-        this.id = id;
-        this.powerschoolId = powerschoolId;
-        this.lastName = lastName;
-        this.firstName = firstName;
-        this.grade = grade;
-        this.birthdate = new Date(birthdate);
-        this.gender = gender;
-        this.linkCode = linkCode;
-        this.selected = selected;
-        this.edited = edited;
-    }
-}
+import { Student } from '@/app/dataClasses';
+import { clientGetSchoolStudents } from '@/app/supaApi/client/admin/students/adminStudentsApi';
 
 enum SortDirections {
     ASC = "ASC",
@@ -80,13 +42,37 @@ class StudentFilters {
     }
 }
 
+class PreviewStudent {
+    powerschoolId: number;
+    firstName: string;
+    lastName: string;
+    grade: number;
+    birthdate: Date;
+    gender: string;
+
+    constructor(
+        powerschoolId: number,
+        firstName: string,
+        lastName: string,
+        grade: number,
+        birthdate: Date,
+        gender: string,
+    ) {
+        this.powerschoolId = powerschoolId;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.grade = grade;
+        this.birthdate = birthdate;
+        this.gender = gender;
+    }
+}
+
 export default function StudentsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
-    const supabase = createClient();
-
     const [bulkAddStudentsDialogueOpen, setBulkAddStudentsDialogueOpen] = useState<boolean>(false)
-    const [previewStudents, setPreviewStudents] = useState<StudentData[]>([])
-    const [students, setStudents] = useState<StudentData[]>([])
+    const [previewStudents, setPreviewStudents] = useState<PreviewStudent[]>([])
+    const [initialStudents, setInitialStudents] = useState<Student[]>([])
+    const [students, setStudents] = useState<Student[]>([])
     const [studentSearchString, setStudentSearchString] = useState<string>("")
 
     const [activelyBulkAddingStudents, setActivelyBulkAddingStudents] = useState<boolean>(false)
@@ -97,29 +83,12 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
     const [studentFilters, setStudentFilters] = useState<StudentFilters>(new StudentFilters("", null, null, null, null))
 
     const fetchStudents = async () => {
-        const { data: studentData, error } = await supabase.from("student").select("*").eq("school_id", schoolId);
-        if (error) {
-            console.error("Error fetching students", error);
-        } else if (studentData === null || studentData.length === 0) {
-            console.log("No students found for school: " + schoolId);
+        const fetchedStudents = await clientGetSchoolStudents(parseInt(schoolId))
+        if (fetchedStudents === null) {
+            console.error("Error fetching students")
         } else {
-            console.log(studentData)
-            var studentArray: StudentData[] = []
-            studentData.forEach((student: any) => {
-                studentArray.push(new StudentData(
-                    student.id,
-                    student.powerschool_id,
-                    student.last_name,
-                    student.first_name,
-                    student.grade,
-                    student.birthdate,
-                    student.gender,
-                    student.link_code,
-                    false,
-                    false
-                ))
-            })
-            setStudents(studentArray);
+            setStudents(fetchedStudents.map((student: Student) => ({ ...student })))
+            setInitialStudents(fetchedStudents.map((student: Student) => ({ ...student })))
         }
     }
 
@@ -127,13 +96,30 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         fetchStudents();
     }, []);
 
-    const updateStudentState = async (student: StudentData) => {
-        setStudents(students.map((s: StudentData) => {
-            if (s.id === student.id) {
-                return student
-            }
-            return s
-        }))
+    const updateStudentState = async (updatedStudent: Student) => {
+        setStudents((prevStudents) =>
+            prevStudents.map((student: Student) =>
+                student.id === updatedStudent.id ? { ...student, ...updatedStudent } : student)
+        )
+    }
+
+    const updateStudentField = async (studentId: number, field: string, value: any) => {
+        setStudents((prevStudents) =>
+            prevStudents.map((student: Student) =>
+                student.id === studentId ? { ...student, [field]: value } : student))
+    }
+
+    const isStudentDiff = (studentId: number): boolean => {
+        const student = students.find((student: Student) => student.id === studentId)
+        const initialStudent = initialStudents.find((student: Student) => student.id === studentId)
+        if (student === undefined || initialStudent === undefined) {
+            return false
+        }
+        return student.firstName !== initialStudent.firstName ||
+            student.lastName !== initialStudent.lastName ||
+            student.grade !== initialStudent.grade ||
+            student.birthdate !== initialStudent.birthdate ||
+            student.gender !== initialStudent.gender
     }
 
     const updateStudentFilterState = async () => {
@@ -146,12 +132,12 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         ))
     }
 
-    const bulkAddStudents = async (students: StudentData[]) => {
+    const bulkAddStudents = async (students: PreviewStudent[]) => {
         if (activelyBulkAddingStudents) {
             return
         }
         setActivelyBulkAddingStudents(true)
-        await supabase.from("student").upsert(students)
+        // await supabase.from("student").upsert(students)
         setActivelyBulkAddingStudents(false)
         console.log("Successfully bulk added students")
         setPreviewStudents([])
@@ -164,27 +150,28 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         sortFilter,
     }: {
         title: string,
-        sortFilter: SortFilterOptions,
+        sortFilter: SortFilterOptions | null,
     }) => {
         return (
-            <th className="border border-slate-500 text-md">
-                <div className="w-full">
+            <div className="text-md">
+                <div className="w-full flex justify-center">
                     {title}
                 </div>
-                <div className="w-full">
-                    <button
-                        className="w-full p-1 bg-slate-600 hover:bg-slate-500 rounded-t-lg"
-                        onClick={
-                            () => {
-                                setCurrentSortFilter(sortFilter)
-                                setCurrentSortDirection(currentSortDirection === SortDirections.ASC ? SortDirections.DESC : SortDirections.ASC)
+                {sortFilter !== null &&
+                    <div className="w-full">
+                        <button
+                            className="w-full p-1 bg-slate-600 hover:bg-slate-500 rounded-t-lg"
+                            onClick={
+                                () => {
+                                    setCurrentSortFilter(sortFilter)
+                                    setCurrentSortDirection(currentSortDirection === SortDirections.ASC ? SortDirections.DESC : SortDirections.ASC)
+                                }
                             }
-                        }
-                    >
-                        Sort: {sortFilter === currentSortFilter ? currentSortDirection : "---"}
-                    </button>
-                </div>
-            </th>
+                        >
+                            Sort: {sortFilter === currentSortFilter ? currentSortDirection : "---"}
+                        </button>
+                    </div>}
+            </div>
         )
     }
 
@@ -200,23 +187,19 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                     }}
                     onFileLoaded={(data: any, fileInfo: any) => {
                         setPreviewStudents([])
-                        var studentData: StudentData[] = []
+                        var studentData: PreviewStudent[] = []
                         data.forEach((student: any) => {
                             if (student.Id === "" || student.Id === null || student.Id === undefined) {
                                 return
                             }
                             console.log(student)
-                            studentData.push(new StudentData(
-                                null,
+                            studentData.push(new PreviewStudent(
                                 student.Id,
                                 student.Name.split(",")[0],
                                 student.Name.split(",")[1],
                                 student.Grade,
                                 student.Birthday,
-                                student.Gender,
-                                null,
-                                false,
-                                false
+                                student.Gender
                             ))
                         })
                         setPreviewStudents(studentData)
@@ -251,7 +234,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                         <tbody>
                             {
                                 previewStudents
-                                    .map((student: StudentData) => {
+                                    .map((student: PreviewStudent) => {
                                         return (
                                             <tr key={student.powerschoolId}>
                                                 <td className="border border-slate-500">{student.powerschoolId}</td>
@@ -274,7 +257,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
     return (
         <div className="animate-in h-full w-full">
             <div className="h-1/6">
-                <div className='flex justify-between'>
+                <div className='flex justify-around'>
                     <div>
                         <div>
                             {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
@@ -330,18 +313,6 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         }}
                                     />
                                 </div>
-                                {/* <div>
-                                    <button
-                                        className="w-full p-1 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        onClick={() => {
-                                            studentFilters.birthdateMin = null
-                                            studentFilters.birthdateMax = null
-                                            updateStudentFilterState()
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                </div> */}
                             </div>
                         </div>
                     </div>
@@ -355,7 +326,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         Min
                                     </div>
                                     <input
-                                        className="w-fit mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        className="w-full mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                                         type="number"
                                         placeholder="Min Grade"
                                         min={9}
@@ -371,7 +342,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         Max
                                     </div>
                                     <input
-                                        className="w-fit mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                        className="w-full mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                                         type="number"
                                         placeholder="Max Grade"
                                         min={9}
@@ -382,246 +353,109 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         }}
                                     />
                                 </div>
-                                {/* <div>
-                                    <button
-                                        className="w-full p-1 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        onClick={() => {
-                                            studentFilters.gradeMin = null
-                                            studentFilters.gradeMax = null
-                                            updateStudentFilterState()
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                </div> */}
                             </div>
                         </div>
-                    </div>
-                    <div>
-                        {/* <button
-                            className={`p-3 m-1 rounded-lg ${students.filter((student: StudentData) => student.selected).length === 0 ?
-                                "bg-slate-500 text-slate-700" :
-                                "bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
-                                }`}
-                            disabled={students.filter((student: StudentData) => student.selected).length === 0}
-                            onClick={() => {
-                                students.forEach(async (student: StudentData) => {
-                                    if (student.selected) {
-                                        await supabase.from("student").delete().eq("id", student.id)
-                                    }
-                                })
-                                fetchStudents()
-                            }}
-                        >
-                            Delete Selected
-                        </button> */}
-                        <button
-                            className={`p-3 m-1 rounded-lg ${students.filter((student: StudentData) => student.edited).length === 0 ?
-                                "bg-slate-500 text-slate-700" :
-                                "bg-yellow-300 dark:bg-yellow-700 hover:bg-yellow-400 dark:hover:bg-yellow-600"
-                                }`}
-                            disabled={students.filter((student: StudentData) => student.edited).length === 0}
-                            onClick={() => {
-                                students.forEach(async (student: StudentData) => {
-                                    if (student.edited) {
-                                        console.log("Updating student: ", student)
-                                        const result = await supabase.from("student").update({
-                                            last_name: student.lastName,
-                                            first_name: student.firstName,
-                                            grade: student.grade,
-                                            birthdate: student.birthdate,
-                                            gender: student.gender,
-                                        }).eq("id", student.id).select("*")
-                                        console.log("Result: ", result)
-                                    }
-                                    student.edited = false
-                                })
-                                fetchStudents()
-                                console.log("Successfully updated students")
-                            }}
-                        >
-                            Save Changes
-                        </button>
                     </div>
                 </div>
             </div>
             <div className="w-full h-5/6 overflow-y-scroll">
-                <table className="w-full border-separate table-fixed">
-                    <thead>
-                        <tr className="border border-slate-500 bg-slate-300 dark:bg-slate-700 sticky top-0">
-                            <th className="border border-slate-500">
-                                Delete
-                            </th>
-                            {tableHeader({
-                                title: "ID",
-                                sortFilter: SortFilterOptions.ID,
-                            })}
-                            {tableHeader({
-                                title: "Powerschool ID",
-                                sortFilter: SortFilterOptions.POWERSCHOOL_ID,
-                            })}
-                            {tableHeader({
-                                title: "Last Name",
-                                sortFilter: SortFilterOptions.LAST_NAME,
-                            })}
-                            {tableHeader({
-                                title: "First Name",
-                                sortFilter: SortFilterOptions.FIRST_NAME,
-                            })}
-                            {tableHeader({
-                                title: "Grade",
-                                sortFilter: SortFilterOptions.GRADE,
-                            })}
-                            {tableHeader({
-                                title: "Birthdate",
-                                sortFilter: SortFilterOptions.BIRTHDATE,
-                            })}
-                            {tableHeader({
-                                title: "Gender",
-                                sortFilter: SortFilterOptions.GENDER,
-                            })}
-                            <th className="border border-slate-500 text-xl">Link Code</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {
-                            students
-                                .filter((student: StudentData) => {
-                                    return student.lastName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
-                                        student.firstName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
-                                        studentSearchString === ""
-                                })
-                                .filter((student: StudentData) => {
-                                    return (studentFilters.birthdateMin === null || student.birthdate >= studentFilters.birthdateMin)
-                                        && (studentFilters.birthdateMax === null || student.birthdate <= studentFilters.birthdateMax)
-                                        && (studentFilters.gradeMin === null || student.grade >= studentFilters.gradeMin)
-                                        && (studentFilters.gradeMax === null || student.grade <= studentFilters.gradeMax)
-                                })
-                                .sort((a: StudentData, b: StudentData) => {
-                                    if (currentSortDirection === SortDirections.ASC) {
-                                        if (currentSortFilter === SortFilterOptions.ID) {
-                                            return (a.id || 0) - (b.id || 0)
-                                        } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
-                                            return a.powerschoolId - b.powerschoolId
-                                        } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
-                                            return a.lastName.localeCompare(b.lastName)
-                                        } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
-                                            return a.firstName.localeCompare(b.firstName)
-                                        } else if (currentSortFilter === SortFilterOptions.GRADE) {
-                                            return a.grade - b.grade
-                                        } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
-                                            return a.birthdate.getTime() - b.birthdate.getTime()
-                                        } else {
-                                            return 0
-                                        }
+                <div className="w-full grid grid-cols-8">
+                    {tableHeader({
+                        title: "ID",
+                        sortFilter: SortFilterOptions.ID,
+                    })}
+                    {tableHeader({
+                        title: "Powerschool ID",
+                        sortFilter: SortFilterOptions.POWERSCHOOL_ID,
+                    })}
+                    {tableHeader({
+                        title: "Last Name",
+                        sortFilter: SortFilterOptions.LAST_NAME,
+                    })}
+                    {tableHeader({
+                        title: "First Name",
+                        sortFilter: SortFilterOptions.FIRST_NAME,
+                    })}
+                    {tableHeader({
+                        title: "Grade",
+                        sortFilter: SortFilterOptions.GRADE,
+                    })}
+                    {tableHeader({
+                        title: "Birthdate",
+                        sortFilter: SortFilterOptions.BIRTHDATE,
+                    })}
+                    {tableHeader({
+                        title: "Gender",
+                        sortFilter: SortFilterOptions.GENDER,
+                    })}
+                    {tableHeader({
+                        title: "Link Code",
+                        sortFilter: null,
+                    })}
+                    {
+                        students
+                            .filter((student: Student) => {
+                                return student.lastName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
+                                    student.firstName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
+                                    studentSearchString === ""
+                            })
+                            .filter((student: Student) => {
+                                return (studentFilters.birthdateMin === null || (student.birthdate ?? new Date(0)) >= studentFilters.birthdateMin)
+                                    && (studentFilters.birthdateMax === null || (student.birthdate ?? new Date(0)) <= studentFilters.birthdateMax)
+                                    && (studentFilters.gradeMin === null || student.grade >= studentFilters.gradeMin)
+                                    && (studentFilters.gradeMax === null || student.grade <= studentFilters.gradeMax)
+                            })
+                            .sort((a: Student, b: Student) => {
+                                if (currentSortDirection === SortDirections.ASC) {
+                                    if (currentSortFilter === SortFilterOptions.ID) {
+                                        return (a.id || 0) - (b.id || 0)
+                                    } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
+                                        return a.powerSchoolId - b.powerSchoolId
+                                    } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
+                                        return a.lastName.localeCompare(b.lastName)
+                                    } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
+                                        return a.firstName.localeCompare(b.firstName)
+                                    } else if (currentSortFilter === SortFilterOptions.GRADE) {
+                                        return a.grade - b.grade
+                                    } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
+                                        return (a.birthdate ? a.birthdate.getTime() : 0) - (b.birthdate ? b.birthdate.getTime() : 0)
                                     } else {
-                                        if (currentSortFilter === SortFilterOptions.ID) {
-                                            return (b.id || 0) - (a.id || 0)
-                                        } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
-                                            return b.powerschoolId - a.powerschoolId
-                                        } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
-                                            return b.lastName.localeCompare(a.lastName)
-                                        } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
-                                            return b.firstName.localeCompare(a.firstName)
-                                        } else if (currentSortFilter === SortFilterOptions.GRADE) {
-                                            return b.grade - a.grade
-                                        } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
-                                            return b.birthdate.getTime() - a.birthdate.getTime()
-                                        } else {
-                                            return 0
-                                        }
+                                        return 0
                                     }
-                                })
-                                .map((student: StudentData) => {
-                                    return (
-                                        <tr
-                                            className={`${student.selected ? "bg-red-300 dark:bg-red-700" :
-                                                student.edited ? "bg-yellow-300 dark:bg-yellow-700" : ""
-                                                }`}
-                                            key={student.powerschoolId}
-                                        >
-                                            <td className="border border-slate-500">
-                                                <input
-                                                    type="checkbox"
-                                                    onChange={(e) => {
-                                                        student.selected = e.target.checked
-                                                        updateStudentState(student)
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="border border-slate-500">
-                                                {student.id}
-                                            </td>
-                                            <td className="border border-slate-500">{student.powerschoolId}</td>
-                                            <td className="border border-slate-500">
-                                                <input
-                                                    className='w-full bg-transparent border-none'
-                                                    type="text"
-                                                    value={student.lastName}
-                                                    onChange={(e) => {
-                                                        student.lastName = e.target.value
-                                                        student.edited = true
-                                                        updateStudentState(student)
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="border border-slate-500">
-                                                <input
-                                                    className='w-full bg-transparent border-none'
-                                                    type="text"
-                                                    value={student.firstName}
-                                                    onChange={(e) => {
-                                                        student.firstName = e.target.value
-                                                        student.edited = true
-                                                        updateStudentState(student)
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="border border-slate-500">
-                                                <input
-                                                    className='w-full bg-transparent border-none'
-                                                    type="number"
-                                                    value={student.grade}
-                                                    onChange={(e) => {
-                                                        student.grade = parseInt(e.target.value)
-                                                        student.edited = true
-                                                        updateStudentState(student)
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="border border-slate-500">
-                                                <input
-                                                    className='w-full bg-transparent border-none dark:[color-scheme:dark]'
-                                                    type="date"
-                                                    value={student.birthdate.toISOString().split("T")[0]}
-                                                    onChange={(e) => {
-                                                        student.birthdate = new Date(e.target.value)
-                                                        student.edited = true
-                                                        updateStudentState(student)
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="border border-slate-500">
-                                                <select
-                                                    className='w-full bg-transparent border-none'
-                                                    value={student.gender}
-                                                    onChange={(e) => {
-                                                        student.gender = e.target.value
-                                                        student.edited = true
-                                                        updateStudentState(student)
-                                                    }}
-                                                >
-                                                    <option value="M">M</option>
-                                                    <option value="F">F</option>
-                                                </select>
-                                            </td>
-                                            <td className="border border-slate-500">{student.linkCode}</td>
-                                        </tr>
-                                    )
-                                })
-                        }
-                    </tbody>
-                </table>
+                                } else {
+                                    if (currentSortFilter === SortFilterOptions.ID) {
+                                        return (b.id || 0) - (a.id || 0)
+                                    } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
+                                        return b.powerSchoolId - a.powerSchoolId
+                                    } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
+                                        return b.lastName.localeCompare(a.lastName)
+                                    } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
+                                        return b.firstName.localeCompare(a.firstName)
+                                    } else if (currentSortFilter === SortFilterOptions.GRADE) {
+                                        return b.grade - a.grade
+                                    } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
+                                        return (b.birthdate ? b.birthdate.getTime() : 0) - (a.birthdate ? a.birthdate.getTime() : 0)
+                                    } else {
+                                        return 0
+                                    }
+                                }
+                            })
+                            .map((student: Student) => {
+                                return (
+                                    <div className='grid col-span-8 grid-cols-8 hover:bg-slate-200 dark:hover:bg-slate-800'>
+                                        <div>{student.id}</div>
+                                        <div>{student.powerSchoolId}</div>
+                                        <div>{student.lastName}</div>
+                                        <div>{student.firstName}</div>
+                                        <div>{student.grade}</div>
+                                        <div>{student.birthdate?.toISOString().split("T")[0]}</div>
+                                        <div>{student.gender}</div>
+                                        <div>{student.linkCode}</div>
+                                    </div>
+                                )
+                            })
+                    }
+                </div>
             </div>
             {bulkAddStudentsDialogueOpen && bulkAddStudentsDialogue()}
         </div>

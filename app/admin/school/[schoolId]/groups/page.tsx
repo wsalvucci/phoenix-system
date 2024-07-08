@@ -1,81 +1,36 @@
 "use client";
 
-import { createClient } from "@/utils/supabase/client"
-import { useEffect, useState } from "react";
-import { createGroup } from "../actions";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
-import { GroupData } from "@/app/dataClasses";
+import { StudentGroup } from "@/app/dataClasses";
+import addStudentGroup from "@/app/api/useCases/admin/studentGroup/addStudentGroup";
+import { clientGetStudentGroups } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
 
 export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
-    const supabase = createClient();
-
     const [loading, setLoading] = useState<boolean>(true);
 
-    const [groups, setGroups] = useState<GroupData[]>([]);
+    const [groups, setGroups] = useState<StudentGroup[]>([]);
     const [addGroupDialogOpen, setAddGroupDialogOpen] = useState<boolean>(false);
     const [groupNameTooShortError, setGroupNameTooShortError] = useState<boolean>(true);
     const [newGroupName, setNewGroupName] = useState<string>("");
     const [groupSearchText, setGroupSearchText] = useState<string>("");
 
-    const [newGroupParent, setNewGroupParent] = useState<GroupData | null>(null);
+    const [newGroupParent, setNewGroupParent] = useState<StudentGroup | null>(null);
 
-    const getGroup = async (groupId: number): Promise<GroupData | null> => {
-        const { data: groupData, error } = await supabase.from("student_group").select("*, child_groups:student_group (id), school (*)").eq("id", groupId);
-        if (error) {
-            console.error("Error fetching class", error);
-            return null;
-        } else if (groupData === null || groupData.length === 0) {
-            console.log("No class found for id: " + groupId);
-            return null;
-        } else {
-            const firstGroup = groupData[0];
-            var childGroups: GroupData[] = [];
-            await Promise.all(firstGroup.child_groups.map(async (childGroup: any) => {
-                const newGroupData = await getGroup(childGroup.id);
-                if (newGroupData !== null) {
-                    childGroups.push(newGroupData);
-                }
-            }))
-            const newGroup = new GroupData(
-                firstGroup.id,
-                firstGroup.name,
-                firstGroup.parent_id,
-                childGroups,
-                null,
-                null
-            );
-            return newGroup;
-        }
-    }
-
-    const fetchGroups = async () => {
-        const { data: groupData, error } = await supabase.from("student_group").select("id").eq("school_id", schoolId).is("parent_id", null);
-        if (error) {
-            console.error("Error fetching classes", error);
-        } else if (groupData === null || groupData.length === 0) {
-            console.log("No classes found for school: " + schoolId);
-        } else {
-            var newGroups: GroupData[] = [];
-            await Promise.all(groupData.map(async (group: any) => {
-                const newGroupData = await getGroup(group.id);
-                if (newGroupData !== null) {
-                    newGroups.push(newGroupData);
-                }
-            }))
-            console.log("New Groups: ", newGroups);
-            setGroups(newGroups);
-            setLoading(false);
-        }
+    async function fetchGroups() {
+        const groupData = await clientGetStudentGroups(parseInt(schoolId));
+        setGroups(groupData ? groupData : []);
+        setLoading(false);
     }
 
     useEffect(() => {
         fetchGroups();
     }, []);
 
-    const submitNewGroupName = async (groupName: string, parentGroupId: number | null) => {
+    const submitNewGroupName = async (groupName: string) => {
         if (groupName.length > 3) {
-            await createGroup(parseInt(schoolId), groupName, parentGroupId);
+            await addStudentGroup(parseInt(schoolId), groupName, undefined);
             await fetchGroups();
             setLoading(false);
         }
@@ -105,7 +60,7 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
                     onClick={() => {
                         setLoading(true);
                         setAddGroupDialogOpen(false);
-                        submitNewGroupName(newGroupName, newGroupParent?.id || null)
+                        submitNewGroupName(newGroupName)
                     }}
                 >
                     Confirm
@@ -125,35 +80,7 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
         )
     }
 
-    const groupCard = (groupData: GroupData) => {
-        return (
-            <div
-                key={groupData.id}
-                className={`w-fit py-1 my-3 px-5 rounded-lg border ${(groupData.name.toLowerCase().includes(groupSearchText.toLowerCase()) && groupSearchText !== "") ? "bg-slate-400 dark:bg-slate-600" : "bg-slate-300 dark:bg-slate-700"} `}
-            >
-                <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`}>
-                    <div className="flex justify-between items-center gap-1">
-                        <div className="flex items-center gap-2">
-                            <div className="text-lg font-bold">{groupData.name}</div>
-                        </div>
-                    </div>
-                    {
-                        groupData.childGroups?.length !== 0 &&
-                        <div className="h-1 bg-slate-400 dark:bg-slate-600 my-2" />
-                    }
-                    <div className="flex gap-1">
-                        {
-                            groupData.childGroups
-                                ?.sort((a: GroupData, b: GroupData) => a.name.localeCompare(b.name))
-                                .map((childGroup: GroupData) => groupCard(childGroup))
-                        }
-                    </div>
-                </Link>
-            </div>
-        )
-    }
-
-    function groupContainsText(groupData: GroupData, text: string): boolean {
+    function groupContainsText(groupData: StudentGroup, text: string): boolean {
         if (groupData.name.toLowerCase().includes(text.toLowerCase())) {
             return true;
         }
@@ -165,6 +92,43 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
             }
         }
         return false;
+    }
+
+    function groupEditButton(groupData: StudentGroup) {
+        return (
+            <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`}>
+                <button className="w-full rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
+                    Edit
+                </button>
+            </Link>
+        )
+    }
+
+    function levelToBorderColor(level: number): string {
+        // Pastel colors
+        const colors = ["#FFC0CB", "#FFD700", "#98FB98", "#87CEEB", "#FFA07A", "#DDA0DD", "#87CEFA", "#FF69B4", "#FF6347", "#F0E68C", "#FFA500", "#20B2AA", "#00FF7F", "#7B68EE", "#FF4500", "#9370DB", "#32CD32", "#40E0D0", "#FF1493", "#00BFFF", "#FFD700", "#FF69B4", "#FF6347", "#F0E68C", "#FFA500", "#20B2AA", "#00FF7F", "#7B68EE", "#FF4500", "#9370DB", "#32CD32", "#40E0D0", "#FF1493", "#00BFFF"];
+        return colors[level % colors.length];
+    }
+
+    function groupTableRow(groupData: StudentGroup, level: number = 1) {
+        return (
+            <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`} className={`col-span-3 grid grid-cols-3 hover:bg-slate-200 dark:hover:bg-slate-800 ${level === 1 ? "mt-3" : ""}`}>
+                <div key={groupData.id} className={`text-lg border-l-8 `} style={{ paddingInlineStart: level * 20, borderColor: levelToBorderColor(level) }}>{groupData.name}</div>
+                <div>{groupData.teachers?.length}</div>
+                <div>{groupData.students?.length}</div>
+            </Link>
+        )
+    }
+
+    function recursiveGroupTableRow(groupData: StudentGroup, level: number = 1) {
+        return (
+            <Fragment>
+                {groupTableRow(groupData, level)}
+                {groupData.childGroups
+                    ?.sort((a: StudentGroup, b: StudentGroup) => a.name.localeCompare(b.name))
+                    ?.map((childGroup: StudentGroup) => recursiveGroupTableRow(childGroup, level + 1))}
+            </Fragment>
+        )
     }
 
     // Semi-transparent overlay to indicate loading
@@ -201,12 +165,17 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
             </div>
             <div className="h-5/6 overflow-y-scroll">
                 <div className="m-5">
-                    {
-                        groups
-                            .filter((groupData: GroupData) => groupSearchText === "" || groupContainsText(groupData, groupSearchText))
-                            .sort((a: GroupData, b: GroupData) => a.name.localeCompare(b.name))
-                            .map((groupData: GroupData) => groupCard(groupData))
-                    }
+                    <div className="w-full grid grid-cols-3">
+                        <div className="text-2xl border-b">Group Name</div>
+                        <div className="text-2xl border-b"># Teachers</div>
+                        <div className="text-2xl border-b"># Students</div>
+                        {
+                            groups
+                                .filter((groupData: StudentGroup) => groupSearchText === "" || groupContainsText(groupData, groupSearchText))
+                                .sort((a: StudentGroup, b: StudentGroup) => a.name.localeCompare(b.name))
+                                .map((groupData: StudentGroup) => recursiveGroupTableRow(groupData))
+                        }
+                    </div>
                 </div>
             </div>
             {addGroupDialogOpen && addGroupDialog()}

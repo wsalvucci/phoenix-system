@@ -3,39 +3,12 @@ import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-class PheonixUser {
-    id: number;
-    firstName: string;
-    lastName: string;
-    adminId: number;
-    teacherId: number;
-    studentId: number;
-    supabaseId: string;
-
-    constructor(
-        id: number,
-        firstName: string,
-        lastName: string,
-        adminId: number,
-        teacherId: number,
-        studentId: number,
-        supabaseId: string
-    ) {
-        this.id = id;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.adminId = adminId;
-        this.teacherId = teacherId;
-        this.studentId = studentId;
-        this.supabaseId = supabaseId;
-    }
-}
+import { PhoenixUser } from "@/app/dataClasses";
 
 export default function LinkTeacher({ user }: { user: User }) {
     const supabase = createClient();
 
-    const [userData, setUserData] = useState<PheonixUser | null>(null);
+    const [userData, setUserData] = useState<PhoenixUser | null>(null);
 
     const getUserData = async () => {
         const { data, error } = await supabase.from("user").select("*").eq("supabase_id", user.id);
@@ -53,7 +26,7 @@ export default function LinkTeacher({ user }: { user: User }) {
         console.log(firstData);
 
         setUserData(
-            new PheonixUser(
+            new PhoenixUser(
                 firstData.id,
                 firstData.first_name,
                 firstData.last_name,

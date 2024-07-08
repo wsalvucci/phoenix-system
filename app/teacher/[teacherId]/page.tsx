@@ -1,7 +1,7 @@
 "use client";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import { GroupData, Teacher } from "@/app/dataClasses";
+import { StudentGroup, Teacher } from "@/app/dataClasses";
 import Link from "next/link";
 
 export default function TeacherHome({ params: { teacherId } }: { params: { teacherId: string } }) {
@@ -9,7 +9,7 @@ export default function TeacherHome({ params: { teacherId } }: { params: { teach
     const supabase = createClient();
 
     const [teacherData, setTeacherData] = useState<Teacher | null>(null);
-    const [groups, setGroups] = useState<GroupData[]>([]);
+    const [groups, setGroups] = useState<StudentGroup[]>([]);
 
     const getTeacherData = async () => {
         const { data: teacherData, error } = await supabase
@@ -36,7 +36,7 @@ export default function TeacherHome({ params: { teacherId } }: { params: { teach
 
             setTeacherData(new Teacher(teacherData.id, teacherData.first_name, teacherData.last_name));
             setGroups(teacherData.groups.map((group: any) => {
-                return new GroupData(group.id, group.name, group.parent_id);
+                return new StudentGroup(group.id, group.name, group.parent_id);
             }))
         }
     }
@@ -45,7 +45,7 @@ export default function TeacherHome({ params: { teacherId } }: { params: { teach
         getTeacherData();
     }, []);
 
-    const groupCard = (group: GroupData) => {
+    const groupCard = (group: StudentGroup) => {
         return (
             <Link href={`/teacher/${teacherId}/group/${group.id}`} key={group.id}>
                 <div

@@ -1,12 +1,12 @@
 "use client";
-import { GroupData } from "@/app/dataClasses";
+import { StudentGroup } from "@/app/dataClasses";
 import { createClient } from "@/utils/supabase/client";
 import { useState, useEffect } from "react";
 
 export default function TeacherGroup({ params: { teacherId, groupId } }: { params: { teacherId: string, groupId: string } }) {
     const supabase = createClient();
 
-    const [groupData, setGroupData] = useState<GroupData | null>(null);
+    const [groupData, setGroupData] = useState<StudentGroup | null>(null);
 
     const fetchGroupData = async () => {
         const { data, error } = await supabase
@@ -22,7 +22,7 @@ export default function TeacherGroup({ params: { teacherId, groupId } }: { param
             window.location.href = "/";
         } else {
             console.log(data);
-            setGroupData(new GroupData(data.id, data.name, data.parent_id));
+            setGroupData(new StudentGroup(data.id, data.name, data.parent_id));
         }
     }
 

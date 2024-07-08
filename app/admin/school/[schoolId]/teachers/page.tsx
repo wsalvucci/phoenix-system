@@ -1,61 +1,21 @@
 "use client";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import { createTeacher } from "../actions";
-import { createHash } from "crypto";
-
-class TeacherData {
-    id: number;
-    firstName: string;
-    lastName: string;
-    linkCode: string;
-    connectedUserId: number | null;
-
-    constructor(
-        id: number,
-        firstName: string,
-        lastName: string,
-        linkCode: string,
-        connectedUserId: number | null
-    ) {
-        this.id = id;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.linkCode = linkCode;
-        this.connectedUserId = connectedUserId;
-    }
-}
+import { Teacher } from "@/app/dataClasses";
+import { clientGetSchoolTeachers, clientRevokeTeacher, clientUpdateTeacher } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
 
 export default function TeachersDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
     const supabase = createClient();
 
-    const [teachers, setTeachers] = useState<TeacherData[]>([]);
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [addTeacherDialogOpen, setAddTeacherDialogOpen] = useState<boolean>(false);
     const [newTeacherFirstName, setNewTeacherFirstName] = useState<string>("");
     const [newTeacherLastName, setNewTeacherLastName] = useState<string>("");
 
     const fetchTeachers = async () => {
-        const { data: teacherData, error } = await supabase.from("teacher").select("*").eq("school_id", parseInt(schoolId));
-        if (error) {
-            console.error("Error fetching teachers", error);
-        } else if (teacherData === null || teacherData.length === 0) {
-            console.log("No teachers found for school: " + schoolId);
-        } else {
-            const connectedTeacherData = await Promise.all(teacherData.map(async (teacher: any) => {
-                const { data: connectedUserData, error: connectedUserError } = await supabase.from("user").select("*").eq("teacher_id", teacher.id).limit(1);
-                if (connectedUserError) {
-                    console.error("Error fetching connected user data", connectedUserError);
-                }
-
-                console.log(connectedUserData);
-                const connectedUserId = connectedUserData && connectedUserData.length > 0 ? connectedUserData[0].id : null;
-
-                return new TeacherData(teacher.id, teacher.first_name, teacher.last_name, teacher.link_code, connectedUserId);
-            }));
-
-            setTeachers(await Promise.all(connectedTeacherData));
-        }
+        const teacherData = await clientGetSchoolTeachers(parseInt(schoolId));
+        setTeachers(teacherData ?? [])
     }
 
     useEffect(() => {
@@ -63,13 +23,13 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
     }, []);
 
     const addNewTeacher = async (firstName: string, lastName: string) => {
-        await supabase.from("teacher").insert([
-            {
-                first_name: firstName,
-                last_name: lastName,
-                school_id: parseInt(schoolId)
-            }
-        ]);
+        // await supabase.from("teacher").insert([
+        //     {
+        //         first_name: firstName,
+        //         last_name: lastName,
+        //         school_id: parseInt(schoolId)
+        //     }
+        // ]);
         setAddTeacherDialogOpen(false);
         await fetchTeachers();
     }
@@ -108,15 +68,11 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
         )
     }
 
-    const generateLinkCode = (): string => {
-        const hash = createHash("md5").update(Date.now().toString()).digest("hex").slice(0, 7);
-        return hash;
-    }
 
-    const revokeTeacher = async (teacherId: number, userId: number | null) => {
-        if (userId === null) return
-        await supabase.from("user").update({ teacher_id: null }).eq("id", userId);
-        await supabase.from("teacher").update({ link_code: generateLinkCode() }).eq("id", teacherId);
+
+    const revokeTeacher = async (teacher: Teacher) => {
+        if (teacher.linkedUserId === null) return
+        await clientRevokeTeacher(teacher.id);
         await fetchTeachers();
     }
 
@@ -143,7 +99,7 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
                     </thead>
                     <tbody>
                         {
-                            teachers.map((teacher: TeacherData) => {
+                            teachers.map((teacher: Teacher) => {
                                 return (
                                     <tr key={teacher.id} className="border border-slate-500">
                                         <td className="border border-slate-500">{teacher.id}</td>
@@ -154,10 +110,10 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
                                         </td>
                                         <td className="border border-slate-500">
                                             {
-                                                teacher.connectedUserId ? (
+                                                teacher.linkedUser ? (
                                                     <button
                                                         className="w-full p-1 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
-                                                        onClick={() => revokeTeacher(teacher.id, teacher.connectedUserId)}
+                                                        onClick={() => revokeTeacher(teacher)}
                                                     >
                                                         Revoke
                                                     </button>
