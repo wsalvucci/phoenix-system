@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { linkTeacher } from "../serverActions";
 import { createClient } from "@/utils/supabase/client";
+import clientLinkTeacher from "@/app/supaApi/client/clientLinkTeacher";
 
 export default function LinkTeacher() {
 
@@ -13,14 +14,11 @@ export default function LinkTeacher() {
     const supabase = createClient();
 
     const handleLinkTeacher = async (schoolId: number, linkCode: string) => {
-        const result = await linkTeacher(schoolId, linkCode)
-        // if result is a string, it's an error message
-        if (typeof result === 'string') {
-            setErrorText(result)
+        const linkResult = await clientLinkTeacher(schoolId, linkCode);
+        if (linkResult.success) {
+            window.location.href = "/teacher"
         } else {
-            setErrorText(null)
-            // Navigate back home
-            window.location.href = '/'
+            setErrorText(linkResult.message)
         }
     }
 
