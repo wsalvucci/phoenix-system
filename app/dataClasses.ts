@@ -100,6 +100,9 @@ export class PhoenixUser {
     adminId: number | null;
     studentId: number | null;
     supabaseId: string;
+    linkedAdmins: Admin[] | null;
+    linkedTeachers: Teacher[] | null;
+    linkedStudents: Student[] | null;
 
     constructor(
         id: number,
@@ -108,7 +111,10 @@ export class PhoenixUser {
         lastName: string | null,
         adminId: number | null,
         studentId: number | null,
-        supabaseId: string
+        supabaseId: string,
+        linkedAdmin: Admin[] | null = null,
+        linkedTeacher: Teacher[] | null = null,
+        linkedStudent: Student[] | null = null
     ) {
         this.id = id;
         this.createdAt = createdAt;
@@ -117,6 +123,9 @@ export class PhoenixUser {
         this.adminId = adminId;
         this.studentId = studentId;
         this.supabaseId = supabaseId;
+        this.linkedAdmins = linkedAdmin;
+        this.linkedTeachers = linkedTeacher;
+        this.linkedStudents = linkedStudent;
     }
 }
 
