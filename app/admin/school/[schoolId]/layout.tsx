@@ -3,8 +3,8 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import React from "react";
-import getOwnUserDataServer from "@/app/api/useCases/getOwnUserDataServer";
-import getOwnAdminDataServer from "@/app/api/useCases/admin/getOwnAdminDataServer";
+import getOwnUserData from "@/app/supaApi/server/getOwnUserData";
+import getOwnAdminData from "@/app/supaApi/client/admin/getOwnAdminData";
 
 export default async function AdminLayout({ children, params: { schoolId } }: { children: React.ReactNode, params: { schoolId: string } }) {
 
@@ -18,7 +18,7 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
         return redirect("/login");
     }
 
-    const userData = await getOwnUserDataServer();
+    const userData = await getOwnUserData();
     console.log(userData);
 
     if (userData === null) {
@@ -35,7 +35,7 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
         )
     }
 
-    const adminData = await getOwnAdminDataServer();
+    const adminData = await getOwnAdminData();
 
     if (adminData === null) {
         // User is not an admin and shouldn't be here
