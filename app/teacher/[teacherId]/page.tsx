@@ -1,44 +1,14 @@
 "use client";
-import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { StudentGroup, Teacher } from "@/app/dataClasses";
 import Link from "next/link";
 
 export default function TeacherHome({ params: { teacherId } }: { params: { teacherId: string } }) {
 
-    const supabase = createClient();
-
     const [teacherData, setTeacherData] = useState<Teacher | null>(null);
     const [groups, setGroups] = useState<StudentGroup[]>([]);
 
     const getTeacherData = async () => {
-        const { data: teacherData, error } = await supabase
-            .from("teacher")
-            .select("*, pairings:teacher_student_group_pair (*), groups:student_group (*)")
-            .eq("id", parseInt(teacherId))
-            .maybeSingle();
-
-        if (error) {
-            console.error("Error fetching teacher data", error);
-        } else if (teacherData === null || teacherData.length === 0) {
-            console.log("No teacher found with id 1");
-            window.location.href = "/";
-        } else {
-            console.log(teacherData);
-
-            // Test
-            const allGroups = await supabase
-                .from("student_group")
-                .select("*")
-
-            console.log(allGroups);
-
-
-            setTeacherData(new Teacher(teacherData.id, teacherData.first_name, teacherData.last_name));
-            setGroups(teacherData.groups.map((group: any) => {
-                return new StudentGroup(group.id, group.name, group.parent_id);
-            }))
-        }
     }
 
     useEffect(() => {
