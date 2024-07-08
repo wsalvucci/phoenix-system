@@ -3,8 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { StudentGroup } from "@/app/dataClasses";
-import addStudentGroup from "@/app/api/useCases/admin/studentGroup/addStudentGroup";
-import { clientGetStudentGroups } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
+import { clientAddStudentGroup, clientGetStudentGroups } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
 
 export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
@@ -30,7 +29,7 @@ export default function GroupsDashboard({ params: { schoolId } }: { params: { sc
 
     const submitNewGroupName = async (groupName: string) => {
         if (groupName.length > 3) {
-            await addStudentGroup(parseInt(schoolId), groupName, undefined);
+            await clientAddStudentGroup(parseInt(schoolId), groupName, null);
             await fetchGroups();
             setLoading(false);
         }
