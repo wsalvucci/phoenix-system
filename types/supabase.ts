@@ -88,35 +88,92 @@ export type Database = {
       }
       point_conversion_rule: {
         Row: {
+          conversion_rule_type_id: number
           created_at: string
           formula: string | null
           id: number
           name: string
-          teacher_id: number
           value: number | null
         }
         Insert: {
+          conversion_rule_type_id: number
           created_at?: string
           formula?: string | null
           id?: number
           name: string
-          teacher_id: number
           value?: number | null
         }
         Update: {
+          conversion_rule_type_id?: number
           created_at?: string
           formula?: string | null
           id?: number
           name?: string
-          teacher_id?: number
           value?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "point_conversion_rule_teacherId_fkey"
-            columns: ["teacher_id"]
+            foreignKeyName: "point_conversion_rule_conversion_rule_type_id_fkey"
+            columns: ["conversion_rule_type_id"]
             isOneToOne: false
-            referencedRelation: "teacher"
+            referencedRelation: "point_conversion_rule_type"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      point_conversion_rule_type: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      point_event: {
+        Row: {
+          created_at: string
+          date: string | null
+          id: number
+          student_group_id: number
+          template_id: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string | null
+          id?: number
+          student_group_id: number
+          template_id: number
+        }
+        Update: {
+          created_at?: string
+          date?: string | null
+          id?: number
+          student_group_id?: number
+          template_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_event_student_group_id_fkey"
+            columns: ["student_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_event_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "point_template"
             referencedColumns: ["id"]
           },
         ]
@@ -168,40 +225,33 @@ export type Database = {
       }
       point_template: {
         Row: {
-          class_id: number
-          conversion_rule_id: number | null
+          conversion_rule_id: number
           created_at: string
           id: number
           name: string
-          point_group_id: number | null
-          template_type_id: number | null
+          point_group_id: number
+          student_group_id: number
+          template_type_id: number
         }
         Insert: {
-          class_id: number
-          conversion_rule_id?: number | null
+          conversion_rule_id: number
           created_at?: string
           id?: number
           name: string
-          point_group_id?: number | null
-          template_type_id?: number | null
+          point_group_id: number
+          student_group_id: number
+          template_type_id: number
         }
         Update: {
-          class_id?: number
-          conversion_rule_id?: number | null
+          conversion_rule_id?: number
           created_at?: string
           id?: number
           name?: string
-          point_group_id?: number | null
-          template_type_id?: number | null
+          point_group_id?: number
+          student_group_id?: number
+          template_type_id?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "point_template_classId_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "class"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "point_template_conversionRuleId_fkey"
             columns: ["conversion_rule_id"]
@@ -214,6 +264,13 @@ export type Database = {
             columns: ["point_group_id"]
             isOneToOne: false
             referencedRelation: "point_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_template_student_group_id_fkey"
+            columns: ["student_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
             referencedColumns: ["id"]
           },
           {

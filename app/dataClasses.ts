@@ -204,3 +204,88 @@ export class RankingGroup {
         this.groups = groups;
     }
 }
+
+export class PointTemplate {
+    id: number;
+    createdAt: Date;
+    name: string;
+    conversionRule: ConversionRule;
+    templateType: TemplateType;
+    pointGroup: PointGroup;
+    studentGroup: StudentGroup;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        name: string,
+        conversionRule: ConversionRule,
+        templateType: TemplateType,
+        pointGroup: PointGroup,
+        studentGroup: StudentGroup
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.name = name;
+        this.conversionRule = conversionRule;
+        this.templateType = templateType;
+        this.pointGroup = pointGroup;
+        this.studentGroup = studentGroup;
+    }
+}
+
+export class ConversionRule {
+    id: number;
+    createdAt: Date;
+    name: string;
+    value: number | null;
+    formula: string | null;
+    type: ConversionRuleType;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        name: string,
+        value: number | null,
+        formula: string | null,
+        type: ConversionRuleType
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.name = name;
+        this.value = value;
+        this.formula = formula;
+        this.type = type;
+    }
+}
+
+export class TemplateType {
+    id: number;
+    createdAt: Date;
+    name: string;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        name: string
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.name = name;
+    }
+}
+
+export class ConversionRuleType {
+    id: number;
+    createdAt: Date;
+    name: string;
+
+    constructor(
+        id: number,
+        createdAt: Date,
+        name: string
+    ) {
+        this.id = id;
+        this.createdAt = createdAt;
+        this.name = name;
+    }
+}

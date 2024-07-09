@@ -1,6 +1,6 @@
-import { Admin, AdminSchoolPair, PhoenixUser, PointGroup, RankingGroup, School, Student, StudentGroup, Teacher } from "@/app/dataClasses";
+import { Admin, AdminSchoolPair, ConversionRule, ConversionRuleType, PhoenixUser, PointGroup, PointTemplate, RankingGroup, School, Student, StudentGroup, Teacher, TemplateType } from "@/app/dataClasses";
+import { LinkedConversionRule, LinkedPointGroups, LinkedPointTemplate, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
 import { Database } from "@/types/supabase";
-import { LinkedPointGroups, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
 
 export function adminResponseToData(
     adminResponse: Database['public']['Tables']['admin']['Row'],
@@ -151,5 +151,52 @@ export function pointGroupResponseToData(
         pointGroupResponse.childGroups?.map(childGroup => pointGroupResponseToData(childGroup)) || [],
         pointGroupResponse.ranked,
         pointGroupResponse.color
+    );
+}
+
+export function pointTemplateResponseToData(
+    pointTemplateResponse: LinkedPointTemplate
+): PointTemplate {
+    return new PointTemplate(
+        pointTemplateResponse.id,
+        new Date(pointTemplateResponse.created_at),
+        pointTemplateResponse.name,
+        linkedPointConversionRuleResponseToData(pointTemplateResponse.linkedConversionRule),
+        templateTypeResponseToData(pointTemplateResponse.linkedTemplateType),
+        pointGroupResponseToData(pointTemplateResponse.linkedPointGroup),
+        studentGroupWithoutRelationsResponseToData(pointTemplateResponse.linkedStudentGroup),
+    );
+}
+
+export function linkedPointConversionRuleResponseToData(
+    linkedPointConversionRuleResponse: LinkedConversionRule
+): ConversionRule {
+    return new ConversionRule(
+        linkedPointConversionRuleResponse.id,
+        new Date(linkedPointConversionRuleResponse.created_at),
+        linkedPointConversionRuleResponse.name,
+        linkedPointConversionRuleResponse.value,
+        linkedPointConversionRuleResponse.formula,
+        pointConversionRuleTypeResponseToData(linkedPointConversionRuleResponse.linkedConversionRuleType)
+    );
+}
+
+export function templateTypeResponseToData(
+    templateTypeResponse: Database['public']['Tables']['point_template_type']['Row']
+): TemplateType {
+    return new TemplateType(
+        templateTypeResponse.id,
+        new Date(templateTypeResponse.created_at),
+        templateTypeResponse.name
+    );
+}
+
+export function pointConversionRuleTypeResponseToData(
+    pointConversionRuleTypeResponse: Database['public']['Tables']['point_conversion_rule_type']['Row']
+): ConversionRuleType {
+    return new ConversionRuleType(
+        pointConversionRuleTypeResponse.id,
+        new Date(pointConversionRuleTypeResponse.created_at),
+        pointConversionRuleTypeResponse.name
     );
 }

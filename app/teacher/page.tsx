@@ -2,13 +2,18 @@
 import { useEffect, useState } from "react";
 import { StudentGroup, Teacher } from "@/app/dataClasses";
 import Link from "next/link";
+import clientGetOwnTeacherData from "@/app/supaApi/client/teacher/clientGetOwnTeacherData";
+import { clientGetOwnStudentGroups } from "@/app/supaApi/client/teacher/teacherApi";
 
-export default function TeacherHome({ params: { teacherId } }: { params: { teacherId: string } }) {
+export default function TeacherHome() {
 
     const [teacherData, setTeacherData] = useState<Teacher | null>(null);
     const [groups, setGroups] = useState<StudentGroup[]>([]);
 
     const getTeacherData = async () => {
+        setTeacherData(await clientGetOwnTeacherData())
+
+        setGroups(await clientGetOwnStudentGroups());
     }
 
     useEffect(() => {
@@ -17,7 +22,7 @@ export default function TeacherHome({ params: { teacherId } }: { params: { teach
 
     const groupCard = (group: StudentGroup) => {
         return (
-            <Link href={`/teacher/${teacherId}/group/${group.id}`} key={group.id}>
+            <Link href={`/teacher/group/${group.id}`} key={group.id}>
                 <div
                     className="bg-slate-300 dark:bg-slate-700 rounded-lg p-4 text-center"
                 >
