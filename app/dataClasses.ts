@@ -1,3 +1,5 @@
+import { Database } from "@/types/supabase";
+
 export class StudentGroup {
     id: number;
     name: string;
@@ -205,87 +207,49 @@ export class RankingGroup {
     }
 }
 
-export class PointTemplate {
-    id: number;
-    createdAt: Date;
-    name: string;
-    conversionRule: ConversionRule;
-    templateType: TemplateType;
-    pointGroup: PointGroup;
-    studentGroup: StudentGroup;
+export class ScorebookData {
+    pointTemplates: Database['public']['Tables']['point_template']['Row'][];
+    pointEvents: ScorebookPointEvent[];
+    students: Array<Database['public']['Tables']['student']['Row'] | null>;
 
     constructor(
-        id: number,
-        createdAt: Date,
-        name: string,
-        conversionRule: ConversionRule,
-        templateType: TemplateType,
-        pointGroup: PointGroup,
-        studentGroup: StudentGroup
+        pointTemplates: Database['public']['Tables']['point_template']['Row'][],
+        pointEvents: ScorebookPointEvent[],
+        students: Array<Database['public']['Tables']['student']['Row'] | null>
     ) {
-        this.id = id;
-        this.createdAt = createdAt;
-        this.name = name;
-        this.conversionRule = conversionRule;
-        this.templateType = templateType;
-        this.pointGroup = pointGroup;
-        this.studentGroup = studentGroup;
+        this.pointTemplates = pointTemplates;
+        this.pointEvents = pointEvents;
+        this.students = students;
     }
 }
 
-export class ConversionRule {
+export class ScorebookPointEvent {
     id: number;
-    createdAt: Date;
-    name: string;
-    value: number | null;
-    formula: string | null;
-    type: ConversionRuleType;
+    date: string | null;
+    linkedTemplateData: {
+        id: number | undefined;
+        name: string | undefined;
+    };
+    studentPoints: {
+        studentData: Database['public']['Tables']['student']['Row'] | null | undefined;
+        pointData: Database['public']['Tables']['student_point']['Row']
+    }[] | null;
 
     constructor(
         id: number,
-        createdAt: Date,
-        name: string,
-        value: number | null,
-        formula: string | null,
-        type: ConversionRuleType
+        date: string | null,
+        linkedTemplateData: {
+            id: number | undefined;
+            name: string | undefined;
+        },
+        studentPoints: {
+            studentData: Database['public']['Tables']['student']['Row'] | null | undefined;
+            pointData: Database['public']['Tables']['student_point']['Row']
+        }[] | null = null
     ) {
         this.id = id;
-        this.createdAt = createdAt;
-        this.name = name;
-        this.value = value;
-        this.formula = formula;
-        this.type = type;
-    }
-}
-
-export class TemplateType {
-    id: number;
-    createdAt: Date;
-    name: string;
-
-    constructor(
-        id: number,
-        createdAt: Date,
-        name: string
-    ) {
-        this.id = id;
-        this.createdAt = createdAt;
-        this.name = name;
-    }
-}
-
-export class ConversionRuleType {
-    id: number;
-    createdAt: Date;
-    name: string;
-
-    constructor(
-        id: number,
-        createdAt: Date,
-        name: string
-    ) {
-        this.id = id;
-        this.createdAt = createdAt;
-        this.name = name;
+        this.date = date;
+        this.linkedTemplateData = linkedTemplateData;
+        this.studentPoints = studentPoints;
     }
 }

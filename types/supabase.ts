@@ -93,6 +93,7 @@ export type Database = {
           formula: string | null
           id: number
           name: string
+          target: number
           value: number | null
         }
         Insert: {
@@ -101,6 +102,7 @@ export type Database = {
           formula?: string | null
           id?: number
           name: string
+          target: number
           value?: number | null
         }
         Update: {
@@ -109,6 +111,7 @@ export type Database = {
           formula?: string | null
           id?: number
           name?: string
+          target?: number
           value?: number | null
         }
         Relationships: [
@@ -599,41 +602,41 @@ export type Database = {
           id: number
           input_score: number | null
           notes: string | null
+          point_event_id: number
           point_value: number
           student_id: number
-          template_id: number | null
         }
         Insert: {
           created_at?: string
           id?: number
           input_score?: number | null
           notes?: string | null
+          point_event_id: number
           point_value: number
           student_id: number
-          template_id?: number | null
         }
         Update: {
           created_at?: string
           id?: number
           input_score?: number | null
           notes?: string | null
+          point_event_id?: number
           point_value?: number
           student_id?: number
-          template_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "student_point_point_event_id_fkey"
+            columns: ["point_event_id"]
+            isOneToOne: false
+            referencedRelation: "point_event"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_point_studentId_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "student"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_point_templateId_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "point_template"
             referencedColumns: ["id"]
           },
         ]

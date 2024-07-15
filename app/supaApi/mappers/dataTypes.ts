@@ -32,3 +32,8 @@ export type LinkedPointTemplate = Database['public']['Tables']['point_template']
 export type LinkedConversionRule = Database['public']['Tables']['point_conversion_rule']['Row'] & {
     linkedConversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row']
 }
+
+export type LinkedPointEvent = Database['public']['Tables']['point_event']['Row'] & {
+    linkedTemplate: Database['public']['Tables']['point_template']['Row'],
+    linkedStudentGroup: Database['public']['Tables']['student_group']['Row']
+}

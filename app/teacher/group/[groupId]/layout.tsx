@@ -16,7 +16,7 @@ export default async function TeacherGroupLayout({ children, params: { groupId }
 
 
     return (
-        <div className="h-dvh flex flex-col text-slate-700 dark:text-slate-300">
+        <div className="h-dvh w-full flex flex-col text-slate-700 dark:text-slate-300">
             <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
                 <h1 className="text-3xl font-bold">Group Dashboard</h1>
             </header>
@@ -27,7 +27,7 @@ export default async function TeacherGroupLayout({ children, params: { groupId }
                     {sideBarButton("Configuration", "configuration")}
                     {sideBarButton("Scorebook", "scorebook")}
                 </div>
-                <div className="w-full h-full">
+                <div className="w-full h-full overflow-auto">
                     {/* Children with schoolId and adminId props */}
                     {children}
                 </div>

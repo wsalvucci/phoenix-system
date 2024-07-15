@@ -1,5 +1,5 @@
-import { Admin, AdminSchoolPair, ConversionRule, ConversionRuleType, PhoenixUser, PointGroup, PointTemplate, RankingGroup, School, Student, StudentGroup, Teacher, TemplateType } from "@/app/dataClasses";
-import { LinkedConversionRule, LinkedPointGroups, LinkedPointTemplate, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
+import { Admin, AdminSchoolPair, PhoenixUser, PointGroup, RankingGroup, School, Student, StudentGroup, Teacher } from "@/app/dataClasses";
+import { LinkedConversionRule, LinkedPointEvent, LinkedPointGroups, LinkedPointTemplate, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
 import { Database } from "@/types/supabase";
 
 export function adminResponseToData(
@@ -177,7 +177,8 @@ export function linkedPointConversionRuleResponseToData(
         linkedPointConversionRuleResponse.name,
         linkedPointConversionRuleResponse.value,
         linkedPointConversionRuleResponse.formula,
-        pointConversionRuleTypeResponseToData(linkedPointConversionRuleResponse.linkedConversionRuleType)
+        pointConversionRuleTypeResponseToData(linkedPointConversionRuleResponse.linkedConversionRuleType),
+        linkedPointConversionRuleResponse.target
     );
 }
 
@@ -198,5 +199,17 @@ export function pointConversionRuleTypeResponseToData(
         pointConversionRuleTypeResponse.id,
         new Date(pointConversionRuleTypeResponse.created_at),
         pointConversionRuleTypeResponse.name
+    );
+}
+
+export function pointEventResponseToData(
+    pointEventResponse: LinkedPointEvent
+): PointEvent {
+    return new PointEvent(
+        pointEventResponse.id,
+        new Date(pointEventResponse.created_at),
+        pointEventResponse.linkedTemplate,
+        pointEventResponse.linkedStudentGroup,
+        pointEventResponse.date ? new Date(pointEventResponse.date) : new Date(8640000000000000),
     );
 }
