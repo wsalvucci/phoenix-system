@@ -183,7 +183,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
         return (
             <div
-                className={`grid`}
+                className={`grid w-fit`}
                 style={{
                     gridTemplateColumns: `250px repeat(${scorebookData?.pointEvents.length || 0}, 150px)`
                 }}
@@ -220,11 +220,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                     currentStudentOrder.map((student, studentIndex) => (
                         <Fragment key={student.id}>
                             <div
-                                className={`sticky z-10 left-0 ps-1 border-b grid grid-cols-2 ${studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
-                                style={{
-                                    gridRowStart: studentIndex + 2,
-                                    gridColumnStart: 1
-                                }}
+                                className={`sticky z-10 left-0 ps-1 border-b row-start-${studentIndex + 2} col-start-1 grid grid-cols-2 ${studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
                             >
                                 <div>
                                     {student.first_name}
