@@ -211,45 +211,138 @@ export class ScorebookData {
     pointTemplates: Database['public']['Tables']['point_template']['Row'][];
     pointEvents: ScorebookPointEvent[];
     students: Array<Database['public']['Tables']['student']['Row'] | null>;
+    studentGroup: Database['public']['Tables']['student_group']['Row'];
 
     constructor(
         pointTemplates: Database['public']['Tables']['point_template']['Row'][],
         pointEvents: ScorebookPointEvent[],
-        students: Array<Database['public']['Tables']['student']['Row'] | null>
+        students: Array<Database['public']['Tables']['student']['Row'] | null>,
+        studentGroup: Database['public']['Tables']['student_group']['Row']
     ) {
         this.pointTemplates = pointTemplates;
         this.pointEvents = pointEvents;
         this.students = students;
+        this.studentGroup = studentGroup;
     }
 }
 
 export class ScorebookPointEvent {
     id: number;
     date: string | null;
+    name: string | null;
+    student_group_id: number;
+    template_id: number;
     linkedTemplateData: {
         id: number | undefined;
         name: string | undefined;
+        conversionRule: {
+            id: number;
+            name: string;
+            value: number | null;
+        } | null;
+        conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null;
     };
     studentPoints: {
-        studentData: Database['public']['Tables']['student']['Row'] | null | undefined;
+        studentData: Database['public']['Tables']['student']['Row'];
         pointData: Database['public']['Tables']['student_point']['Row']
     }[] | null;
 
     constructor(
         id: number,
         date: string | null,
+        name: string | null,
+        student_group_id: number,
+        template_id: number,
         linkedTemplateData: {
             id: number | undefined;
             name: string | undefined;
+            conversionRule: {
+                id: number;
+                name: string;
+                value: number | null;
+            } | null;
+            conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null
         },
         studentPoints: {
-            studentData: Database['public']['Tables']['student']['Row'] | null | undefined;
+            studentData: Database['public']['Tables']['student']['Row'];
             pointData: Database['public']['Tables']['student_point']['Row']
-        }[] | null = null
+        }[] | null = null,
     ) {
         this.id = id;
+        this.name = name;
         this.date = date;
+        this.student_group_id = student_group_id;
+        this.template_id = template_id;
         this.linkedTemplateData = linkedTemplateData;
         this.studentPoints = studentPoints;
+    }
+}
+
+export enum PointConversionRuleType {
+    ADD = 'add',
+    SUBTRACT = 'subtract',
+    MULTIPLY = 'multiply',
+    DIVIDE = 'divide',
+    FORMULA = 'formula',
+    DIRECT = 'direct'
+}
+
+export function stringToRuleType(ruleType: string): PointConversionRuleType {
+    switch (ruleType.toLowerCase()) {
+        case 'add':
+            return PointConversionRuleType.ADD;
+        case 'subtract':
+            return PointConversionRuleType.SUBTRACT;
+        case 'multiply':
+            return PointConversionRuleType.MULTIPLY;
+        case 'divide':
+            return PointConversionRuleType.DIVIDE;
+        case 'formula':
+            return PointConversionRuleType.FORMULA;
+        case 'direct':
+            return PointConversionRuleType.DIRECT;
+        default:
+            return PointConversionRuleType.DIRECT;
+    }
+}
+
+export function ruleTypeAndValueToFormula(ruleType: PointConversionRuleType, value: number, input: number, formula: string | null): string {
+    switch (ruleType) {
+        case PointConversionRuleType.ADD:
+            return `${input} + ${value}`;
+        case PointConversionRuleType.SUBTRACT:
+            return `${input} - ${value}`;
+        case PointConversionRuleType.MULTIPLY:
+            return `${input} * ${value}`;
+        case PointConversionRuleType.DIVIDE:
+            return `${input} / ${value}`;
+        case PointConversionRuleType.FORMULA:
+            if (!formula) return '';
+            return formula.replace('a', input.toString()).replace('b', value.toString());
+        case PointConversionRuleType.DIRECT:
+            return '';
+    }
+}
+
+export function convertPointUsingRuleType(
+    ruleType: PointConversionRuleType,
+    value: number,
+    input: number,
+    formula: string | null = null
+): number {
+    switch (ruleType) {
+        case PointConversionRuleType.ADD:
+            return input + value;
+        case PointConversionRuleType.SUBTRACT:
+            return input - value;
+        case PointConversionRuleType.MULTIPLY:
+            return input * value;
+        case PointConversionRuleType.DIVIDE:
+            return input / value;
+        case PointConversionRuleType.FORMULA:
+            if (!formula) return input;
+            return eval(formula);
+        case PointConversionRuleType.DIRECT:
+            return value;
     }
 }

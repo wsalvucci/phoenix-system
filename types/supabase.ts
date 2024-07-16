@@ -147,6 +147,7 @@ export type Database = {
           created_at: string
           date: string | null
           id: number
+          name: string | null
           student_group_id: number
           template_id: number
         }
@@ -154,6 +155,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
+          name?: string | null
           student_group_id: number
           template_id: number
         }
@@ -161,6 +163,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           id?: number
+          name?: string | null
           student_group_id?: number
           template_id?: number
         }

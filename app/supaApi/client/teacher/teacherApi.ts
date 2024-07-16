@@ -25,6 +25,6 @@ export async function clientCreatePointEvent(studentGroupId: number, pointTempla
     return createPointEvent(studentGroupId, pointTemplateId, date);
 }
 
-export async function clientGetGroupScorebookData(studentGroupId: number): Promise<ScorebookData> {
+// export async function clientGetGroupScorebookData(studentGroupId: number): Promise<ScorebookData> {
 
-}
+// }
