@@ -56,13 +56,17 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
 
     const supabase = await supabaseServiceClient();
 
-    const pointEventsResponse = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule (*, point_conversion_rule_type (*))), student_point (*)").eq("student_group_id", studentGroupId);
+    const pointEventsResponse = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule (*, point_conversion_rule_type (*)), point_group (*)), student_point (*)").eq("student_group_id", studentGroupId);
     const pointTemplatesResponse = await supabase.from("point_template").select("*").eq("student_group_id", studentGroupId);
     const studentPairsResponse = await supabase
         .from("student_group_pair")
         .select("student(*)")
         .eq("student_group_id", studentGroupId);
     const studentGroupResponse = await supabase.from("student_group").select("*").eq("id", studentGroupId).single();
+    let pointGroupsResponseData: Database['public']['Tables']['point_group']['Row'][] | null = null;
+    if (studentGroupResponse.data?.school_id) {
+        pointGroupsResponseData = (await supabase.from("point_group").select("*").eq("school_id", studentGroupResponse.data?.school_id)).data;
+    }
 
     if (pointEventsResponse.error) {
         console.error("Error fetching point events", pointEventsResponse.error);
@@ -99,9 +103,11 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
                 conversionRule: pointEventData.point_template?.point_conversion_rule && {
                     id: pointEventData.point_template.point_conversion_rule.id,
                     name: pointEventData.point_template.point_conversion_rule.name,
-                    value: pointEventData.point_template.point_conversion_rule.value
+                    value: pointEventData.point_template.point_conversion_rule.value,
+                    target: pointEventData.point_template.point_conversion_rule.target,
                 } || null,
-                conversionRuleType: pointEventData.point_template?.point_conversion_rule?.point_conversion_rule_type ?? null
+                conversionRuleType: pointEventData.point_template?.point_conversion_rule?.point_conversion_rule_type ?? null,
+                pointGroup: pointEventData.point_template?.point_group ?? null
             },
             studentPoints: pointEventData.student_point?.map((studentPointData) => {
                 const searchedStudentData = studentPairsResponse.data.find((studentPair) => studentPair.student?.id === studentPointData.student_id)?.student;
@@ -119,7 +125,8 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
         }),
         pointTemplates: pointTemplatesResponse.data,
         students: studentPairsResponse.data.map((studentData) => studentData.student),
-        studentGroup: studentGroupResponse.data
+        studentGroup: studentGroupResponse.data,
+        pointGroups: pointGroupsResponseData
     }
 }
 

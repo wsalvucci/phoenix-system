@@ -42,7 +42,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 .filter(student => student !== null)
                 .sort((a, b) => a?.last_name.localeCompare(b?.last_name))
         )
-        setNewPointEventData({
+        data.pointTemplates.length > 0 && setNewPointEventData({
             templateId: data.pointTemplates[0].id,
             date: new Date().toISOString()
         })
@@ -168,6 +168,32 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
+    const sumAllAvailablePoints = (
+        pointEvents: ScorebookPointEvent[]
+    ): {
+        [key: string]: number
+    } => {
+        var pointMap: { [key: string]: number } = {
+            "Total": 0,
+        }
+        pointEvents
+            .forEach(pointEvent => {
+                const pointAmount = convertPointUsingRuleType(
+                    stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                    pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
+                    pointEvent.linkedTemplateData.conversionRule?.target ?? 0
+                )
+                pointMap["Total"] += pointAmount
+                const groupName = pointEvent.linkedTemplateData.pointGroup?.name ?? ""
+                if (pointMap[groupName] === undefined) {
+                    pointMap[groupName] = pointAmount
+                } else {
+                    pointMap[groupName] += pointAmount
+                }
+            })
+        return pointMap
+    }
+
     const scorebookTable = () => {
         const studentsLookup: { [key: number]: Database['public']['Tables']['student']['Row'] } = {}
         scorebookData?.students.forEach(student => {
@@ -181,24 +207,27 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             pointEventsLookup[pointEvent.id] = pointEvent
         })
 
+        console.log(scorebookData)
+
         return (
             <div
                 className={`grid w-fit`}
                 style={{
-                    gridTemplateColumns: `250px repeat(${scorebookData?.pointEvents.length || 0}, 150px)`
+                    gridTemplateColumns: `250px repeat(${(scorebookData?.pointEvents.length || 0) + 2}, 150px)`
                 }}
             >
                 <div className="row-start-1 col-start-1 sticky z-30 top-0 left-0 bg-slate-100 dark:bg-slate-900 flex justify-center" />
                 {
                     scorebookData?.pointEvents.map((pointEvent, index) => (
                         <div
-                            className={`sticky z-20 top-0 bg-slate-100 dark:bg-slate-900 border p-1`}
+                            className={`sticky z-20 top-0 bg-slate-100 dark:bg-slate-900 border pb-1`}
                             key={pointEvent.id}
                             style={{
                                 gridRowStart: 1,
-                                gridColumnStart: index + 2
+                                gridColumnStart: index + 2,
                             }}
                         >
+                            <div className="h-2 rounded-b-full" style={{ backgroundColor: pointEvent.linkedTemplateData.pointGroup?.color ?? "" }} />
                             <div className="flex justify-center">{pointEvent.linkedTemplateData.name}</div>
                             <div className="flex justify-center">{pointEvent.name ?? "-"}</div>
                             <div className="grid grid-cols-1">
@@ -216,6 +245,14 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                         </div>
                     ))
                 }
+                <div
+                    className="border sticky top-0 bg-slate-100 dark:bg-slate-900 flex justify-center"
+                    style={{
+                        gridRowStart: 1,
+                        gridColumnStart: (scorebookData?.pointEvents.length || 0) + 2,
+                    }}>
+                    <div>Total</div>
+                </div>
                 {
                     currentStudentOrder.map((student, studentIndex) => (
                         <Fragment key={student.id}>
@@ -240,9 +277,37 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                                 gridRowStart: studentIndex + 2,
                                                 gridColumnStart: pointEventIndex + 2
                                             }}
-                                        >{studentPoint?.pointData.point_value || "-"}</div>
+                                        >
+                                            {
+                                                studentPoint?.pointData.point_value === 0 ? "0" : convertPointUsingRuleType(
+                                                    stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                                                    pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
+                                                    studentPoint?.pointData.point_value ?? 0
+                                                )
+                                            }
+                                            {/* {studentPoint?.pointData.point_value || "-"} */}
+                                        </div>
                                     )
                                 })
+                            }
+                            {
+                                /* Total points for student */
+                                <div className={`flex justify-center border-b border-x ${studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`} style={{
+                                    gridRowStart: studentIndex + 2,
+                                    gridColumnStart: (scorebookData?.pointEvents.length ?? 0) + 2
+                                }}>
+                                    {
+                                        scorebookData?.pointEvents.map(pointEvent => {
+                                            const studentPoint = pointEventsLookup[pointEvent.id].studentPoints?.find(studentPoint => studentPoint.studentData?.id === student.id)
+                                            return convertPointUsingRuleType(
+                                                stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                                                pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
+                                                studentPoint?.pointData.point_value ?? 0
+                                            )
+                                        }).reduce((a, b) => a + b, 0)
+                                    }
+                                </div>
+
                             }
                         </Fragment>
                     ))
@@ -440,12 +505,51 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             {showLoadingScreen && loadingScreen()}
             {addNewPointEventModalOpen && addNewPointEventModal()}
             {editPointEventModalOpen && editPointEventModal()}
-            <div className="h-1/6">
-                <div className="text-xl">
-                    Scorebook
+            <div className="h-1/6 grid grid-cols-2 border-b">
+                <div>
+                    <div className="text-xl">
+                        Scorebook
+                    </div>
+                    <div>
+                        {addNewPointEventButton()}
+                    </div>
                 </div>
                 <div>
-                    {addNewPointEventButton()}
+                    <div className="grid grid-cols-2">
+                        <div className="text-lg col-span-2 flex justify-center">
+                            Points available per student
+                        </div>
+                        {
+                            sumAllAvailablePoints(scorebookData?.pointEvents || []).Total > 0 &&
+                            Object.entries(sumAllAvailablePoints(scorebookData?.pointEvents || [])).map(([key, value]) => (
+                                <Fragment key={key}>
+                                    <div className="flex justify-center border-b">
+                                        {key}
+                                    </div>
+                                    <div className="flex justify-center border-b">
+                                        {value}
+                                    </div>
+                                </Fragment>
+                            ))
+                        }
+                        <div className="rounded-full mx-10 flex h-6 col-span-2 overflow-clip my-1">
+                            {
+                                Object.entries(sumAllAvailablePoints(scorebookData?.pointEvents || []))
+                                    .filter(([key, value]) => key !== "Total")
+                                    .map(([key, value]) => (
+                                        <div
+                                            key={key}
+                                            style={{
+                                                width: `${(value / sumAllAvailablePoints(scorebookData?.pointEvents || []).Total) * 100}%`,
+                                                backgroundColor: scorebookData?.pointGroups?.find(pointGroup => pointGroup.name === key)?.color ?? "",
+                                                opacity: 0.5
+                                            }} className="flex justify-center text-black dark:text-white">
+                                            {key}
+                                        </div>
+                                    ))
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
             <div className="overflow-x-auto h-5/6">

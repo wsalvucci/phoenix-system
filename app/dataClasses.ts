@@ -212,17 +212,20 @@ export class ScorebookData {
     pointEvents: ScorebookPointEvent[];
     students: Array<Database['public']['Tables']['student']['Row'] | null>;
     studentGroup: Database['public']['Tables']['student_group']['Row'];
+    pointGroups: Database['public']['Tables']['point_group']['Row'][] | null;
 
     constructor(
         pointTemplates: Database['public']['Tables']['point_template']['Row'][],
         pointEvents: ScorebookPointEvent[],
         students: Array<Database['public']['Tables']['student']['Row'] | null>,
-        studentGroup: Database['public']['Tables']['student_group']['Row']
+        studentGroup: Database['public']['Tables']['student_group']['Row'],
+        pointGroups: Database['public']['Tables']['point_group']['Row'][] | null = null
     ) {
         this.pointTemplates = pointTemplates;
         this.pointEvents = pointEvents;
         this.students = students;
         this.studentGroup = studentGroup;
+        this.pointGroups = pointGroups;
     }
 }
 
@@ -239,8 +242,10 @@ export class ScorebookPointEvent {
             id: number;
             name: string;
             value: number | null;
+            target: number | null;
         } | null;
         conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null;
+        pointGroup: Database['public']['Tables']['point_group']['Row'] | null;
     };
     studentPoints: {
         studentData: Database['public']['Tables']['student']['Row'];
@@ -260,8 +265,10 @@ export class ScorebookPointEvent {
                 id: number;
                 name: string;
                 value: number | null;
+                target: number | null;
             } | null;
-            conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null
+            conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null;
+            pointGroup: Database['public']['Tables']['point_group']['Row'] | null;
         },
         studentPoints: {
             studentData: Database['public']['Tables']['student']['Row'];
