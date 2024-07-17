@@ -207,6 +207,58 @@ export class RankingGroup {
     }
 }
 
+export class ClassConfigurationData {
+    templates: TemplateConfigurationResponse[]
+
+    constructor(templates: TemplateConfigurationResponse[]) {
+        this.templates = templates;
+    }
+}
+
+export class TemplateConfigurationResponse {
+    id: number;
+    name: string;
+    conversionRule: {
+        id: number;
+        name: string;
+        value: number | null;
+        target: number;
+        formula: string | null;
+        ruleType: string | null;
+    } | null;
+    templateType: string | null;
+    pointGroup: {
+        id: number | null;
+        name: string | null;
+        color: string | null;
+    } | null
+
+    constructor(
+        id: number,
+        name: string,
+        conversionRule: {
+            id: number;
+            name: string;
+            value: number | null;
+            target: number;
+            formula: string | null;
+            ruleType: string | null;
+        } | null,
+        templateType: string,
+        pointGroup: {
+            id: number;
+            name: string;
+            color: string;
+        }
+    ) {
+        this.id = id;
+        this.name = name;
+        this.conversionRule = conversionRule;
+        this.templateType = templateType;
+        this.pointGroup = pointGroup;
+    }
+}
+
 export class ScorebookData {
     pointTemplates: Database['public']['Tables']['point_template']['Row'][];
     pointEvents: ScorebookPointEvent[];

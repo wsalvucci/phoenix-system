@@ -1,6 +1,6 @@
 "use server";
 
-import { ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
+import { ClassConfigurationData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { Database } from "@/types/supabase";
@@ -186,4 +186,42 @@ export async function editPointEvent(scorebookPointEvent: ScorebookPointEvent): 
     }
 
     return true;
+}
+
+export async function getConfigurationData(studentGroupId: number): Promise<ClassConfigurationData> {
+    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+    if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
+
+    const supabase = await supabaseServiceClient();
+
+    const { data: templateData, error: templateDataError } = await supabase.from("point_template").select("*, point_conversion_rule (*, point_conversion_rule_type (*)), point_template_type (*), point_group (*)").eq("student_group_id", studentGroupId);
+
+    if (templateDataError) {
+        console.error("Error fetching point templates", templateDataError);
+        throw new Error("Error fetching point templates");
+    }
+
+    return {
+        templates: templateData.map((template) => {
+            return {
+                id: template.id,
+                name: template.name,
+                conversionRule: template.point_conversion_rule ? {
+                    id: template.point_conversion_rule.id,
+                    name: template.point_conversion_rule.name,
+                    value: template.point_conversion_rule.value,
+                    target: template.point_conversion_rule.target,
+                    formula: template.point_conversion_rule.formula,
+                    ruleType: template.point_conversion_rule.point_conversion_rule_type?.name ?? null
+                } : null,
+                templateType: template.point_template_type?.name ?? null,
+                pointGroup: template.point_group ? {
+                    id: template.point_group.id,
+                    name: template.point_group.name,
+                    color: template.point_group.color
+                } : null
+            }
+        })
+    }
 }
