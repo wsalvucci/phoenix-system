@@ -805,7 +805,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_supabaseid_fkey"
+            foreignKeyName: "user_supabase_id_fkey"
             columns: ["supabase_id"]
             isOneToOne: false
             referencedRelation: "users"

@@ -39,7 +39,7 @@ export async function createPointEvent(studentGroupId: number, pointTemplateId: 
         }
     }).filter((studentPoint) => studentPoint !== null);
 
-    const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").insert(newStudentPoints)
+    const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").upsert(newStudentPoints)
 
     if (studentPointsError) {
         console.error("Error creating student points", studentPointsError);
