@@ -1,6 +1,7 @@
 import AuthButton from "../components/AuthButton";
 import { createClient } from "@/utils/supabase/server";
 import LinkTeacher from "./components/LinkTeacher";
+import LinkStudent from "./components/LinkStudent";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -39,6 +40,7 @@ export default async function Index() {
         </div>
 
         {userData.user != null && <LinkTeacher user={userData.user} />}
+        {userData.user !== null && <LinkStudent user={userData.user} />}
       </div>
 
       <footer className="w-full border-t border-t-foreground/10 p-8 flex justify-center text-center text-xs">

@@ -505,7 +505,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             {showLoadingScreen && loadingScreen()}
             {addNewPointEventModalOpen && addNewPointEventModal()}
             {editPointEventModalOpen && editPointEventModal()}
-            <div className="h-1/6 grid grid-cols-2 border-b">
+            <div className="h-1/5 grid grid-cols-2 border-b">
                 <div>
                     <div className="text-xl">
                         Scorebook
@@ -552,7 +552,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                     </div>
                 </div>
             </div>
-            <div className="overflow-x-auto h-5/6">
+            <div className="overflow-x-auto h-4/5">
                 {scorebookData && scorebookTable()}
             </div>
         </div>

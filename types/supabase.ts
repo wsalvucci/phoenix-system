@@ -93,6 +93,7 @@ export type Database = {
           formula: string | null
           id: number
           name: string
+          student_group_id: number | null
           target: number
           value: number | null
         }
@@ -102,6 +103,7 @@ export type Database = {
           formula?: string | null
           id?: number
           name: string
+          student_group_id?: number | null
           target: number
           value?: number | null
         }
@@ -111,6 +113,7 @@ export type Database = {
           formula?: string | null
           id?: number
           name?: string
+          student_group_id?: number | null
           target?: number
           value?: number | null
         }
@@ -120,6 +123,13 @@ export type Database = {
             columns: ["conversion_rule_type_id"]
             isOneToOne: false
             referencedRelation: "point_conversion_rule_type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_conversion_rule_student_group_id_fkey"
+            columns: ["student_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
             referencedColumns: ["id"]
           },
         ]

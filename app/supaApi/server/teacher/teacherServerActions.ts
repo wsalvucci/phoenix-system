@@ -195,11 +195,46 @@ export async function getConfigurationData(studentGroupId: number): Promise<Clas
 
     const supabase = await supabaseServiceClient();
 
+    const { data: studentGroupData, error: studentGroupError } = await supabase.from("student_group").select("*").eq("id", studentGroupId).single();
+
+    if (studentGroupError) {
+        console.error("Error fetching student group", studentGroupError);
+        throw new Error("Error fetching student group");
+    }
+
     const { data: templateData, error: templateDataError } = await supabase.from("point_template").select("*, point_conversion_rule (*, point_conversion_rule_type (*)), point_template_type (*), point_group (*)").eq("student_group_id", studentGroupId);
 
     if (templateDataError) {
         console.error("Error fetching point templates", templateDataError);
         throw new Error("Error fetching point templates");
+    }
+
+    const { data: pointGroupsData, error: pointGroupsError } = await supabase.from("point_group").select("*").eq("school_id", studentGroupData.school_id ?? -1);
+
+    if (pointGroupsError) {
+        console.error("Error fetching point groups", pointGroupsError);
+        throw new Error("Error fetching point groups");
+    }
+
+    const { data: pointTemplateTypesData, error: pointTemplateTypesError } = await supabase.from("point_template_type").select("*");
+
+    if (pointTemplateTypesError) {
+        console.error("Error fetching point template types", pointTemplateTypesError);
+        throw new Error("Error fetching point template types");
+    }
+
+    const { data: pointConversionRulesData, error: pointConversionRulesError } = await supabase.from("point_conversion_rule").select("*, ruleType: point_conversion_rule_type (*)");
+
+    if (pointConversionRulesError) {
+        console.error("Error fetching point conversion rules", pointConversionRulesError);
+        throw new Error("Error fetching point conversion rules");
+    }
+
+    const { data: pointConversionRuleTypesData, error: pointConversionRuleTypesError } = await supabase.from("point_conversion_rule_type").select("*");
+
+    if (pointConversionRuleTypesError) {
+        console.error("Error fetching point conversion rule types", pointConversionRuleTypesError);
+        throw new Error("Error fetching point conversion rule types");
     }
 
     return {
@@ -222,6 +257,78 @@ export async function getConfigurationData(studentGroupId: number): Promise<Clas
                     color: template.point_group.color
                 } : null
             }
-        })
+        }),
+        pointGroups: pointGroupsData,
+        templateTypes: pointTemplateTypesData,
+        conversionRules: pointConversionRulesData.map((rule) => {
+            return {
+                id: rule.id,
+                name: rule.name,
+                type: rule.ruleType?.name ?? "",
+                value: rule.value ?? 0,
+                formula: rule.formula,
+                target: rule.target
+            }
+        }),
+        conversionRuleTypes: pointConversionRuleTypesData
     }
+}
+
+export async function createPointTemplate(
+    studentGroupId: number,
+    name: string,
+    pointGroupId: number,
+    conversionRuleId: number,
+    typeId: number
+): Promise<boolean> {
+    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+    if (!teacherAccess) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("point_template").insert({
+        name: name,
+        conversion_rule_id: conversionRuleId,
+        template_type_id: typeId,
+        point_group_id: pointGroupId,
+        student_group_id: studentGroupId
+    });
+
+    if (error) {
+        console.error("Error creating point template", error);
+        return false;
+    }
+
+    return true;
+}
+
+export async function createConversionRule(
+    studentGroupId: number,
+    name: string,
+    value: number,
+    formula: string | null,
+    conversionRuleTypeId: number,
+    target: number
+): Promise<boolean> {
+    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+    if (!teacherAccess) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("point_conversion_rule").insert({
+        name: name,
+        value: value,
+        formula: formula,
+        conversion_rule_type_id: conversionRuleTypeId,
+        target: target
+    });
+
+    if (error) {
+        console.error("Error creating conversion rule", error);
+        return false;
+    }
+
+    return true;
 }

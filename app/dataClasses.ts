@@ -208,10 +208,38 @@ export class RankingGroup {
 }
 
 export class ClassConfigurationData {
-    templates: TemplateConfigurationResponse[]
+    templates: TemplateConfigurationResponse[];
+    pointGroups: Database['public']['Tables']['point_group']['Row'][];
+    templateTypes: Database['public']['Tables']['point_template_type']['Row'][];
+    conversionRules: {
+        id: number;
+        name: string;
+        type: string;
+        value: number;
+        formula: string | null;
+        target: number;
+    }[];
+    conversionRuleTypes: Database['public']['Tables']['point_conversion_rule_type']['Row'][]
 
-    constructor(templates: TemplateConfigurationResponse[]) {
+    constructor(
+        templates: TemplateConfigurationResponse[],
+        pointGroups: Database['public']['Tables']['point_group']['Row'][],
+        templateTypes: Database['public']['Tables']['point_template_type']['Row'][],
+        conversionRules: {
+            id: number,
+            name: string,
+            type: string,
+            value: number,
+            formula: string | null,
+            target: number
+        }[],
+        conversionRuleTypes: Database['public']['Tables']['point_conversion_rule_type']['Row'][]
+    ) {
         this.templates = templates;
+        this.pointGroups = pointGroups;
+        this.templateTypes = templateTypes;
+        this.conversionRules = conversionRules;
+        this.conversionRuleTypes = conversionRuleTypes;
     }
 }
 
