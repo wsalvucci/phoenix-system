@@ -1,6 +1,6 @@
 import getOwnStudentGroups from "../../server/teacher/studentGroups/getOwnStudentGroups";
-import { ScorebookData, StudentGroup } from "@/app/dataClasses";
-import { pointEventResponseToData, studentGroupWithRelationsResponseToData } from "../../mappers/dataMappers";
+import { StudentGroup } from "@/app/dataClasses";
+import { studentGroupWithRelationsResponseToData } from "../../mappers/dataMappers";
 import getStudentGroup from "../../server/teacher/studentGroups/getStudentGroup";
 import { createPointEvent } from "../../server/teacher/teacherServerActions";
 
