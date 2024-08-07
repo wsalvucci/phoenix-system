@@ -30,7 +30,11 @@ export async function createPointEvent(studentGroupId: number, pointTemplateId: 
         return false;
     }
 
-    const newStudentPoints = studentGroupPairsData.map((studentPair) => {
+    const newStudentPoints: {
+        student_id: number;
+        point_event_id: number;
+        point_value: number;
+    }[] = studentGroupPairsData.map((studentPair) => {
         if (studentPair.student === null) return null;
         return {
             student_id: studentPair.student.id,
