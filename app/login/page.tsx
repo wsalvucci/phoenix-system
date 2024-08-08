@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
+import { ForgotPassButton } from "./forgot-pass-button";
 
 export default function Login({
   searchParams,
@@ -25,7 +26,7 @@ export default function Login({
       return redirect("/login?message=Could not authenticate user");
     }
 
-    return redirect("/protected");
+    return redirect("/");
   };
 
   const signUp = async (formData: FormData) => {
@@ -45,6 +46,7 @@ export default function Login({
     });
 
     if (error) {
+      console.log(error)
       return redirect("/login?message=Could not authenticate user");
     }
 
@@ -114,6 +116,7 @@ export default function Login({
           </p>
         )}
       </form>
+      <ForgotPassButton />
     </div>
   );
 }

@@ -8,16 +8,11 @@ type NewPointTemplateData = {
     name: string,
     pointGroupId: number,
     templateTypeId: number,
-    conversionRuleId: number,
+    conversionRuleTypeId: number,
     studentGroupId: number,
-}
-
-type NewConversionRuleData = {
-    name: string,
-    typeId: number,
-    value: number,
-    formula: string,
-    target: number,
+    conversionRuleValue: number,
+    conversionRuleFormula: string | null,
+    conversionRuleTarget: number,
 }
 
 export default function TeacherGroupConfiguration({ params: { groupId } }: { params: { groupId: string } }) {
@@ -31,17 +26,11 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
         name: '',
         pointGroupId: -1,
         templateTypeId: -1,
-        conversionRuleId: -1,
+        conversionRuleTypeId: -1,
         studentGroupId: -1,
-    });
-
-    const [showAddNewConversionRuleModal, setShowAddNewConversionRuleModal] = useState(false);
-    const [newConversionRuleData, setNewConversionRuleData] = useState<NewConversionRuleData>({
-        name: '',
-        typeId: -1,
-        value: -1,
-        formula: '',
-        target: -1,
+        conversionRuleValue: -1,
+        conversionRuleFormula: null,
+        conversionRuleTarget: 0,
     });
 
     const fetchConfigurationData = async () => {
@@ -49,6 +38,16 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
         const data = await getConfigurationData(parseInt(groupId));
         console.log(data);
         setConfigurationData(data);
+        setNewPointTemplateData({
+            name: '',
+            pointGroupId: data.pointGroups[0].id,
+            templateTypeId: data.templateTypes[0].id,
+            conversionRuleTypeId: data.conversionRuleTypes[0].id,
+            studentGroupId: parseInt(groupId),
+            conversionRuleValue: 0,
+            conversionRuleFormula: null,
+            conversionRuleTarget: 0,
+        });
         setLoading(false);
     }
 
@@ -62,114 +61,12 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
         </div>
     )
 
-    const addNewConversionRuleModal = () => (
-        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
-                <div className="text-2xl font-bold">Create New Conversion Rule</div>
-                <div className="flex flex-col gap-2">
-                    <input
-                        type="text"
-                        placeholder="Rule Name"
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newConversionRuleData.name}
-                        onChange={(e) => {
-                            setNewConversionRuleData({
-                                ...newConversionRuleData,
-                                name: e.target.value,
-                            });
-                        }}
-                    />
-                    <select
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newConversionRuleData.typeId}
-                        onChange={(e) => {
-                            setNewConversionRuleData({
-                                ...newConversionRuleData,
-                                typeId: parseInt(e.target.value),
-                            });
-                        }}
-                    >
-                        <option value={-1}>Select Rule Type</option>
-                        {
-                            configurationData?.conversionRuleTypes.map((conversionRuleType) => (
-                                <option value={conversionRuleType.id}>{conversionRuleType.name}</option>
-                            ))
-                        }
-                    </select>
-                    <input
-                        type="number"
-                        placeholder="Rule Value"
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newConversionRuleData.value}
-                        onChange={(e) => {
-                            setNewConversionRuleData({
-                                ...newConversionRuleData,
-                                value: parseInt(e.target.value),
-                            });
-                        }}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Rule Formula"
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newConversionRuleData.formula}
-                        onChange={(e) => {
-                            setNewConversionRuleData({
-                                ...newConversionRuleData,
-                                formula: e.target.value,
-                            });
-                        }}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Rule Target"
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newConversionRuleData.target}
-                        onChange={(e) => {
-                            setNewConversionRuleData({
-                                ...newConversionRuleData,
-                                target: parseInt(e.target.value),
-                            });
-                        }}
-                    />
-                </div>
-
-                <button
-                    className="bg-blue-500 text-white rounded p-2"
-                    onClick={async () => {
-                        setLoading(true);
-                        await createConversionRule(
-                            parseInt(groupId),
-                            newConversionRuleData.name,
-                            newConversionRuleData.value,
-                            newConversionRuleData.formula,
-                            newConversionRuleData.typeId,
-                            newConversionRuleData.target
-                        )
-                        setShowAddNewConversionRuleModal(false);
-                        await fetchConfigurationData();
-                        setLoading(false);
-                    }}
-                >
-                    Create Conversion Rule
-                </button>
-                <button
-                    className="bg-red-500 text-white rounded p-2"
-                    onClick={() => {
-                        setShowAddNewConversionRuleModal(false);
-                    }}
-                >
-                    Close
-                </button>
-            </div>
-        </div>
-    )
-
     const addNewTemplateModal = () => (
         <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
                 <div className="text-2xl font-bold">Create New Template</div>
                 <div className="flex flex-col gap-2">
+                    Name:
                     <input
                         type="text"
                         placeholder="Template Name"
@@ -182,6 +79,7 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             });
                         }}
                     />
+                    Point Group:
                     <select
                         className="border p-2 rounded dark:[color-scheme:dark]"
                         value={newPointTemplateData.pointGroupId}
@@ -198,6 +96,7 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             ))
                         }
                     </select>
+                    Template Type:
                     <select
                         className="border p-2 rounded dark:[color-scheme:dark]"
                         value={newPointTemplateData.templateTypeId}
@@ -214,22 +113,49 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             ))
                         }
                     </select>
+                    Rule Type:
                     <select
                         className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newPointTemplateData.conversionRuleId}
+                        value={newPointTemplateData.conversionRuleTypeId}
                         onChange={(e) => {
                             setNewPointTemplateData({
                                 ...newPointTemplateData,
-                                conversionRuleId: parseInt(e.target.value),
+                                conversionRuleTypeId: parseInt(e.target.value),
                             });
                         }}
                     >
                         {
-                            configurationData?.conversionRules.map((conversionRule) => (
+                            configurationData?.conversionRuleTypes.map((conversionRule) => (
                                 <option value={conversionRule.id}>{conversionRule.name}</option>
                             ))
                         }
                     </select>
+                    Value:
+                    <input
+                        type="number"
+                        placeholder="Conversion Rule Value"
+                        className="border p-2 rounded dark:[color-scheme:dark]"
+                        value={newPointTemplateData.conversionRuleValue}
+                        onChange={(e) => {
+                            setNewPointTemplateData({
+                                ...newPointTemplateData,
+                                conversionRuleValue: parseInt(e.target.value),
+                            });
+                        }}
+                    />
+                    Max Score:
+                    <input
+                        type="number"
+                        placeholder="Conversion Rule Target"
+                        className="border p-2 rounded dark:[color-scheme:dark]"
+                        value={newPointTemplateData.conversionRuleTarget}
+                        onChange={(e) => {
+                            setNewPointTemplateData({
+                                ...newPointTemplateData,
+                                conversionRuleTarget: parseInt(e.target.value),
+                            });
+                        }}
+                    />
                 </div>
                 <button
                     className="bg-blue-500 text-white rounded p-2"
@@ -239,8 +165,10 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             parseInt(groupId),
                             newPointTemplateData.name,
                             newPointTemplateData.pointGroupId,
-                            newPointTemplateData.conversionRuleId,
                             newPointTemplateData.templateTypeId,
+                            newPointTemplateData.conversionRuleTypeId,
+                            newPointTemplateData.conversionRuleValue,
+                            newPointTemplateData.conversionRuleTarget,
                         )
                         setShowAddNewTemplateModal(false);
                         await fetchConfigurationData();
@@ -265,7 +193,6 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
         <div className="animate-in w-full h-full">
             {loading && loadingScreen()}
             {showAddNewTemplateModal && addNewTemplateModal()}
-            {showAddNewConversionRuleModal && addNewConversionRuleModal()}
             <div>
                 <div className="text-2xl font-bold">Configuration</div>
             </div>
@@ -281,23 +208,22 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                     Create New Template
                 </button>
             </div>
-            <div className="w-full grid grid-cols-9 pb-2">
+            <div className="w-full grid grid-cols-8 pb-2">
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-4 border-b">Template</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-5 border-b border-x">Conversion Rule</div>
+                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-4 border-b border-x">Conversion Rule</div>
 
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Name</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Point Group</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Type</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Points</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b border-s">Rule Name</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Type</div>
+                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b border-s">Rule Type</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Value</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Formula</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Input Value</div>
                 {
                     configurationData?.templates.map((pointTemplate, index) => (
                         <div
-                            className="col-span-9 grid grid-cols-9 border-y cursor-pointer"
+                            className="col-span-8 grid grid-cols-8 border-y cursor-pointer"
                             onClick={() => {
                                 console.log(pointTemplate);
                             }}
@@ -310,45 +236,13 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             </div>
                             <div className="flex justify-center">{pointTemplate.templateType}</div>
                             <div className="flex justify-center">{"pts"}</div>
-                            <div className="flex justify-center border-s">{pointTemplate.conversionRule?.name}</div>
-                            <div className="flex justify-center">{pointTemplate.conversionRule?.ruleType}</div>
-                            <div className="flex justify-center">{pointTemplate.conversionRule?.value}</div>
-                            <div className="flex justify-center">{pointTemplate.conversionRule?.formula ?? 'N/A'}</div>
-                            <div className="flex justify-center">{pointTemplate.conversionRule?.target}</div>
+                            <div className="flex justify-center border-s">{pointTemplate.conversionRuleType}</div>
+                            <div className="flex justify-center">{pointTemplate.conversionRuleValue}</div>
+                            <div className="flex justify-center">{pointTemplate.conversionRuleFormula ?? 'N/A'}</div>
+                            <div className="flex justify-center">{pointTemplate.conversionRuleTarget}</div>
                         </div>
                     ))
                 }
-            </div>
-            <div>
-                <div className="text-xl">
-                    Conversion Rules
-                </div>
-                <button
-                    className="bg-blue-500 text-white rounded p-2"
-                    onClick={() => {
-                        setShowAddNewConversionRuleModal(true);
-                    }}
-                >
-                    Create New Conversion Rule
-                </button>
-                <div className="w-full grid grid-cols-5">
-                    <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Name</div>
-                    <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Type</div>
-                    <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Value</div>
-                    <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Formula</div>
-                    <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Target</div>
-                    {
-                        configurationData?.conversionRules.map((conversionRule, index) => (
-                            <div className="col-span-5 grid grid-cols-5 border-y cursor-pointer">
-                                <div className="flex justify-center">{conversionRule.name}</div>
-                                <div className="flex justify-center">{conversionRule.type}</div>
-                                <div className="flex justify-center">{conversionRule.value}</div>
-                                <div className="flex justify-center">{conversionRule.formula ?? 'N/A'}</div>
-                                <div className="flex justify-center">{conversionRule.target}</div>
-                            </div>
-                        ))
-                    }
-                </div>
             </div>
         </div>
     )

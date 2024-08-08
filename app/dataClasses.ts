@@ -211,34 +211,17 @@ export class ClassConfigurationData {
     templates: TemplateConfigurationResponse[];
     pointGroups: Database['public']['Tables']['point_group']['Row'][];
     templateTypes: Database['public']['Tables']['point_template_type']['Row'][];
-    conversionRules: {
-        id: number;
-        name: string;
-        type: string;
-        value: number;
-        formula: string | null;
-        target: number;
-    }[];
     conversionRuleTypes: Database['public']['Tables']['point_conversion_rule_type']['Row'][]
 
     constructor(
         templates: TemplateConfigurationResponse[],
         pointGroups: Database['public']['Tables']['point_group']['Row'][],
         templateTypes: Database['public']['Tables']['point_template_type']['Row'][],
-        conversionRules: {
-            id: number,
-            name: string,
-            type: string,
-            value: number,
-            formula: string | null,
-            target: number
-        }[],
         conversionRuleTypes: Database['public']['Tables']['point_conversion_rule_type']['Row'][]
     ) {
         this.templates = templates;
         this.pointGroups = pointGroups;
         this.templateTypes = templateTypes;
-        this.conversionRules = conversionRules;
         this.conversionRuleTypes = conversionRuleTypes;
     }
 }
@@ -246,44 +229,39 @@ export class ClassConfigurationData {
 export class TemplateConfigurationResponse {
     id: number;
     name: string;
-    conversionRule: {
-        id: number;
-        name: string;
-        value: number | null;
-        target: number;
-        formula: string | null;
-        ruleType: string | null;
-    } | null;
     templateType: string | null;
     pointGroup: {
         id: number | null;
         name: string | null;
         color: string | null;
-    } | null
+    } | null;
+    conversionRuleType: string | null;
+    conversionRuleValue: number | null;
+    conversionRuleTarget: number | null;
+    conversionRuleFormula: string | null;
 
     constructor(
         id: number,
         name: string,
-        conversionRule: {
-            id: number;
-            name: string;
-            value: number | null;
-            target: number;
-            formula: string | null;
-            ruleType: string | null;
-        } | null,
         templateType: string,
         pointGroup: {
             id: number;
             name: string;
             color: string;
-        }
+        },
+        conversionRuleType: string,
+        conversionRuleValue: number,
+        conversionRuleTarget: number,
+        conversionRuleFormula: string
     ) {
         this.id = id;
         this.name = name;
-        this.conversionRule = conversionRule;
         this.templateType = templateType;
         this.pointGroup = pointGroup;
+        this.conversionRuleType = conversionRuleType;
+        this.conversionRuleValue = conversionRuleValue;
+        this.conversionRuleTarget = conversionRuleTarget;
+        this.conversionRuleFormula = conversionRuleFormula
     }
 }
 
@@ -318,14 +296,10 @@ export class ScorebookPointEvent {
     linkedTemplateData: {
         id: number | undefined;
         name: string | undefined;
-        conversionRule: {
-            id: number;
-            name: string;
-            value: number | null;
-            target: number | null;
-        } | null;
         conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null;
         pointGroup: Database['public']['Tables']['point_group']['Row'] | null;
+        conversionRuleValue: number | null;
+        conversionRuleTarget: number | null;
     };
     studentPoints: {
         studentData: Database['public']['Tables']['student']['Row'];
@@ -341,14 +315,10 @@ export class ScorebookPointEvent {
         linkedTemplateData: {
             id: number | undefined;
             name: string | undefined;
-            conversionRule: {
-                id: number;
-                name: string;
-                value: number | null;
-                target: number | null;
-            } | null;
             conversionRuleType: Database['public']['Tables']['point_conversion_rule_type']['Row'] | null;
             pointGroup: Database['public']['Tables']['point_group']['Row'] | null;
+            conversionRuleValue: number | null;
+            conversionRuleTarget: number | null;
         },
         studentPoints: {
             studentData: Database['public']['Tables']['student']['Row'];

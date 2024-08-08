@@ -46,6 +46,10 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             templateId: data.pointTemplates[0].id,
             date: new Date().toISOString()
         })
+        setNewPointEventData({
+            templateId: data.pointTemplates[0].id,
+            date: new Date().toISOString()
+        })
         setShowLoadingScreen(false)
     }
 
@@ -180,8 +184,8 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             .forEach(pointEvent => {
                 const pointAmount = convertPointUsingRuleType(
                     stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                    pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
-                    pointEvent.linkedTemplateData.conversionRule?.target ?? 0
+                    pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
+                    pointEvent.linkedTemplateData.conversionRuleTarget ?? 0
                 )
                 pointMap["Total"] += pointAmount
                 const groupName = pointEvent.linkedTemplateData.pointGroup?.name ?? ""
@@ -281,7 +285,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                             {
                                                 studentPoint?.pointData.point_value === 0 ? "0" : convertPointUsingRuleType(
                                                     stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                                                    pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
+                                                    pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
                                                     studentPoint?.pointData.point_value ?? 0
                                                 )
                                             }
@@ -301,7 +305,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                             const studentPoint = pointEventsLookup[pointEvent.id].studentPoints?.find(studentPoint => studentPoint.studentData?.id === student.id)
                                             return convertPointUsingRuleType(
                                                 stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                                                pointEvent.linkedTemplateData.conversionRule?.value ?? 0,
+                                                pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
                                                 studentPoint?.pointData.point_value ?? 0
                                             )
                                         }).reduce((a, b) => a + b, 0)
@@ -463,7 +467,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                     {
                                         ruleTypeAndValueToFormula(
                                             stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                                            updatedPointEvent?.linkedTemplateData.conversionRule?.value ?? 0,
+                                            updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
                                             updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value ?? 0,
                                             null
                                         )
@@ -473,7 +477,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                     {
                                         convertPointUsingRuleType(
                                             stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                                            updatedPointEvent?.linkedTemplateData.conversionRule?.value ?? 0,
+                                            updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
                                             updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value ?? 0
                                         )
                                     }

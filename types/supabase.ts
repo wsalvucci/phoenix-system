@@ -241,27 +241,36 @@ export type Database = {
       }
       point_template: {
         Row: {
-          conversion_rule_id: number
+          conversion_formula: string | null
+          conversion_rule_type: number | null
+          conversion_rule_value: number
           created_at: string
           id: number
+          max_input_value: number
           name: string
           point_group_id: number
           student_group_id: number
           template_type_id: number
         }
         Insert: {
-          conversion_rule_id: number
+          conversion_formula?: string | null
+          conversion_rule_type?: number | null
+          conversion_rule_value: number
           created_at?: string
           id?: number
+          max_input_value: number
           name: string
           point_group_id: number
           student_group_id: number
           template_type_id: number
         }
         Update: {
-          conversion_rule_id?: number
+          conversion_formula?: string | null
+          conversion_rule_type?: number | null
+          conversion_rule_value?: number
           created_at?: string
           id?: number
+          max_input_value?: number
           name?: string
           point_group_id?: number
           student_group_id?: number
@@ -269,10 +278,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "point_template_conversionRuleId_fkey"
-            columns: ["conversion_rule_id"]
+            foreignKeyName: "point_template_conversion_rule_type_fkey"
+            columns: ["conversion_rule_type"]
             isOneToOne: false
-            referencedRelation: "point_conversion_rule"
+            referencedRelation: "point_conversion_rule_type"
             referencedColumns: ["id"]
           },
           {

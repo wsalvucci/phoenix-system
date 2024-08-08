@@ -60,7 +60,7 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
 
     const supabase = await supabaseServiceClient();
 
-    const pointEventsResponse = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule (*, point_conversion_rule_type (*)), point_group (*)), student_point (*)").eq("student_group_id", studentGroupId);
+    const pointEventsResponse = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule_type (*), point_group (*)), student_point (*)").eq("student_group_id", studentGroupId);
     const pointTemplatesResponse = await supabase.from("point_template").select("*").eq("student_group_id", studentGroupId);
     const studentPairsResponse = await supabase
         .from("student_group_pair")
@@ -104,14 +104,10 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
             linkedTemplateData: {
                 id: pointEventData.point_template?.id,
                 name: pointEventData.point_template?.name,
-                conversionRule: pointEventData.point_template?.point_conversion_rule && {
-                    id: pointEventData.point_template.point_conversion_rule.id,
-                    name: pointEventData.point_template.point_conversion_rule.name,
-                    value: pointEventData.point_template.point_conversion_rule.value,
-                    target: pointEventData.point_template.point_conversion_rule.target,
-                } || null,
-                conversionRuleType: pointEventData.point_template?.point_conversion_rule?.point_conversion_rule_type ?? null,
-                pointGroup: pointEventData.point_template?.point_group ?? null
+                conversionRuleType: pointEventData.point_template?.point_conversion_rule_type ?? null,
+                pointGroup: pointEventData.point_template?.point_group ?? null,
+                conversionRuleValue: pointEventData.point_template?.conversion_rule_value ?? null,
+                conversionRuleTarget: pointEventData.point_template?.max_input_value ?? null,
             },
             studentPoints: pointEventData.student_point?.map((studentPointData) => {
                 const searchedStudentData = studentPairsResponse.data.find((studentPair) => studentPair.student?.id === studentPointData.student_id)?.student;
@@ -206,7 +202,7 @@ export async function getConfigurationData(studentGroupId: number): Promise<Clas
         throw new Error("Error fetching student group");
     }
 
-    const { data: templateData, error: templateDataError } = await supabase.from("point_template").select("*, point_conversion_rule (*, point_conversion_rule_type (*)), point_template_type (*), point_group (*)").eq("student_group_id", studentGroupId);
+    const { data: templateData, error: templateDataError } = await supabase.from("point_template").select("*, point_conversion_rule_type (*), point_template_type (*), point_group (*)").eq("student_group_id", studentGroupId);
 
     if (templateDataError) {
         console.error("Error fetching point templates", templateDataError);
@@ -246,34 +242,20 @@ export async function getConfigurationData(studentGroupId: number): Promise<Clas
             return {
                 id: template.id,
                 name: template.name,
-                conversionRule: template.point_conversion_rule ? {
-                    id: template.point_conversion_rule.id,
-                    name: template.point_conversion_rule.name,
-                    value: template.point_conversion_rule.value,
-                    target: template.point_conversion_rule.target,
-                    formula: template.point_conversion_rule.formula,
-                    ruleType: template.point_conversion_rule.point_conversion_rule_type?.name ?? null
-                } : null,
                 templateType: template.point_template_type?.name ?? null,
                 pointGroup: template.point_group ? {
                     id: template.point_group.id,
                     name: template.point_group.name,
                     color: template.point_group.color
-                } : null
+                } : null,
+                conversionRuleType: template.point_conversion_rule_type?.name ?? null,
+                conversionRuleValue: template.conversion_rule_value ?? 0,
+                conversionRuleTarget: template.max_input_value ?? 0,
+                conversionRuleFormula: template.conversion_formula ?? null
             }
         }),
         pointGroups: pointGroupsData,
         templateTypes: pointTemplateTypesData,
-        conversionRules: pointConversionRulesData.map((rule) => {
-            return {
-                id: rule.id,
-                name: rule.name,
-                type: rule.ruleType?.name ?? "",
-                value: rule.value ?? 0,
-                formula: rule.formula,
-                target: rule.target
-            }
-        }),
         conversionRuleTypes: pointConversionRuleTypesData
     }
 }
@@ -282,8 +264,10 @@ export async function createPointTemplate(
     studentGroupId: number,
     name: string,
     pointGroupId: number,
-    conversionRuleId: number,
-    typeId: number
+    typeId: number,
+    conversionRuleTypeId: number,
+    conversionRuleValue: number,
+    maxInputValue: number,
 ): Promise<boolean> {
     const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
@@ -293,10 +277,12 @@ export async function createPointTemplate(
 
     const { data, error } = await supabase.from("point_template").insert({
         name: name,
-        conversion_rule_id: conversionRuleId,
         template_type_id: typeId,
         point_group_id: pointGroupId,
-        student_group_id: studentGroupId
+        student_group_id: studentGroupId,
+        conversion_rule_type: conversionRuleTypeId,
+        conversion_rule_value: conversionRuleValue,
+        max_input_value: maxInputValue
     });
 
     if (error) {
