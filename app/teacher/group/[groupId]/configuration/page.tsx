@@ -1,6 +1,6 @@
 "use client";
 
-import { ClassConfigurationData } from "@/app/dataClasses";
+import { ClassConfigurationData, convertPointUsingRuleType, stringToRuleType } from "@/app/dataClasses";
 import { getConfigurationData, createPointTemplate, createConversionRule } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { Fragment, useEffect, useState } from "react";
 
@@ -215,7 +215,7 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Name</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Point Group</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Type</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Points</div>
+                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Output Points</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b border-s">Rule Type</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Value</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Formula</div>
@@ -235,7 +235,7 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                                 {pointTemplate.pointGroup?.name}
                             </div>
                             <div className="flex justify-center">{pointTemplate.templateType}</div>
-                            <div className="flex justify-center">{"pts"}</div>
+                            <div className="flex justify-center">{convertPointUsingRuleType(stringToRuleType(pointTemplate.conversionRuleType ?? "default"), pointTemplate.conversionRuleValue ?? 0, pointTemplate.conversionRuleTarget ?? 0, pointTemplate.conversionRuleFormula) + "pts"}</div>
                             <div className="flex justify-center border-s">{pointTemplate.conversionRuleType}</div>
                             <div className="flex justify-center">{pointTemplate.conversionRuleValue}</div>
                             <div className="flex justify-center">{pointTemplate.conversionRuleFormula ?? 'N/A'}</div>
