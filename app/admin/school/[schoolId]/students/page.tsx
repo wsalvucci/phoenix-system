@@ -96,32 +96,6 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         fetchStudents();
     }, []);
 
-    const updateStudentState = async (updatedStudent: Student) => {
-        setStudents((prevStudents) =>
-            prevStudents.map((student: Student) =>
-                student.id === updatedStudent.id ? { ...student, ...updatedStudent } : student)
-        )
-    }
-
-    const updateStudentField = async (studentId: number, field: string, value: any) => {
-        setStudents((prevStudents) =>
-            prevStudents.map((student: Student) =>
-                student.id === studentId ? { ...student, [field]: value } : student))
-    }
-
-    const isStudentDiff = (studentId: number): boolean => {
-        const student = students.find((student: Student) => student.id === studentId)
-        const initialStudent = initialStudents.find((student: Student) => student.id === studentId)
-        if (student === undefined || initialStudent === undefined) {
-            return false
-        }
-        return student.firstName !== initialStudent.firstName ||
-            student.lastName !== initialStudent.lastName ||
-            student.grade !== initialStudent.grade ||
-            student.birthdate !== initialStudent.birthdate ||
-            student.gender !== initialStudent.gender
-    }
-
     const updateStudentFilterState = async () => {
         setStudentFilters(new StudentFilters(
             studentFilters.searchString,
@@ -132,7 +106,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         ))
     }
 
-    const bulkAddStudents = async (students: PreviewStudent[]) => {
+    const bulkAddStudents = async () => {
         if (activelyBulkAddingStudents) {
             return
         }
@@ -185,7 +159,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                     parserOptions={{
                         header: true
                     }}
-                    onFileLoaded={(data: any, fileInfo: any) => {
+                    onFileLoaded={(data: any) => {
                         setPreviewStudents([])
                         var studentData: PreviewStudent[] = []
                         data.forEach((student: any) => {
@@ -419,6 +393,8 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         return a.grade - b.grade
                                     } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
                                         return (a.birthdate ? a.birthdate.getTime() : 0) - (b.birthdate ? b.birthdate.getTime() : 0)
+                                    } else if (currentSortFilter === SortFilterOptions.GENDER) {
+                                        return (a.gender ?? "").localeCompare(b.gender ?? "")
                                     } else {
                                         return 0
                                     }
@@ -435,6 +411,8 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                         return b.grade - a.grade
                                     } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
                                         return (b.birthdate ? b.birthdate.getTime() : 0) - (a.birthdate ? a.birthdate.getTime() : 0)
+                                    } else if (currentSortFilter === SortFilterOptions.GENDER) {
+                                        return (b.gender ?? "").localeCompare(a.gender ?? "")
                                     } else {
                                         return 0
                                     }

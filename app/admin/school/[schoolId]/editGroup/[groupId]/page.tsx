@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { clientAddStudentGroup, clientAddStudentToStudentGroup, clientAddTeacherToStudentGroup, clientGetStudentGroup, clientRemoveStudentFromStudentGroup, clientRemoveTeacherFromStudentGroup } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
 import { clientGetSchoolTeachers } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
+import { clientGetSchoolStudents } from "@/app/supaApi/client/admin/students/adminStudentsApi";
 
 export default function EditGroupDashboard({ params: { schoolId, groupId } }: { params: { schoolId: string, groupId: string } }) {
 
@@ -49,9 +50,12 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
                 if (pulledGroupData?.parentGroup && pulledGroupData?.parentGroup !== null) {
                     const parentGroup = await clientGetStudentGroup(pulledGroupData.parentGroup);
                     setParentGroup(parentGroup);
-                    setAvailableStudentsToAdd(parentGroup?.students?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? [])
+                    setAvailableStudentsToAdd(parentGroup?.students?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? []);
                     setLoadingProgress(loadingProgress + 33);
                     setLoadingState("Loaded Parent Group Data");
+                } else if (pulledGroupData !== null) {
+                    const allStudents = await clientGetSchoolStudents(parseInt(schoolId));
+                    setAvailableStudentsToAdd(allStudents?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? []);
                 }
             })(),
             (async () => {
@@ -129,15 +133,16 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         setLoadingState("Removing Student From Group...");
         setLoading(true);
         await clientRemoveStudentFromStudentGroup(studentId, groupId)
-        console.log("Successfully removed student from group");
+        console.log("Successfully removed student from group: ", studentId, groupId);
     }
 
     const recursivelyRemoveStudentFromGroup = async (studentId: number, groupData: StudentGroup) => {
         await removeStudentFromGroup(studentId, groupData.id)
-        groupData.childGroups?.forEach(async (childGroup: StudentGroup) => {
-            await recursivelyRemoveStudentFromGroup(studentId, childGroup)
-        })
-        pullGroupData(parseInt(groupId))
+        await Promise.all((groupData.childGroups ?? []).map(async (childGroup: StudentGroup) => {
+            if (childGroup.students?.map(student => student.id).includes(studentId)) {
+                await recursivelyRemoveStudentFromGroup(studentId, childGroup)
+            }
+        }))
     }
 
     const removeSelectedStudents = async (groupData: StudentGroup) => {
@@ -145,9 +150,12 @@ export default function EditGroupDashboard({ params: { schoolId, groupId } }: { 
         setLoading(true);
         await Promise.all(studentsSelectedForRemoval.map(async studentId => {
             await recursivelyRemoveStudentFromGroup(studentId, groupData)
-        }))
-        setStudentsSelectedForRemoval([]);
-        pullGroupData(groupData.id);
+        })).then(() => {
+            setStudentsSelectedForRemoval([]);
+            pullGroupData(groupData.id);
+        }).catch(err => {
+            console.error("Error removing students: ", err);
+        })
     }
 
     const addSelectedStudents = async (groupId: number) => {

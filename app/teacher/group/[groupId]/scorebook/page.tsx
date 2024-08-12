@@ -5,6 +5,7 @@ import { clientCreatePointEvent } from "@/app/supaApi/client/teacher/teacherApi"
 import { editPointEvent, getScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { Database } from "@/types/supabase";
 import { Fragment, useEffect, useState } from "react";
+import { DateTime } from "luxon";
 import CSVReader from "react-csv-reader";
 
 type NewPointEventData = {
@@ -21,7 +22,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     const [newPointEventData, setNewPointEventData] = useState<NewPointEventData>(
         {
             templateId: -1,
-            date: Date.now().toString()
+            date: DateTime.now().toISO()
         }
     )
     const [addPointEventError, setAddPointEventError] = useState<boolean>(false)
@@ -44,11 +45,11 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         )
         data.pointTemplates.length > 0 && setNewPointEventData({
             templateId: data.pointTemplates[0].id,
-            date: new Date().toISOString()
+            date: DateTime.now().toISO()
         })
         setNewPointEventData({
             templateId: data.pointTemplates[0].id,
-            date: new Date().toISOString()
+            date: DateTime.now().toISO()
         })
         setShowLoadingScreen(false)
     }
@@ -66,10 +67,11 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
     const addNewPointEvent = async () => {
         setAddPointEventError(
-            !await clientCreatePointEvent(
+            await clientCreatePointEvent(
                 parseInt(groupId),
                 newPointEventData.templateId,
-                new Date(parseInt(newPointEventData.date)).toISOString()
+                //new Date(parseInt(newPointEventData.date)).toISOString()
+                DateTime.fromISO(newPointEventData.date).toISO() ?? ""
             )
         )
         fetchScorebookData()
@@ -100,11 +102,14 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                     <div>
                         <label className="me-3" htmlFor="date">Date</label>
                         <input type="date" id="date"
-                            defaultValue={new Date().toISOString().split('T')[0]}
+                            defaultValue={DateTime.now().toFormat("yyyy-MM-dd")}
                             onChange={
                                 (e) => {
                                     const date = e.target.value
-                                    updateNewPointEventData(newPointEventData.templateId, date)
+                                    updateNewPointEventData(
+                                        newPointEventData.templateId,
+                                        DateTime.fromISO(date).toISO() ?? ""
+                                    )
                                 }
                             } />
                     </div>
@@ -155,21 +160,6 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         setUpdatedPointEvent(null)
         setEditPointEventModalOpen(false)
         fetchScorebookData()
-    }
-
-    const formatTimestamp = (timestamp: string | null) => {
-        // Parse the PostgreSQL timestamptz string to a Date object
-        const utcDate = new Date(timestamp ?? 0);
-
-        // Get individual components
-        const year = utcDate.getFullYear();
-        const month = String(utcDate.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-        const day = String(utcDate.getDate()).padStart(2, '0');
-        const hours = String(utcDate.getHours()).padStart(2, '0');
-        const minutes = String(utcDate.getMinutes()).padStart(2, '0');
-
-        // Format as required by datetime-local input
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     const sumAllAvailablePoints = (
@@ -235,8 +225,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             <div className="flex justify-center">{pointEvent.linkedTemplateData.name}</div>
                             <div className="flex justify-center">{pointEvent.name ?? "-"}</div>
                             <div className="grid grid-cols-1">
-                                <div className="flex justify-center">{new Date(pointEvent.date ?? 0).toDateString()}</div>
-                                <div className="flex justify-center">{new Date(pointEvent.date ?? 0).toLocaleTimeString()}</div>
+                                <div className="flex justify-center">{DateTime.fromISO(pointEvent.date ?? "").toFormat("EEE, MMM d yyyy")}</div>
                             </div>
                             <button
                                 className="border rounded-lg w-full"
@@ -413,16 +402,18 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             }
                         } />
                     <input
-                        className="dark:[color-scheme:dark]" type="datetime-local" defaultValue={formatTimestamp(currentlyEditedPointEvent?.date ?? null)}
+                        className="dark:[color-scheme:dark]"
+                        type="date"
+                        defaultValue={DateTime.fromISO(currentlyEditedPointEvent?.date ?? "").toFormat("yyyy-MM-dd")}
                         value={
-                            formatTimestamp(updatedPointEvent?.date ?? null)
+                            DateTime.fromISO(updatedPointEvent?.date ?? "").toFormat("yyyy-MM-dd")
                         }
                         onChange={
                             (e) => {
                                 const date = e.target.value
                                 updatedPointEvent && setUpdatedPointEvent({
                                     ...updatedPointEvent,
-                                    date: new Date(date).toISOString()
+                                    date: DateTime.fromISO(date).toISO()
                                 })
                             }
                         } />
