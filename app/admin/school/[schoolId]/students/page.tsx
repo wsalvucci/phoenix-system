@@ -106,7 +106,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
         ))
     }
 
-    const bulkAddStudents = async () => {
+    const bulkAddStudents = async (students: PreviewStudent[]) => {
         if (activelyBulkAddingStudents) {
             return
         }
