@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import CSVReader from 'react-csv-reader'
 import { Student } from '@/app/dataClasses';
 import { clientGetSchoolStudents } from '@/app/supaApi/client/admin/students/adminStudentsApi';
+import { DateTime } from 'luxon';
+import { bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
 
 enum SortDirections {
     ASC = "ASC",
@@ -47,7 +49,7 @@ class PreviewStudent {
     firstName: string;
     lastName: string;
     grade: number;
-    birthdate: Date;
+    birthdate: DateTime;
     gender: string;
 
     constructor(
@@ -55,7 +57,7 @@ class PreviewStudent {
         firstName: string,
         lastName: string,
         grade: number,
-        birthdate: Date,
+        birthdate: DateTime,
         gender: string,
     ) {
         this.powerschoolId = powerschoolId;
@@ -111,7 +113,18 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
             return
         }
         setActivelyBulkAddingStudents(true)
-        // await supabase.from("student").upsert(students)
+        bulkAddStudentsToSchool(
+            students.map((student: PreviewStudent) => ({
+                powerschoolId: student.powerschoolId,
+                firstName: student.firstName,
+                lastName: student.lastName,
+                grade: student.grade,
+                birthdate: student.birthdate.toISODate() ?? "",
+                gender: student.gender,
+                schoolId: parseInt(schoolId)
+            })),
+            parseInt(schoolId)
+        )
         setActivelyBulkAddingStudents(false)
         console.log("Successfully bulk added students")
         setPreviewStudents([])
@@ -172,7 +185,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                 student.Name.split(",")[0],
                                 student.Name.split(",")[1],
                                 student.Grade,
-                                student.Birthday,
+                                DateTime.fromFormat(student.Birthday, "MM/dd/yy"),
                                 student.Gender
                             ))
                         })
@@ -215,7 +228,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                                                 <td className="border border-slate-500">{student.lastName}</td>
                                                 <td className="border border-slate-500">{student.firstName}</td>
                                                 <td className="border border-slate-500">{student.grade}</td>
-                                                <td className="border border-slate-500">{student.birthdate.toDateString()}</td>
+                                                <td className="border border-slate-500">{student.birthdate.toFormat("MMM dd yyyy")}</td>
                                                 <td className="border border-slate-500">{student.gender}</td>
                                             </tr>
                                         )
