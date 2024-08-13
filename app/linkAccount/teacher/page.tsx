@@ -16,7 +16,7 @@ export default function LinkTeacher() {
     const handleLinkTeacher = async (schoolId: number, linkCode: string) => {
         const linkResult = await clientLinkTeacher(schoolId, linkCode);
         if (linkResult.success) {
-            window.location.href = "/teacher/" + linkResult.linkId
+            window.location.href = "/teacher"
         } else {
             setErrorText(linkResult.message)
         }

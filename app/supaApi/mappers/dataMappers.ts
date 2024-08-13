@@ -91,6 +91,7 @@ export function studentResponseToData(
 ): Student {
     return new Student(
         studentResponse.id,
+        studentResponse.school_id,
         studentResponse.link_code,
         studentResponse.powerschool_id,
         studentResponse.first_name,

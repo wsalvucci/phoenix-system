@@ -172,7 +172,8 @@ export async function editPointEvent(scorebookPointEvent: ScorebookPointEvent): 
             id: studentPoint.pointData.id,
             student_id: studentPoint.studentData.id,
             point_value: studentPoint.pointData.point_value,
-            point_event_id: scorebookPointEvent.id
+            point_event_id: scorebookPointEvent.id,
+            input_score: studentPoint.pointData.input_score
         }
     })
 

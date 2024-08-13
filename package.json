@@ -9,6 +9,7 @@
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "autoprefixer": "10.4.17",
+    "color": "^4.2.3",
     "geist": "^1.2.1",
     "luxon": "^3.5.0",
     "next": "latest",
@@ -21,6 +22,7 @@
     "typescript": "5.5.4"
   },
   "devDependencies": {
+    "@types/color": "^3.0.6",
     "@types/luxon": "^3.4.2",
     "@types/node": "20.11.5",
     "@types/papaparse": "^5.3.14",

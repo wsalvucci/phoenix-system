@@ -265,20 +265,19 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                     return (
                                         <div
                                             key={pointEvent.id}
-                                            className={`flex justify-center border-b border-x ${studentPoint?.pointData.point_value === 0 ? "bg-red-100 dark:bg-red-900 dark:bg-opacity-50" : studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
+                                            className={`flex justify-center border-b border-x ${(!studentPoint?.pointData.input_score || studentPoint?.pointData.input_score === 0) ? "bg-red-100 dark:bg-red-900 dark:bg-opacity-50" : studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
                                             style={{
                                                 gridRowStart: studentIndex + 2,
                                                 gridColumnStart: pointEventIndex + 2
                                             }}
                                         >
                                             {
-                                                studentPoint?.pointData.point_value === 0 ? "0" : convertPointUsingRuleType(
+                                                studentPoint?.pointData.input_score === 0 ? "0" : convertPointUsingRuleType(
                                                     stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
                                                     pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
-                                                    studentPoint?.pointData.point_value ?? 0
+                                                    studentPoint?.pointData.input_score ?? 0
                                                 )
                                             }
-                                            {/* {studentPoint?.pointData.point_value || "-"} */}
                                         </div>
                                     )
                                 })
@@ -295,7 +294,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                             return convertPointUsingRuleType(
                                                 stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
                                                 pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
-                                                studentPoint?.pointData.point_value ?? 0
+                                                studentPoint?.pointData.input_score ?? 0
                                             )
                                         }).reduce((a, b) => a + b, 0)
                                     }
@@ -365,7 +364,12 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                                     studentData: studentPoint.studentData,
                                                     pointData: {
                                                         ...studentPoint.pointData,
-                                                        point_value: studentScore.points
+                                                        input_score: studentScore.points,
+                                                        point_value: convertPointUsingRuleType(
+                                                            stringToRuleType(prevState.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                                                            prevState.linkedTemplateData.conversionRuleValue ?? 0,
+                                                            studentScore.points
+                                                        )
                                                     }
                                                 };
                                             }
@@ -428,10 +432,10 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             <div key={student.id} className="grid grid-cols-4 my-1 py-1 border-b border-collapse">
                                 <div>{student.first_name} {student.last_name}</div>
                                 <input className="dark:[color-scheme:dark] px-2 rounded-full" type="number" defaultValue={
-                                    currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value
+                                    currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
                                 }
                                     value={
-                                        updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value
+                                        updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
                                     }
                                     onChange={
                                         (e) => {
@@ -445,7 +449,12 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                                             studentData: studentPoint.studentData,
                                                             pointData: {
                                                                 ...studentPoint.pointData,
-                                                                point_value: pointValue
+                                                                input_score: pointValue,
+                                                                point_value: convertPointUsingRuleType(
+                                                                    stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                                                                    updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
+                                                                    pointValue
+                                                                )
                                                             }
                                                         }
                                                     }
@@ -459,7 +468,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                         ruleTypeAndValueToFormula(
                                             stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
                                             updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
-                                            updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value ?? 0,
+                                            updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0,
                                             null
                                         )
                                     }
@@ -469,7 +478,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                         convertPointUsingRuleType(
                                             stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
                                             updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
-                                            updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.point_value ?? 0
+                                            updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
                                         )
                                     }
                                 </div>

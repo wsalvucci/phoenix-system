@@ -1,4 +1,5 @@
 import { Database } from "@/types/supabase";
+import { DateTime } from "luxon";
 
 export class StudentGroup {
     id: number;
@@ -40,6 +41,7 @@ export class School {
 
 export class Student {
     id: number;
+    schoolId: number;
     linkCode: string;
     powerSchoolId: number;
     firstName: string;
@@ -50,6 +52,7 @@ export class Student {
 
     constructor(
         id: number,
+        schoolId: number,
         linkCode: string,
         powerSchoolId: number,
         firstName: string,
@@ -59,6 +62,7 @@ export class Student {
         gender: string | null
     ) {
         this.id = id;
+        this.schoolId = schoolId;
         this.linkCode = linkCode;
         this.powerSchoolId = powerSchoolId;
         this.firstName = firstName;
@@ -389,17 +393,66 @@ export function convertPointUsingRuleType(
 ): number {
     switch (ruleType) {
         case PointConversionRuleType.ADD:
-            return input + value;
+            return Number(input) + Number(value);
         case PointConversionRuleType.SUBTRACT:
-            return input - value;
+            return Number(input) - Number(value);
         case PointConversionRuleType.MULTIPLY:
-            return input * value;
+            return Number(input) * Number(value);
         case PointConversionRuleType.DIVIDE:
-            return input / value;
+            return Number(input) / Number(value);
         case PointConversionRuleType.FORMULA:
             if (!formula) return input;
             return eval(formula);
         case PointConversionRuleType.DIRECT:
-            return value;
+            return input;
     }
 }
+
+
+export type StudentRankData =
+    {
+        points: {
+            id: number;
+            value: number;
+            date: string;
+            pointEvent: {
+                id: number;
+                name: string;
+                date: string;
+                studentGroup: {
+                    id: number;
+                    name: string;
+                }
+                pointTemplate: {
+                    id: number;
+                    name: string;
+                    pointGroup: {
+                        id: number;
+                        name: string;
+                        color: string;
+                    }
+                }
+            }
+        }[]
+        ranks: {
+            totalPoints: number;
+            totalRank: number;
+            pointGroupRanks: {
+                pointGroup: {
+                    id: number;
+                    name: string;
+                    color: string;
+                }
+                totalPoints: number;
+                rank: number;
+            }[];
+            studentGroupRanks: {
+                studentGroup: {
+                    id: number;
+                    name: string;
+                }
+                totalPoints: number;
+                rank: number;
+            }[];
+        }
+    }

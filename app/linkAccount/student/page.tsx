@@ -1,22 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { linkTeacher } from "../serverActions";
-import { createClient } from "@/utils/supabase/client";
-import clientLinkTeacher from "@/app/supaApi/client/clientLinkTeacher";
+import linkStudent from "@/app/supaApi/server/linkStudent";
 
-export default function LinkTeacher() {
+export default function LinkStudent() {
 
     const [schoolId, setSchoolId] = useState<number>(-1)
-    const [teacherLinkCode, setTeacherLinkCode] = useState<string>('')
+    const [studentLinkCode, setStudentLinkCode] = useState<string>('')
     const [errorText, setErrorText] = useState<string | null>(null)
 
-    const supabase = createClient();
-
-    const handleLinkTeacher = async (schoolId: number, linkCode: string) => {
-        const linkResult = await clientLinkTeacher(schoolId, linkCode);
+    const handleLinkStudent = async (schoolId: number, linkCode: string) => {
+        const linkResult = await linkStudent(schoolId, linkCode);
         if (linkResult.success) {
-            window.location.href = "/teacher/" + linkResult.linkId
+            window.location.href = "/student"
         } else {
             setErrorText(linkResult.message)
         }
@@ -33,13 +29,13 @@ export default function LinkTeacher() {
             <input
                 className="w-full dark:[color-scheme:dark]"
                 type="text"
-                placeholder="Teacher Link Code"
-                onChange={(e) => setTeacherLinkCode(e.target.value)}
+                placeholder="Student Link Code"
+                onChange={(e) => setStudentLinkCode(e.target.value)}
             />
             <button
                 className="w-full bg-blue-300 dark:bg-blue-700 rounded-lg"
-                onClick={() => handleLinkTeacher(schoolId, teacherLinkCode)}
-            >Link Teacher</button>
+                onClick={() => handleLinkStudent(schoolId, studentLinkCode)}
+            >Link Student</button>
             {
                 errorText && <div className="text-red-500">{errorText}</div>
             }
