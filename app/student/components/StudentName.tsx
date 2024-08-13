@@ -7,16 +7,15 @@ const numberToOrdinal = (n: number) => {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function HeaderRank(
+export default function StudentName(
     {
-        firstName, grade, lastName, totalPoints, totalRank
+        firstName, lastName, grade
     }: {
         firstName: string,
-        grade: number,
         lastName: string,
-        totalPoints: number,
-        totalRank: number
-    }) {
+        grade: number
+    }
+) {
     return (
         <div>
             <div className="text-2xl flex justify-center">
@@ -24,12 +23,6 @@ export default function HeaderRank(
             </div>
             <div className="text-xl flex justify-center mb-10">
                 {numberToOrdinal(grade)} Grade
-            </div>
-            <div className="text-5xl flex justify-center">
-                {totalPoints.toLocaleString()}pts
-            </div>
-            <div className="text-3xl flex justify-center">
-                {numberToOrdinal(totalRank || 0)}
             </div>
         </div>
     )

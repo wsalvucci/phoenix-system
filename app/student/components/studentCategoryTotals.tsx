@@ -23,24 +23,21 @@ export default function StudentCategoryTotals(
         }[]
     }
 ) {
-    console.log(categories);
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b">
-                Points by Category
+            <div className="text-xl border-b flex justify-center">
+                Group Rankings
             </div>
             {
                 categories.map((category) => {
-                    console.log(category);
                     return (
                         <div
                             key={category.studentGroup.id}
-                            className={`text-xl grid grid-cols-3 justify-center my-1 rounded-full ps-3`}
+                            className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
                         >
-                            <div>{category.studentGroup.name}</div>
-                            <div className="flex justify-end">{category.totalPoints}</div>
-                            <div className="flex justify-end">{numberToOrdinal(category.rank)}</div>
+                            <div className="flex justify-center">{category.studentGroup.name}</div>
+                            <div className="flex justify-center">{numberToOrdinal(category.rank)}</div>
                         </div>
                     )
                 })

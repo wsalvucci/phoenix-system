@@ -76,14 +76,23 @@ export async function getStudentRankData(): Promise<StudentRankData> {
 
     if (allStudentPointsData === null) throw new Error("All student points not found");
 
+
+
+
+
+
     const { data: allStudentPointsByPointGroupData, error: allStudentPointsByPointGroupError } =
         await supabase
             .from("student_point")
-            .select("point_event (point_template (point_group (*))), student (*), totalPoints: point_value.sum()")
+            .select("point_event (point_template (point_group (*))), student (*, student_group (*)), totalPoints: point_value.sum()")
             .eq("student.school_id", studentData.schoolId)
             .returns<{
                 student: {
                     id: number,
+                    student_group: {
+                        id: number,
+                        name: string
+                    }[]
                 },
                 totalPoints: number,
                 point_event: {
@@ -142,67 +151,29 @@ export async function getStudentRankData(): Promise<StudentRankData> {
         }
     });
 
-    // console.log(sortedGroups.map((group) => {
-    //     return group.students.map((student) => {
-    //         return {
-    //             id: student.id,
-    //             totalPoints: student.totalPoints,
-    //             groupId: group.id
-    //         };
-    //     });
-    // }));
 
-    // console.log(groupRanks);
+    // Get the student's total point ranking within each student group that they are a part of
 
-    const { data: allStudentPointsByStudentGroupData, error: allStudentPointsByStudentGroupError } =
-        await supabase
-            .from("student_point")
-            .select("point_event (point_template (point_group (*)), student_group (*)), student (*), totalPoints: point_value.sum()")
-            .eq("student.school_id", studentData.schoolId)
-            .returns<{
-                student: {
-                    id: number,
-                },
-                totalPoints: number,
-                point_event: {
-                    student_group: {
-                        id: number,
-                        name: string
-                    }
+    const studentGroupRankings = allStudentPointsByPointGroupData.reduce((acc, pointData) => {
+        pointData.student.student_group.forEach((studentGroup) => {
+            if (!acc[studentGroup.id]) {
+                acc[studentGroup.id] = {
+                    id: studentGroup.id,
+                    name: studentGroup.name,
+                    totalPoints: 0,
+                    students: []
                 }
-            }[]>();
-
-    if (allStudentPointsByStudentGroupError) {
-        console.error(allStudentPointsByStudentGroupError);
-        throw allStudentPointsByStudentGroupError;
-    }
-
-    if (allStudentPointsByStudentGroupData === null) throw new Error("All student points by student group not found");
-
-    console.log("Student points by student group");
-    console.log(allStudentPointsByStudentGroupData);
-
-    // Find the student's rank within each student group
-
-    const studentGroups = allStudentPointsByStudentGroupData.reduce((acc, pointData) => {
-        const studentGroup = pointData.point_event.student_group;
-        if (!acc[studentGroup.id]) {
-            acc[studentGroup.id] = {
-                id: studentGroup.id,
-                name: studentGroup.name,
-                totalPoints: 0,
-                students: []
             }
-        }
-        acc[studentGroup.id].totalPoints += pointData.totalPoints;
-        acc[studentGroup.id].students.push({
-            id: pointData.student.id,
-            totalPoints: pointData.totalPoints
+            acc[studentGroup.id].totalPoints += pointData.totalPoints;
+            acc[studentGroup.id].students.push({
+                id: pointData.student.id,
+                totalPoints: pointData.totalPoints
+            });
         });
         return acc;
     }, {} as { [key: number]: { id: number, name: string, totalPoints: number, students: { id: number, totalPoints: number }[] } });
 
-    const sortedStudentGroups = Object.values(studentGroups).map((studentGroup) => {
+    const sortedStudentGroups = Object.values(studentGroupRankings).map((studentGroup) => {
         return {
             ...studentGroup,
             students: studentGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)
@@ -217,16 +188,6 @@ export async function getStudentRankData(): Promise<StudentRankData> {
             totalPoints: (studentGroup.students.find((student) => student.id === studentData.id) ?? { totalPoints: 0 }).totalPoints
         }
     });
-
-    // console.log(sortedStudentGroups.map((studentGroup) => {
-    //     return studentGroup.students.map((student) => {
-    //         return {
-    //             id: student.id,
-    //             totalPoints: student.totalPoints,
-    //             groupId: studentGroup.id
-    //         };
-    //     });
-    // }));
 
     return {
         points: studentPointsData.filter((pointData) => {

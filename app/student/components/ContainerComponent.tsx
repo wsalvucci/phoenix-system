@@ -1,9 +1,13 @@
+"use client";
+
 import { Student, StudentRankData } from "@/app/dataClasses";
-import HeaderRank from "./headerRank";
+import TotalPointsRank from "./TotalPointsRank";
 import PointCategoryTotals from "./pointCategoryTotals";
 import RecentPoints from "./recentPoints";
 import Color from "color";
-import Script from "next/script";
+import StudentName from "./StudentName";
+import { useEffect, useState } from "react";
+import StudentCategoryTotals from "./studentCategoryTotals";
 
 const rankToColor = (rank: number) => {
     if (rank === 1) {
@@ -18,47 +22,12 @@ const rankToColor = (rank: number) => {
         return Color("#008080");
     } else if (rank <= 10) {
         return Color("#DC143C");
+    } else if (rank <= 20) {
+        return Color("#1318C5")
     } else {
         return Color("#000000");
     }
 }
-
-const goldMetalStyle = {
-    background: 'linear-gradient(135deg, #FFD700 0%, #FFC200 40%, #FFB14E 100%)',
-    border: '2px solid #B8860B',
-    borderRadius: '8px',
-    boxShadow: `
-      inset 0 0 10px rgba(255, 215, 0, 0.6),
-      inset 0 0 20px rgba(255, 215, 0, 0.4),
-      0 0 10px rgba(0, 0, 0, 0.5)
-    `,
-    width: '200px',
-    height: '200px',
-    margin: '20px auto',
-    position: 'relative',
-    overflow: 'hidden',
-};
-
-const glossyEffectStyle = {
-    content: '""',
-    position: 'absolute',
-    top: '-50%',
-    left: '-50%',
-    width: '200%',
-    height: '200%',
-    background: 'rgba(255, 255, 255, 0.3)',
-    transform: 'rotate(45deg)',
-    transition: 'all 0.3s ease-in-out',
-};
-
-const containerStyle = {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    '&:hover::before': {
-        background: 'rgba(255, 255, 255, 0.1)',
-    },
-};
 
 export default function ContainerComponent(
     {
@@ -68,49 +37,52 @@ export default function ContainerComponent(
         studentRankData: StudentRankData
     }
 ) {
-    const testRank = 7
+    const totalRank = 17
+    //const totalRank = studentRankData.ranks.totalRank;
     return (
         <div
-            className="animate-in w-full h-full rounded-3xl border text-white"
+            className="animate-in w-full overflow-auto rounded-lg border text-white"
             style={{
-                //background: 'linear-gradient(135deg, #FFD700 0%, #fcfbfa 20%, #FFC200 40%, #fcfbfa 80%, #FFB14E 100%)',
+                height: '100svh',
+                maxHeight: '100svh',
+                overflow: 'scroll',
                 background: `
                 linear-gradient(135deg,
-                ${rankToColor(testRank).hex()} 0%,
+                ${rankToColor(totalRank).hex()} 0%,
                 #fcfbfa 20%,
-                ${rankToColor(testRank).darken(0.05).hex()} 40%,
+                ${rankToColor(totalRank).darken(0.05).hex()} 40%,
                 #fcfbfa 80%,
-                ${rankToColor(testRank).darken(0.1).hex()} 100%)
-                `
+                ${rankToColor(totalRank).darken(0.1).hex()} 100%)
+                `,
+                boxShadow: `inset 0 0 10px #000000`
             }}
         >
-            <div className="m-6 p-6 bg-black rounded-3xl"
+            <div className="m-3 p-6 bg-black rounded-3xl"
                 style={{
-                    //background: 'linear-gradient(135deg, #613c0b 0%, #c3992f 40%, #613c0b 100%)',
+                    minHeight: 'calc(100svh - 48px)',
+                    maxHeight: 'calc(100svh - 48px)',
+                    overflow: 'auto',
                     background: `
                     linear-gradient(135deg,
-                    ${rankToColor(testRank).darken(0.1).hex()} 0%,
-                    ${rankToColor(testRank).darken(0.4).hex()} 40%,
-                    ${rankToColor(testRank).darken(0.1).hex()} 100%)`,
-                    // boxShadow: `
-                    //   inset 0 0 10px rgba(127, 107, 0, 0.6),
-                    //   inset 0 0 20px rgba(127, 107, 0, 0.4),
-                    //   0 0 10px rgba(0, 0, 0, 0.5)
-                    // `
+                    ${rankToColor(totalRank).darken(0.1).hex()} 0%,
+                    ${rankToColor(totalRank).darken(0.4).hex()} 40%,
+                    ${rankToColor(totalRank).darken(0.1).hex()} 100%)`,
                     boxShadow: `
-                    inset 0 0 10px ${rankToColor(testRank).darken(0.5).rgb().string()},
-                    inset 0 0 20px ${rankToColor(testRank).darken(0.5).rgb().string()},
+                    inset 0 0 10px ${rankToColor(totalRank).darken(0.5).rgb().string()},
+                    inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     `
                 }}>
-                <HeaderRank
+                <StudentName
                     firstName={studentData?.firstName || ""}
-                    grade={studentData?.grade || 0}
                     lastName={studentData?.lastName || ""}
+                    grade={studentData?.grade || 0}
+                />
+                <TotalPointsRank
                     totalPoints={studentRankData?.ranks.totalPoints || 0}
-                    totalRank={studentRankData?.ranks.totalRank || 0}
+                    totalRank={totalRank}
                 />
                 <PointCategoryTotals categories={studentRankData.ranks.pointGroupRanks} />
-                {/* <StudentCategoryTotals categories={studentRankData.ranks.studentGroupRanks} /> */}
+                <StudentCategoryTotals categories={studentRankData.ranks.studentGroupRanks} />
                 <RecentPoints recentPoints={studentRankData.points} />
             </div>
         </div>

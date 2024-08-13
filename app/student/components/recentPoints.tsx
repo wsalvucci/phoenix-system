@@ -30,22 +30,21 @@ export default function RecentPoints(
         }[]
     }
 ) {
-    console.log(recentPoints);
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b">
+            <div className="text-xl border-b flex justify-center">
                 Recent Points
             </div>
             {
                 recentPoints
                     .sort((a, b) => DateTime.fromISO(b.date).toMillis() - DateTime.fromISO(a.date).toMillis())
+                    .slice(0, 7)
                     .map((point) => {
-                        console.log(point);
                         return (
                             <div
                                 key={point.id}
-                                className={`text-lg grid grid-cols-2 justify-center my-1 ps-1`}
+                                className={`text-lg grid grid-cols-2 justify-center my-1 ps-3`}
                                 style={{
                                     borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`
                                 }}

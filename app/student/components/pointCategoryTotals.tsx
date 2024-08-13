@@ -24,16 +24,14 @@ export default function PointCategoryTotals(
         }[]
     }
 ) {
-    console.log(categories);
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b">
+            <div className="text-xl border-b flex justify-center">
                 Points by Category
             </div>
             {
                 categories.map((category) => {
-                    console.log(category);
                     return (
                         <div
                             key={category.pointGroup.id}
@@ -43,7 +41,7 @@ export default function PointCategoryTotals(
                             }}
                         >
                             <div>{category.pointGroup.name}</div>
-                            <div className="flex justify-end">{category.totalPoints}</div>
+                            <div className="flex justify-end">{category.totalPoints}pts</div>
                             <div className="flex justify-end">{numberToOrdinal(category.rank)}</div>
                         </div>
                     )
