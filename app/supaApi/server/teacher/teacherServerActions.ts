@@ -1,9 +1,10 @@
 "use server";
 
-import { ClassConfigurationData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
+import { ClassConfigurationData, RankingGroup, RankingGroupData, RankingGroupScorebookData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { Database } from "@/types/supabase";
+import getOwnTeacherData from "./getOwnTeacherData";
 
 export async function createPointEvent(studentGroupId: number, pointTemplateId: number, date: string): Promise<boolean> {
     const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
@@ -91,8 +92,6 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
         console.error("Error fetching student group", studentGroupResponse.error);
         throw new Error("Error fetching student group");
     }
-
-    console.log(pointEventsResponse)
 
     return {
         pointEvents: pointEventsResponse.data.map((pointEventData) => ({
@@ -318,6 +317,190 @@ export async function createConversionRule(
 
     if (error) {
         console.error("Error creating conversion rule", error);
+        return false;
+    }
+
+    return true;
+}
+
+export async function checkTeacherAccessToRankingGroup(rankingGroupId: number): Promise<boolean> {
+    const teacherData = await getOwnTeacherData();
+
+    if (!teacherData) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data: rankingGroupPairData, error: rankingGroupPairError } = await supabase.from("teacher_ranking_group_pair").select("*").eq("teacher_id", teacherData.id).eq("ranking_group_id", rankingGroupId).single();
+
+    if (rankingGroupPairError) {
+        console.error(rankingGroupPairError);
+        return false;
+    }
+
+    if (rankingGroupPairData === null) return false;
+
+    return true;
+}
+
+export async function getRankingGroups(): Promise<RankingGroupData[]> {
+    const teacherData = await getOwnTeacherData();
+
+    if (!teacherData) throw new Error("Teacher data not found");
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("teacher_ranking_group_pair").select("*, ranking_group (*, ranking_group_pair (*, student_group (*)))").eq("teacher_id", teacherData.id);
+
+    if (error) {
+        console.error("Error fetching ranking groups", error);
+        throw new Error("Error fetching ranking groups");
+    }
+
+    return data.map((rankingGroupPairData) => {
+        return {
+            id: rankingGroupPairData.ranking_group_id,
+            name: rankingGroupPairData.ranking_group?.name ?? "",
+            studentGroups: rankingGroupPairData.ranking_group?.ranking_group_pair.map((studentGroupPairData) => {
+                return {
+                    id: studentGroupPairData.student_group_id,
+                    name: studentGroupPairData.student_group?.name ?? ""
+                }
+            }) ?? []
+        }
+    })
+}
+
+export async function getRankingGroupPoints(rankingGroupId: number): Promise<RankingGroupScorebookData> {
+    const teacherAccess = await checkTeacherAccessToRankingGroup(rankingGroupId);
+
+    if (!teacherAccess) throw new Error("Teacher does not have access to this ranking group");
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("ranking_group").select("*, ranking_group_pair(*, student_group (*)), ranking_group_point_event (*, student_group_point (*))").eq("id", rankingGroupId).single();
+
+    if (error) {
+        console.error("Error fetching ranking group points", error);
+        throw new Error("Error fetching ranking group points");
+    }
+
+    return {
+        id: data.id,
+        name: data.name,
+        studentGroups: data.ranking_group_pair.map((studentGroupPairData) => {
+            return {
+                id: studentGroupPairData.student_group_id,
+                name: studentGroupPairData.student_group?.name ?? "",
+            }
+        }),
+        pointEvents: data.ranking_group_point_event.map((pointEventData) => {
+            return {
+                id: pointEventData.id,
+                name: pointEventData.name ?? "",
+                date: pointEventData.date,
+                studentGroupPoints: pointEventData.student_group_point.map((studentGroupPointData) => {
+                    return {
+                        studentGroupId: studentGroupPointData.student_group_id,
+                        value: studentGroupPointData.value,
+                        pointId: studentGroupPointData.id
+                    }
+                })
+            }
+        }
+        )
+    }
+}
+
+export async function createRankingGroupPointEvent(rankingGroupId: number, name: string, date: string): Promise<boolean> {
+    const teacherAccess = await checkTeacherAccessToRankingGroup(rankingGroupId);
+
+    if (!teacherAccess) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("ranking_group_point_event").insert({
+        ranking_group_id: rankingGroupId,
+        name: name,
+        date: date
+    });
+
+    if (error) {
+        console.error("Error creating ranking group point event", error);
+        return false;
+    }
+
+    return true;
+}
+
+export async function editRankingGroupPointEvent(
+    rankingGroupId: number,
+    pointEventId: number,
+    name: string,
+    date: string,
+    points: {
+        studentGroupId: number;
+        pointId: number;
+        value: number;
+    }[]
+): Promise<boolean> {
+    const teacherAccess = await checkTeacherAccessToRankingGroup(rankingGroupId);
+
+    if (!teacherAccess) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase.from("ranking_group_point_event").select("*").eq("id", pointEventId).single();
+
+    if (error) {
+        console.error("Error fetching ranking group point event", error);
+        return false;
+    }
+
+    if (!data) {
+        console.error("Point event not found");
+        return false;
+    }
+
+    if (data.ranking_group_id !== rankingGroupId) {
+        console.error("Teacher does not have access to this point event");
+        return false;
+    }
+
+    const { data: updateData, error: updateError } = await supabase.from("ranking_group_point_event").update({
+        name: name,
+        date: date
+    }).eq("id", pointEventId);
+
+    if (updateError) {
+        console.error("Error updating ranking group point event", updateError);
+        return false;
+    }
+
+    const newPoints = points.map((point) => {
+        if (point.pointId === -1) {
+            return {
+                student_group_id: point.studentGroupId,
+                value: point.value,
+                ranking_group_point_event_id: pointEventId
+            }
+        } else {
+            return {
+                id: point.pointId,
+                student_group_id: point.studentGroupId,
+                value: point.value,
+                ranking_group_point_event_id: pointEventId
+            }
+        }
+    })
+
+    console.log(newPoints);
+
+    const { data: updateStudentGroupPointsData, error: updateStudentGroupPointsError } = await supabase.from("student_group_point").upsert(
+        newPoints
+    );
+
+    if (updateStudentGroupPointsError) {
+        console.error("Error updating student group points", updateStudentGroupPointsError);
         return false;
     }
 

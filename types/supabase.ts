@@ -387,6 +387,38 @@ export type Database = {
           },
         ]
       }
+      ranking_group_point_event: {
+        Row: {
+          created_at: string
+          date: string
+          id: number
+          name: string | null
+          ranking_group_id: number
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: number
+          name?: string | null
+          ranking_group_id: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: number
+          name?: string | null
+          ranking_group_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ranking_group_point_event_ranking_group_id_fkey"
+            columns: ["ranking_group_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_group"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       school: {
         Row: {
           created_at: string
@@ -600,6 +632,45 @@ export type Database = {
           },
         ]
       }
+      student_group_point: {
+        Row: {
+          created_at: string
+          id: number
+          ranking_group_point_event_id: number
+          student_group_id: number
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ranking_group_point_event_id: number
+          student_group_id: number
+          value?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ranking_group_point_event_id?: number
+          student_group_id?: number
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_group_point_ranking_group_point_event_id_fkey"
+            columns: ["ranking_group_point_event_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_group_point_event"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_group_point_student_group_id_fkey1"
+            columns: ["student_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_group_type: {
         Row: {
           created_at: string
@@ -734,6 +805,39 @@ export type Database = {
           },
           {
             foreignKeyName: "teacher_class_pair_teacherId_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_ranking_group_pair: {
+        Row: {
+          created_at: string
+          ranking_group_id: number
+          teacher_id: number
+        }
+        Insert: {
+          created_at?: string
+          ranking_group_id: number
+          teacher_id: number
+        }
+        Update: {
+          created_at?: string
+          ranking_group_id?: number
+          teacher_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_ranking_group_pair_ranking_group_id_fkey"
+            columns: ["ranking_group_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_ranking_group_pair_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teacher"

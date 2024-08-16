@@ -1,4 +1,5 @@
 import { Database } from "@/types/supabase";
+import Color from "color";
 import { DateTime } from "luxon";
 
 export class StudentGroup {
@@ -456,3 +457,108 @@ export type StudentRankData =
             }[];
         }
     }
+
+export type GlobalDashboardData =
+    {
+        schoolData: {
+            id: number;
+            name: string;
+        };
+        totals: {
+            allTime: TimedTotalPointData;
+            thisMonth: TimedTotalPointData;
+            thisWeek: TimedTotalPointData;
+            today: TimedTotalPointData;
+        };
+        topStudents: {
+            topOverall: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+            }[];
+            topByPointGroup: {
+                id: number;
+                name: string;
+                topStudents: {
+                    id: number;
+                    firstName: string;
+                    lastName: string;
+                    totalPoints: number;
+                }[];
+            }[];
+            topByGrade: {
+                grade: number;
+                topStudents: {
+                    id: number;
+                    firstName: string;
+                    lastName: string;
+                    totalPoints: number;
+                }[];
+            }[];
+        }
+    }
+
+export type TimedTotalPointData = {
+    totalPoints: number;
+    totalPointsByPointGroup: {
+        id: number;
+        name: string;
+        totalPoints: number;
+        color: string;
+    }[];
+    totalPointsByStudentGroup: {
+        id: number;
+        name: string;
+        totalPoints: number;
+        totalStudents: number;
+    }[];
+}
+
+export const rankToColor = (rank: number) => {
+    if (rank === 1) {
+        return Color("#FFD700");
+    } else if (rank === 2) {
+        return Color("#C0C0C0");
+    } else if (rank === 3) {
+        return Color("#CD7F32");
+    } else if (rank === 4) {
+        return Color("#800080");
+    } else if (rank === 5) {
+        return Color("#008080");
+    } else if (rank <= 10) {
+        return Color("#DC143C");
+    } else if (rank <= 20) {
+        return Color("#1318C5")
+    } else {
+        return Color("#000000");
+    }
+}
+
+export type RankingGroupScorebookData = {
+    id: number;
+    name: string;
+    studentGroups: {
+        id: number;
+        name: string;
+    }[];
+    pointEvents: {
+        id: number;
+        name: string;
+        date: string;
+        studentGroupPoints: {
+            studentGroupId: number;
+            value: number;
+            pointId: number;
+        }[];
+    }[];
+}
+
+export type RankingGroupData = {
+    id: number;
+    name: string;
+    studentGroups: {
+        id: number;
+        name: string;
+    }[];
+}
