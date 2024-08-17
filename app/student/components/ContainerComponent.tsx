@@ -37,8 +37,8 @@ export default function ContainerComponent(
         studentRankData: StudentRankData
     }
 ) {
-    const totalRank = 17
-    //const totalRank = studentRankData.ranks.totalRank;
+    //const totalRank = 17
+    const totalRank = studentRankData.ranks.totalRank;
     return (
         <div
             className="animate-in w-full overflow-auto rounded-lg border text-white"
