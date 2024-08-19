@@ -298,6 +298,7 @@ export class ScorebookPointEvent {
     name: string | null;
     student_group_id: number;
     template_id: number;
+    maxInput: number | null;
     linkedTemplateData: {
         id: number | undefined;
         name: string | undefined;
@@ -317,6 +318,7 @@ export class ScorebookPointEvent {
         name: string | null,
         student_group_id: number,
         template_id: number,
+        maxInput: number | null,
         linkedTemplateData: {
             id: number | undefined;
             name: string | undefined;
@@ -335,6 +337,7 @@ export class ScorebookPointEvent {
         this.date = date;
         this.student_group_id = student_group_id;
         this.template_id = template_id;
+        this.maxInput = maxInput;
         this.linkedTemplateData = linkedTemplateData;
         this.studentPoints = studentPoints;
     }

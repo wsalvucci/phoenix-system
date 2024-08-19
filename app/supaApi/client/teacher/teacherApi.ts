@@ -20,9 +20,21 @@ export async function clientGetStudentGroup(studentGroupId: number): Promise<Stu
     return studentGroupWithRelationsResponseToData(group);
 }
 
-export async function clientCreatePointEvent(studentGroupId: number, pointTemplateId: number, date: string): Promise<boolean> {
+export async function clientCreatePointEvent(
+    studentGroupId: number,
+    pointTemplateId: number,
+    date: string,
+    name: string,
+    maxInput: number,
+): Promise<boolean> {
     console.log("Creating point event", studentGroupId, pointTemplateId, date);
-    return createPointEvent(studentGroupId, pointTemplateId, date);
+    return createPointEvent(
+        studentGroupId,
+        pointTemplateId,
+        date,
+        name,
+        maxInput,
+    );
 }
 
 // export async function clientGetGroupScorebookData(studentGroupId: number): Promise<ScorebookData> {

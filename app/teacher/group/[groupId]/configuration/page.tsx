@@ -143,19 +143,6 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                             });
                         }}
                     />
-                    Max Score:
-                    <input
-                        type="number"
-                        placeholder="Conversion Rule Target"
-                        className="border p-2 rounded dark:[color-scheme:dark]"
-                        value={newPointTemplateData.conversionRuleTarget}
-                        onChange={(e) => {
-                            setNewPointTemplateData({
-                                ...newPointTemplateData,
-                                conversionRuleTarget: parseInt(e.target.value),
-                            });
-                        }}
-                    />
                 </div>
                 <button
                     className="bg-blue-500 text-white rounded p-2"
@@ -208,22 +195,20 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                     Create New Template
                 </button>
             </div>
-            <div className="w-full grid grid-cols-8 pb-2">
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-4 border-b">Template</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-4 border-b border-x">Conversion Rule</div>
+            <div className="w-full grid grid-cols-6 pb-2">
+                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-3 border-b">Template</div>
+                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 col-span-3 border-b border-x">Conversion Rule</div>
 
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Name</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Point Group</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Type</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Output Points</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b border-s">Rule Type</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Value</div>
                 <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Rule Formula</div>
-                <div className="flex justify-center bg-slate-300 dark:bg-slate-700 sticky top-0 border-b">Max Input Value</div>
                 {
                     configurationData?.templates.map((pointTemplate, index) => (
                         <div
-                            className="col-span-8 grid grid-cols-8 border-y cursor-pointer"
+                            className="col-span-6 grid grid-cols-6 border-y cursor-pointer"
                             onClick={() => {
                                 console.log(pointTemplate);
                             }}
@@ -235,11 +220,9 @@ export default function TeacherGroupConfiguration({ params: { groupId } }: { par
                                 {pointTemplate.pointGroup?.name}
                             </div>
                             <div className="flex justify-center">{pointTemplate.templateType}</div>
-                            <div className="flex justify-center">{convertPointUsingRuleType(stringToRuleType(pointTemplate.conversionRuleType ?? "default"), pointTemplate.conversionRuleValue ?? 0, pointTemplate.conversionRuleTarget ?? 0, pointTemplate.conversionRuleFormula) + "pts"}</div>
                             <div className="flex justify-center border-s">{pointTemplate.conversionRuleType}</div>
                             <div className="flex justify-center">{pointTemplate.conversionRuleValue}</div>
                             <div className="flex justify-center">{pointTemplate.conversionRuleFormula ?? 'N/A'}</div>
-                            <div className="flex justify-center">{pointTemplate.conversionRuleTarget}</div>
                         </div>
                     ))
                 }

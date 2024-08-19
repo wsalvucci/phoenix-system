@@ -6,7 +6,13 @@ import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAc
 import { Database } from "@/types/supabase";
 import getOwnTeacherData from "./getOwnTeacherData";
 
-export async function createPointEvent(studentGroupId: number, pointTemplateId: number, date: string): Promise<boolean> {
+export async function createPointEvent(
+    studentGroupId: number,
+    pointTemplateId: number,
+    date: string,
+    name: string,
+    maxInput: number,
+): Promise<boolean> {
     const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
     if (!teacherAccess) return false;
@@ -16,7 +22,9 @@ export async function createPointEvent(studentGroupId: number, pointTemplateId: 
     const { data: pointEventData, error: pointEventError } = await supabase.from("point_event").insert({
         student_group_id: studentGroupId,
         template_id: pointTemplateId,
-        date
+        date: date,
+        name: name,
+        max_input: maxInput
     }).select("*").single();
 
     if (pointEventError) {
@@ -100,6 +108,7 @@ export async function getScorebookData(studentGroupId: number): Promise<Scoreboo
             name: pointEventData.name,
             student_group_id: pointEventData.student_group_id,
             template_id: pointEventData.template_id,
+            maxInput: pointEventData.max_input,
             linkedTemplateData: {
                 id: pointEventData.point_template?.id,
                 name: pointEventData.point_template?.name,

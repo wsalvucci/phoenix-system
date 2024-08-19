@@ -10,7 +10,9 @@ import CSVReader from "react-csv-reader";
 
 type NewPointEventData = {
     templateId: number,
-    date: string
+    date: string,
+    name: string,
+    maxInput: number
 }
 
 export default function TeacherGroupScorebook({ params: { groupId } }: { params: { groupId: string } }) {
@@ -22,7 +24,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     const [newPointEventData, setNewPointEventData] = useState<NewPointEventData>(
         {
             templateId: -1,
-            date: DateTime.now().toISO()
+            date: DateTime.now().toISO(),
+            name: "",
+            maxInput: 0
         }
     )
     const [addPointEventError, setAddPointEventError] = useState<boolean>(false)
@@ -45,11 +49,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         )
         data.pointTemplates.length > 0 && setNewPointEventData({
             templateId: data.pointTemplates[0].id,
-            date: DateTime.now().toISO()
-        })
-        setNewPointEventData({
-            templateId: data.pointTemplates[0].id,
-            date: DateTime.now().toISO()
+            date: DateTime.now().toISO(),
+            name: "",
+            maxInput: 0
         })
         setShowLoadingScreen(false)
     }
@@ -58,10 +60,17 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         fetchScorebookData()
     }, [])
 
-    const updateNewPointEventData = (templateId: number, date: string) => {
+    const updateNewPointEventData = (
+        templateId: number,
+        date: string,
+        name: string,
+        maxInput: number
+    ) => {
         setNewPointEventData({
             templateId,
-            date
+            date,
+            name,
+            maxInput
         })
     }
 
@@ -70,8 +79,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             await clientCreatePointEvent(
                 parseInt(groupId),
                 newPointEventData.templateId,
-                //new Date(parseInt(newPointEventData.date)).toISOString()
-                DateTime.fromISO(newPointEventData.date).toISO() ?? ""
+                DateTime.fromISO(newPointEventData.date).toISO() ?? "",
+                newPointEventData.name,
+                newPointEventData.maxInput
             )
         )
         fetchScorebookData()
@@ -82,8 +92,8 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
                 <h1 className="text-2xl">Add new point event</h1>
-                <div className="flex justify-around dark:[color-scheme:dark]">
-                    <div>
+                <div className="grid grid-cols-1 gap-1 dark:[color-scheme:dark]">
+                    <div className="grid grid-cols-2">
                         <label className="me-3" htmlFor="template">Template</label>
                         <select
                             id="template"
@@ -91,7 +101,12 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             onChange={
                                 (e) => {
                                     const templateId = parseInt(e.target.value)
-                                    updateNewPointEventData(templateId, newPointEventData.date)
+                                    updateNewPointEventData(
+                                        templateId,
+                                        newPointEventData.date,
+                                        newPointEventData.name,
+                                        newPointEventData.maxInput
+                                    )
                                 }
                             }>
                             {scorebookData?.pointTemplates.map(template => (
@@ -99,7 +114,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             ))}
                         </select>
                     </div>
-                    <div>
+                    <div className="grid grid-cols-2">
                         <label className="me-3" htmlFor="date">Date</label>
                         <input type="date" id="date"
                             defaultValue={DateTime.now().toFormat("yyyy-MM-dd")}
@@ -108,7 +123,39 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                     const date = e.target.value
                                     updateNewPointEventData(
                                         newPointEventData.templateId,
-                                        DateTime.fromISO(date).toISO() ?? ""
+                                        DateTime.fromISO(date).toISO() ?? "",
+                                        newPointEventData.name,
+                                        newPointEventData.maxInput
+                                    )
+                                }
+                            } />
+                    </div>
+                    <div className="grid grid-cols-2">
+                        <label className="me-3" htmlFor="name">Name</label>
+                        <input type="text" id="name"
+                            onChange={
+                                (e) => {
+                                    const name = e.target.value
+                                    updateNewPointEventData(
+                                        newPointEventData.templateId,
+                                        newPointEventData.date,
+                                        name,
+                                        newPointEventData.maxInput
+                                    )
+                                }
+                            } />
+                    </div>
+                    <div className="grid grid-cols-2">
+                        <label className="me-3" htmlFor="maxInput">Max Input Score</label>
+                        <input type="number" id="maxInput"
+                            onChange={
+                                (e) => {
+                                    const maxInput = parseInt(e.target.value)
+                                    updateNewPointEventData(
+                                        newPointEventData.templateId,
+                                        newPointEventData.date,
+                                        newPointEventData.name,
+                                        maxInput
                                     )
                                 }
                             } />
@@ -354,6 +401,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                         ...prevState,
                                         date: date,
                                         name: name,
+                                        maxInput: parseInt(maxPts),
                                         studentPoints: prevState.studentPoints?.map(studentPoint => {
                                             const studentScore = studentScores.find(studentData => {
                                                 return studentData.powerSchoolId == studentPoint.studentData.powerschool_id;
@@ -418,6 +466,24 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                                 updatedPointEvent && setUpdatedPointEvent({
                                     ...updatedPointEvent,
                                     date: DateTime.fromISO(date).toISO()
+                                })
+                            }
+                        } />
+                    <input
+                        className="dark:[color-scheme:dark]"
+                        type="number"
+                        placeholder="Max Input"
+                        defaultValue={currentlyEditedPointEvent?.linkedTemplateData.conversionRuleTarget ?? 0}
+                        value={updatedPointEvent?.linkedTemplateData.conversionRuleTarget ?? 0}
+                        onChange={
+                            (e) => {
+                                const maxInput = parseInt(e.target.value)
+                                updatedPointEvent && setUpdatedPointEvent({
+                                    ...updatedPointEvent,
+                                    linkedTemplateData: {
+                                        ...updatedPointEvent.linkedTemplateData,
+                                        conversionRuleTarget: maxInput
+                                    }
                                 })
                             }
                         } />
