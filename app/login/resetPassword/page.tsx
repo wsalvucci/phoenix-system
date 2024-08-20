@@ -63,6 +63,7 @@ export default function ResetPassword() {
 
         if (error) {
             console.error(error)
+            alert(error.message)
             return
         }
 
