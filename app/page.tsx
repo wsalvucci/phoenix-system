@@ -2,6 +2,10 @@ import AuthButton from "../components/AuthButton";
 import { createClient } from "@/utils/supabase/server";
 import LinkTeacher from "./components/LinkTeacher";
 import LinkStudent from "./components/LinkStudent";
+import AdminPortal from "./components/AdminPortal";
+import getOwnAdminData from "./supaApi/client/admin/getOwnAdminData";
+import { getOwnStudentData } from "./supaApi/server/student/studentApi";
+import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -19,6 +23,10 @@ export default async function Index() {
 
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
+
+  const adminData = await getOwnAdminData();
+  const teacherData = await getOwnTeacherData();
+  const studentData = await getOwnStudentData();
 
   return (
     <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -39,8 +47,9 @@ export default async function Index() {
           PHOENIX
         </div>
 
-        {userData.user != null && <LinkTeacher user={userData.user} />}
-        {userData.user !== null && <LinkStudent user={userData.user} />}
+        {adminData != null && <AdminPortal user={adminData} />}
+        {<LinkTeacher user={teacherData} />}
+        {<LinkStudent user={studentData} />}
       </div>
 
       <footer className="w-full border-t border-t-foreground/10 p-8 flex justify-center text-center text-xs">

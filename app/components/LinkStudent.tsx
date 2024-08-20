@@ -1,44 +1,27 @@
-"use client";
-import { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { LinkedTeacher } from "../supaApi/mappers/dataTypes";
+import { Student } from "../dataClasses";
 
-export default function LinkStudent({ user }: { user: User }) {
-    const [userData, setUserData] = useState<LinkedTeacher | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-
-    const getUserData = async () => {
-        //const teacherData = await getOwnTeacherData()
-        //setUserData(teacherData)
-        setLoading(false)
-    }
-
-    useEffect(() => {
-        getUserData();
-    }, []);
+export default function LinkStudent({ user }: { user: Student | null }) {
 
     return (
-        <div>
+        <div className="my-5">
             {
-                !loading && (
-                    userData !== null ? (
-                        <Link href={`student`}>
-                            <button
-                                className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
-                            >
-                                Student Portal
-                            </button>
-                        </Link>
-                    ) : (
-                        <Link href="/linkAccount/student">
-                            <button
-                                className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
-                            >
-                                Link Student
-                            </button>
-                        </Link>
-                    )
+                user !== null ? (
+                    <Link href={`student`}>
+                        <button
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                        >
+                            Student Portal
+                        </button>
+                    </Link>
+                ) : (
+                    <Link href="/linkAccount/student">
+                        <button
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                        >
+                            Link Student
+                        </button>
+                    </Link>
                 )
             }
         </div>
