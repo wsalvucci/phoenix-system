@@ -115,8 +115,8 @@ export default function Login({
             {searchParams.message}
           </p>
         )}
+        <ForgotPassButton />
       </form>
-      <ForgotPassButton />
     </div>
   );
 }

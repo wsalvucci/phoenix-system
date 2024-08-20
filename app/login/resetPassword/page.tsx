@@ -44,7 +44,8 @@ export default function ResetPassword() {
             console.error(error)
             return
         }
-        console.log(data)
+
+        alert("Password reset email sent to: " + formData.get("email") + ". Please check your inbox.")
     }
 
     const changePassword = async (formData: FormData) => {
@@ -68,6 +69,8 @@ export default function ResetPassword() {
         console.log(data)
 
         alert("Password updated successfully!")
+
+        window.location.href = "/"
     }
 
     const resetPassForm = () => {

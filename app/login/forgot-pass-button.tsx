@@ -1,14 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export function ForgotPassButton() {
     return (
-        <button
-            className="rounded-md border-b"
-            onClick={() => redirect("/login/resetPassword")}
-        >
+        <Link className="flex justify-center border rounded-lg mt-5" href="/login/resetPassword">
             Forgot Password
-        </button>
+        </Link>
     );
 }
