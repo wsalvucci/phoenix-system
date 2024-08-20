@@ -4,9 +4,11 @@ import supabaseServiceClient from "../supabaseServiceClient";
 import getOwnUserData from "../getOwnUserData";
 import { DateTime } from "luxon";
 
-export async function getOwnStudentData(): Promise<Student> {
+export async function getOwnStudentData(): Promise<Student | null> {
     const userData = await getOwnUserData();
-    if (!userData) throw new Error("User not found");
+    if (!userData) {
+        return null;
+    }
 
     const supabase = await supabaseServiceClient();
 
@@ -14,7 +16,7 @@ export async function getOwnStudentData(): Promise<Student> {
 
     if (studentError) {
         console.error(studentError);
-        throw studentError;
+        return null;
     }
 
     if (studentData === null) throw new Error("Student not found");
@@ -34,6 +36,10 @@ export async function getOwnStudentData(): Promise<Student> {
 
 export async function getStudentRankData(): Promise<StudentRankData> {
     const studentData = await getOwnStudentData();
+
+    if (studentData === null) {
+        throw new Error("Student not found");
+    }
 
     const supabase = await supabaseServiceClient();
 

@@ -24,9 +24,17 @@ export default async function Index() {
   const supabase = createClient();
   const { data: userData } = await supabase.auth.getUser();
 
-  const adminData = await getOwnAdminData();
-  const teacherData = await getOwnTeacherData();
-  const studentData = await getOwnStudentData();
+  let adminData = null;
+  let teacherData = null;
+  let studentData = null;
+
+  if (userData.user !== null) {
+    adminData = await getOwnAdminData();
+    teacherData = await getOwnTeacherData();
+    studentData = await getOwnStudentData();
+  }
+
+  console.log(userData)
 
   return (
     <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -47,9 +55,9 @@ export default async function Index() {
           PHOENIX
         </div>
 
-        {adminData != null && <AdminPortal user={adminData} />}
-        {<LinkTeacher user={teacherData} />}
-        {<LinkStudent user={studentData} />}
+        {userData.user !== null && adminData != null && <AdminPortal user={adminData} />}
+        {userData.user !== null && <LinkTeacher user={teacherData} />}
+        {userData.user !== null && <LinkStudent user={studentData} />}
       </div>
 
       <footer className="w-full border-t border-t-foreground/10 p-8 flex justify-center text-center text-xs">
