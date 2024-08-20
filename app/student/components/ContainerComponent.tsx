@@ -9,6 +9,13 @@ import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
 
+import { Quicksand } from "next/font/google";
+
+const roboto = Quicksand({
+    weight: "400",
+    subsets: ["latin"]
+});
+
 const rankToColor = (rank: number) => {
     if (rank === 1) {
         return Color("#FFD700");
@@ -38,9 +45,10 @@ export default function ContainerComponent(
     }
 ) {
     const totalRank = studentRankData.ranks.totalRank;
+    const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
     return (
         <div
-            className="animate-in w-full overflow-auto rounded-lg border text-white"
+            className={`animate-in w-full overflow-auto overscroll-y-none rounded-lg border text-white ${roboto.className}`}
             style={{
                 height: '100svh',
                 maxHeight: '100svh',
@@ -56,7 +64,11 @@ export default function ContainerComponent(
                 boxShadow: `inset 0 0 10px #000000`
             }}
         >
-            <div className="m-3 p-6 bg-black rounded-3xl"
+            <div className="m-3 bg-black rounded-3xl overscroll-y-none"
+                onScroll={(e) => {
+                    const opacity = e.currentTarget.scrollTop / 150;
+                    setPointHeaderOpacity(opacity);
+                }}
                 style={{
                     minHeight: 'calc(100svh - 48px)',
                     maxHeight: 'calc(100svh - 48px)',
@@ -71,18 +83,35 @@ export default function ContainerComponent(
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     `
                 }}>
-                <StudentName
-                    firstName={studentData?.firstName || ""}
-                    lastName={studentData?.lastName || ""}
-                    grade={studentData?.grade || 0}
-                />
-                <TotalPointsRank
-                    totalPoints={studentRankData?.ranks.totalPoints || 0}
-                    totalRank={totalRank}
-                />
-                <PointCategoryTotals categories={studentRankData.ranks.pointGroupRanks} />
-                <StudentCategoryTotals categories={studentRankData.ranks.studentGroupRanks} />
-                <RecentPoints recentPoints={studentRankData.points} />
+                <div className="sticky top-0" style={{
+                    background: `
+                    linear-gradient(180deg,
+                    ${rankToColor(totalRank).darken(0.1).hex()} 90%,
+                    rgba(0, 0, 0, 0) 100%)`,
+                }}>
+                    <StudentName
+                        firstName={studentData?.firstName || ""}
+                        lastName={studentData?.lastName || ""}
+                        grade={studentData?.grade || 0}
+                        totalPoints={studentRankData?.ranks.totalPoints || 0}
+                        totalRank={totalRank}
+                        opacity={pointHeaderOpacity}
+                    />
+                </div>
+                <div className="p-6">
+                    <div>
+                        <TotalPointsRank
+                            totalPoints={studentRankData?.ranks.totalPoints || 0}
+                            totalRank={totalRank}
+                        />
+                    </div>
+                    <PointCategoryTotals categories={studentRankData.ranks.pointGroupRanks} />
+                    <StudentCategoryTotals
+                        categories={studentRankData.ranks.studentGroupRanks}
+                        grade={studentRankData.ranks.gradeRank}
+                    />
+                    <RecentPoints recentPoints={studentRankData.points} />
+                </div>
             </div>
         </div>
     )

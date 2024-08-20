@@ -37,7 +37,7 @@ export async function getStudentRankData(): Promise<StudentRankData> {
 
     const supabase = await supabaseServiceClient();
 
-    const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").select("*, point_event (*, point_template (*, point_group (*)), student_group (*))").eq("student_id", studentData.id);
+    const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").select("*, point_event (*, point_template (*, point_group (*), point_conversion_rule_type (*)), student_group (*))").eq("student_id", studentData.id);
 
     if (studentPointsError) {
         console.error(studentPointsError);
@@ -49,12 +49,15 @@ export async function getStudentRankData(): Promise<StudentRankData> {
     const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
             .from("student_point")
-            .select("student_id, totalPoints: point_value.sum(), student (school_id)")
+            .select("student_id, totalPoints: point_value.sum(), student (school_id, grade)")
             .eq("student.school_id", studentData.schoolId)
             .returns<{
                 student_id: number,
                 totalPoints: number,
-                schoolId: number
+                student: {
+                    school_id: number,
+                    grade: number
+                }
             }[]>();
 
     if (allStudentPointsError) {
@@ -68,6 +71,10 @@ export async function getStudentRankData(): Promise<StudentRankData> {
 
     const sortedStudentPointsData = allStudentPointsData.sort((a, b) => b.totalPoints - a.totalPoints);
     const studentRank = (sortedStudentPointsData.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;
+
+    const studentRankByTheirGrade = allStudentPointsData.filter((pointData) => pointData.student.grade === studentData.grade);
+    const sortedStudentPointsByGrade = studentRankByTheirGrade.sort((a, b) => b.totalPoints - a.totalPoints);
+    const studentRankByGrade = (sortedStudentPointsByGrade.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;
 
     if (allStudentPointsError) {
         console.error(allStudentPointsError);
@@ -199,11 +206,12 @@ export async function getStudentRankData(): Promise<StudentRankData> {
             return {
                 id: pointData.id,
                 value: pointData.point_value,
-                date: DateTime.fromISO(pointData.created_at ?? "").toFormat("yyyy-MM-dd"),
+                date: DateTime.fromISO(pointData.point_event?.date ?? "").toFormat("yyyy-MM-dd"),
                 pointEvent: {
                     id: pointData.point_event!.id,
                     name: pointData.point_event!.name ?? "",
                     date: DateTime.fromISO(pointData.point_event!.date ?? "").toFormat("yyyy-MM-dd"),
+                    maxInput: pointData.point_event?.max_input ?? 0,
                     studentGroup: {
                         id: pointData.point_event!.student_group!.id,
                         name: pointData.point_event!.student_group!.name ?? ""
@@ -215,6 +223,13 @@ export async function getStudentRankData(): Promise<StudentRankData> {
                             id: pointData.point_event!.point_template!.point_group!.id,
                             name: pointData.point_event!.point_template!.point_group!.name,
                             color: pointData.point_event!.point_template!.point_group!.color
+                        },
+                        pointConversionRule: {
+                            pointConversionRuleType: {
+                                id: pointData.point_event?.point_template?.point_conversion_rule_type?.id ?? 0,
+                                name: pointData.point_event?.point_template?.point_conversion_rule_type?.name ?? ""
+                            },
+                            ruleValue: pointData.point_event?.point_template?.conversion_rule_value ?? 0
                         }
                     }
                 }
@@ -243,7 +258,11 @@ export async function getStudentRankData(): Promise<StudentRankData> {
                     totalPoints: studentGroupRank.totalPoints,
                     rank: studentGroupRank.rank
                 }
-            })
+            }),
+            gradeRank: {
+                grade: studentData.grade,
+                rank: studentRankByGrade
+            }
         }
     }
 }

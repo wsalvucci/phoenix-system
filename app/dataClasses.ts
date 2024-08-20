@@ -423,6 +423,7 @@ export type StudentRankData =
                 id: number;
                 name: string;
                 date: string;
+                maxInput: number;
                 studentGroup: {
                     id: number;
                     name: string;
@@ -434,7 +435,14 @@ export type StudentRankData =
                         id: number;
                         name: string;
                         color: string;
-                    }
+                    };
+                    pointConversionRule: {
+                        pointConversionRuleType: {
+                            id: number;
+                            name: string;
+                        };
+                        ruleValue: number;
+                    };
                 }
             }
         }[]
@@ -458,6 +466,10 @@ export type StudentRankData =
                 totalPoints: number;
                 rank: number;
             }[];
+            gradeRank: {
+                grade: number;
+                rank: number;
+            };
         }
     }
 

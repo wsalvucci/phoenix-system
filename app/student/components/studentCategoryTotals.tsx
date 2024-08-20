@@ -11,7 +11,8 @@ const numberToOrdinal = (n: number) => {
 
 export default function StudentCategoryTotals(
     {
-        categories
+        categories,
+        grade
     }: {
         categories: {
             studentGroup: {
@@ -20,7 +21,11 @@ export default function StudentCategoryTotals(
             };
             totalPoints: number;
             rank: number;
-        }[]
+        }[],
+        grade: {
+            grade: number;
+            rank: number;
+        }
     }
 ) {
 
@@ -28,6 +33,12 @@ export default function StudentCategoryTotals(
         <div className="mt-20">
             <div className="text-xl border-b flex justify-center">
                 Group Rankings
+            </div>
+            <div
+                className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
+            >
+                <div className="flex justify-center">{numberToOrdinal(grade.grade) + ' Grade'}</div>
+                <div className="flex justify-center">{numberToOrdinal(grade.rank)}</div>
             </div>
             {
                 categories.map((category) => {
