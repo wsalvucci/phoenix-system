@@ -511,7 +511,26 @@ export type GlobalDashboardData =
                     totalPoints: number;
                 }[];
             }[];
-        }
+        };
+        pointEvents: {
+            id: number;
+            name: string;
+            date: string;
+            pointGroup: {
+                id: number;
+                name: string;
+                color: string;
+            };
+            pointTemplate: {
+                id: number;
+                conversionRuleValue: number;
+                conversionRuleType: {
+                    id: number;
+                    name: string;
+                }
+            }
+            maxInput: number;
+        }[]
     }
 
 export type TimedTotalPointData = {

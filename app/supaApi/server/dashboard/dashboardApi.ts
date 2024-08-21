@@ -24,7 +24,7 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
     const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
             .from("student_point")
-            .select("student_id, totalPoints: point_value.sum(), student (school_id, first_name, last_name)")
+            .select("created_at, student_id, totalPoints: point_value.sum(), student (school_id, first_name, last_name, grade)")
             .eq("student.school_id", schoolId)
             .returns<{
                 student_id: number,
@@ -33,6 +33,7 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
                     first_name: string,
                     last_name: string,
                     schoolId: number,
+                    grade: number
                 }
             }[]>();
 
@@ -46,13 +47,15 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
     const { data: allStudentPointsByGroupData, error: allStudentPointsByGroupError } =
         await supabase
             .from("student_point")
-            .select("created_at, point_event (point_template (point_group (*))), student (*, student_group (*))")
+            .select("created_at, point_value, point_event (point_template (point_group (*))), student (*, student_group (*))")
             .eq("student.school_id", schoolId)
             .returns<{
                 created_at: string,
                 point_value: number,
                 student: {
                     id: number,
+                    first_name: string,
+                    last_name: string,
                     student_group: {
                         id: number,
                         name: string
@@ -128,19 +131,17 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
         }
     })
 
-    console.log(Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
-        if (acc[studentPoint.student_id]) {
-            acc[studentPoint.student_id].totalPoints += studentPoint.totalPoints;
-        } else {
-            acc[studentPoint.student_id] = {
-                id: studentPoint.student_id,
-                totalPoints: studentPoint.totalPoints,
-                firstName: studentPoint.student.first_name,
-                lastName: studentPoint.student.last_name
-            }
-        }
-        return acc;
-    }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number } })).sort((a, b) => b.totalPoints - a.totalPoints))
+    const { data: allPointEventsForSchoolData, error: allPointEventsForSchoolError } = await supabase
+        .from("point_event")
+        .select("*, point_template (id, conversion_rule_value, point_conversion_rule_type (*), point_group (*))")
+        .eq("point_template.point_group.school_id", schoolId);
+
+    if (allPointEventsForSchoolError) {
+        console.error(allPointEventsForSchoolError);
+        throw allPointEventsForSchoolError;
+    }
+
+    if (allPointEventsForSchoolData === null) throw new Error("All point events for school not found");
 
     return {
         schoolData: {
@@ -165,21 +166,21 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
             },
             thisMonth: {
                 totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromSQL(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('month').toUnixInteger())
+                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('month').toUnixInteger())
                     .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
                 totalPointsByPointGroup: [],
                 totalPointsByStudentGroup: []
             },
             thisWeek: {
                 totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromSQL(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('week').toUnixInteger())
+                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('week').toUnixInteger())
                     .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
                 totalPointsByPointGroup: [],
                 totalPointsByStudentGroup: []
             },
             today: {
                 totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromSQL(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('day').toUnixInteger())
+                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('day').toUnixInteger())
                     .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
                 totalPointsByPointGroup: [],
                 totalPointsByStudentGroup: []
@@ -198,9 +199,113 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
                     }
                 }
                 return acc;
-            }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number } })).sort((a, b) => b.totalPoints - a.totalPoints),
-            topByPointGroup: [],
-            topByGrade: []
-        }
+            }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number } }))
+                .sort((a, b) => b.totalPoints - a.totalPoints)
+                .slice(0, 5),
+            topByPointGroup: Object.values(allStudentPointsByGroupData.reduce((acc, studentPoint) => {
+                const pointGroup = studentPoint.point_event.point_template.point_group;
+                if (!acc[pointGroup.id]) {
+                    acc[pointGroup.id] = {
+                        id: pointGroup.id,
+                        name: pointGroup.name,
+                        topStudents: [{
+                            id: studentPoint.student.id,
+                            firstName: studentPoint.student.first_name,
+                            lastName: studentPoint.student.last_name,
+                            totalPoints: studentPoint.point_value
+                        }]
+                    }
+                } else {
+                    const studentIndex = acc[pointGroup.id].topStudents.findIndex(student => student.id === studentPoint.student.id);
+                    if (studentIndex === -1) {
+                        acc[pointGroup.id].topStudents.push({
+                            id: studentPoint.student.id,
+                            firstName: studentPoint.student.first_name,
+                            lastName: studentPoint.student.last_name,
+                            totalPoints: studentPoint.point_value
+                        });
+                    } else {
+                        acc[pointGroup.id].topStudents[studentIndex].totalPoints += studentPoint.point_value;
+                    }
+                }
+                return acc;
+            }, {} as {
+                [key: number]: {
+                    id: number,
+                    name: string,
+                    topStudents: {
+                        id: number,
+                        firstName: string,
+                        lastName: string,
+                        totalPoints: number
+                    }[]
+                }
+            })).map(pointGroup => {
+                return {
+                    id: pointGroup.id,
+                    name: pointGroup.name,
+                    topStudents: pointGroup.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5)
+                }
+            }),
+            topByGrade: Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
+                if (studentPoint.student.grade < 0) return acc;
+                if (acc[studentPoint.student.grade]) {
+                    acc[studentPoint.student.grade].topStudents.push({
+                        id: studentPoint.student_id,
+                        firstName: studentPoint.student.first_name,
+                        lastName: studentPoint.student.last_name,
+                        totalPoints: studentPoint.totalPoints
+                    });
+                } else {
+                    acc[studentPoint.student.grade] = {
+                        grade: studentPoint.student.grade,
+                        topStudents: [{
+                            id: studentPoint.student_id,
+                            firstName: studentPoint.student.first_name,
+                            lastName: studentPoint.student.last_name,
+                            totalPoints: studentPoint.totalPoints
+                        }]
+                    }
+                }
+                return acc;
+            }, {} as {
+                [key: number]: {
+                    grade: number,
+                    topStudents: {
+                        id: number,
+                        firstName:
+                        string,
+                        lastName: string,
+                        totalPoints: number
+                    }[]
+                }
+            }))
+                .sort((a, b) => a.grade - b.grade)
+                .map(grade => {
+                    return {
+                        grade: grade.grade,
+                        topStudents: grade.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5)
+                    }
+                })
+        },
+        pointEvents: allPointEventsForSchoolData.map((pointEvent) => ({
+            id: pointEvent.id,
+            name: pointEvent.name || "",
+            date: pointEvent.date || "",
+            pointGroup: {
+                id: pointEvent.point_template?.point_group?.id || 0,
+                name: pointEvent.point_template?.point_group?.name || "",
+                color: pointEvent.point_template?.point_group?.color || ""
+            },
+            pointTemplate: {
+                id: pointEvent.point_template?.id || 0,
+                conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0,
+                conversionRuleType: {
+                    id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
+                    name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
+                }
+            },
+            maxInput: pointEvent.max_input,
+        }))
     }
 }
