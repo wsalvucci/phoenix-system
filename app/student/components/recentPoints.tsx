@@ -56,7 +56,14 @@ export default function RecentPoints(
                                 key={point.id}
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
-                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`
+                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
+                                    background: `linear-gradient(
+                                    90deg,
+                                    rgba(0, 0, 0, 0) 0%,
+                                    rgba(0, 0, 0, 0.25) 25%,
+                                    rgba(0, 0, 0, 0.25) 75%,
+                                    rgba(0, 0, 0, 0) 100%
+                                    )`
                                 }}
                             >
                                 <div>{point.pointEvent.name}</div>
@@ -86,7 +93,14 @@ export default function RecentPoints(
                                 key={point.id}
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
-                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`
+                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
+                                    background: `linear-gradient(
+                                    90deg,
+                                    rgba(0, 0, 0, 0) 0%,
+                                    rgba(0, 0, 0, 0.25) 25%,
+                                    rgba(0, 0, 0, 0.25) 75%,
+                                    rgba(0, 0, 0, 0) 100%
+                                    )`
                                 }}
                             >
                                 <div>{point.pointEvent.name}</div>

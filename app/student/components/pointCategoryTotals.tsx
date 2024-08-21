@@ -37,7 +37,14 @@ export default function PointCategoryTotals(
                             key={category.pointGroup.id}
                             className={`text-xl grid grid-cols-3 justify-center my-1 ps-3`}
                             style={{
-                                borderLeft: `1px solid ${category.pointGroup.color}`
+                                borderLeft: `1px solid ${category.pointGroup.color}`,
+                                background: `linear-gradient(
+                                    90deg,
+                                    rgba(0, 0, 0, 0) 0%,
+                                    rgba(0, 0, 0, 0.25) 25%,
+                                    rgba(0, 0, 0, 0.25) 75%,
+                                    rgba(0, 0, 0, 0) 100%
+                                    )`
                             }}
                         >
                             <div>{category.pointGroup.name}</div>

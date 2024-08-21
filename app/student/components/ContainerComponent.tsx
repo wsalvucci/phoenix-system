@@ -12,7 +12,7 @@ import StudentCategoryTotals from "./studentCategoryTotals";
 import { Quicksand } from "next/font/google";
 
 const roboto = Quicksand({
-    weight: "400",
+    weight: "600",
     subsets: ["latin"]
 });
 
@@ -48,46 +48,51 @@ export default function ContainerComponent(
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
     return (
         <div
-            className={`animate-in w-full overflow-auto overscroll-y-none rounded-lg border text-white ${roboto.className}`}
+            className={`animate-in w-full overflow-auto overscroll-y-none rounded-lg border ${Color(rankToColor(totalRank)).darken(0.4).alpha(0.5).isLight() ? 'text-black' : 'text-white'} ${roboto.className}`}
             style={{
                 height: '100svh',
                 maxHeight: '100svh',
                 overflow: 'scroll',
                 background: `
                 linear-gradient(135deg,
-                ${rankToColor(totalRank).hex()} 0%,
+                ${rankToColor(totalRank).alpha(0.75).rgb()} 0%,
                 #fcfbfa 20%,
-                ${rankToColor(totalRank).darken(0.05).hex()} 40%,
+                ${rankToColor(totalRank).darken(0.05).alpha(0.75).rgb()} 40%,
                 #fcfbfa 80%,
-                ${rankToColor(totalRank).darken(0.1).hex()} 100%)
+                ${rankToColor(totalRank).darken(0.1).alpha(0.75).rgb()} 100%),
+                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')
                 `,
                 boxShadow: `inset 0 0 10px #000000`
             }}
         >
-            <div className="m-3 bg-black rounded-3xl overscroll-y-none"
+            <div className="bg-black overscroll-y-none"
                 onScroll={(e) => {
                     const opacity = e.currentTarget.scrollTop / 150;
                     setPointHeaderOpacity(opacity);
                 }}
                 style={{
-                    minHeight: 'calc(100svh - 48px)',
-                    maxHeight: 'calc(100svh - 48px)',
+                    minHeight: '100svh',
+                    maxHeight: '100svh',
                     overflow: 'auto',
-                    background: `
-                    linear-gradient(135deg,
-                    ${rankToColor(totalRank).darken(0.1).hex()} 0%,
-                    ${rankToColor(totalRank).darken(0.4).hex()} 40%,
-                    ${rankToColor(totalRank).darken(0.1).hex()} 100%)`,
+                    background: `linear-gradient(
+                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 0%,
+                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 40%,
+                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 100%
+                    ),
+                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                     boxShadow: `
                     inset 0 0 10px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     `
                 }}>
-                <div className="sticky top-0" style={{
+                <div className={`sticky top-0  ${Color(rankToColor(totalRank)).darken(0.1).alpha(0.75).isLight() ? 'text-black' : 'text-white'}`} style={{
                     background: `
                     linear-gradient(180deg,
-                    ${rankToColor(totalRank).darken(0.1).hex()} 90%,
-                    rgba(0, 0, 0, 0) 100%)`,
+                    ${rankToColor(totalRank).darken(0.1).alpha(0.75).rgb()} 90%,
+                    ${rankToColor(totalRank).darken(0.1).alpha(1).rgb()} 100%),
+                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
                 }}>
                     <StudentName
                         firstName={studentData?.firstName || ""}

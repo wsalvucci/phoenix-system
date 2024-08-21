@@ -36,6 +36,15 @@ export default function StudentCategoryTotals(
             </div>
             <div
                 className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
+                style={{
+                    background: `linear-gradient(
+                        90deg,
+                        rgba(0, 0, 0, 0) 0%,
+                        rgba(0, 0, 0, 0.25) 25%,
+                        rgba(0, 0, 0, 0.25) 75%,
+                        rgba(0, 0, 0, 0) 100%
+                        )`
+                }}
             >
                 <div className="flex justify-center">{numberToOrdinal(grade.grade) + ' Grade'}</div>
                 <div className="flex justify-center">{numberToOrdinal(grade.rank)}</div>
@@ -46,6 +55,15 @@ export default function StudentCategoryTotals(
                         <div
                             key={category.studentGroup.id}
                             className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
+                            style={{
+                                background: `linear-gradient(
+                                    90deg,
+                                    rgba(0, 0, 0, 0) 0%,
+                                    rgba(0, 0, 0, 0.25) 25%,
+                                    rgba(0, 0, 0, 0.25) 75%,
+                                    rgba(0, 0, 0, 0) 100%
+                                    )`
+                            }}
                         >
                             <div className="flex justify-center">{category.studentGroup.name}</div>
                             <div className="flex justify-center">{numberToOrdinal(category.rank)}</div>
