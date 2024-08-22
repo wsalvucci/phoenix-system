@@ -44,7 +44,8 @@ export default function ContainerComponent(
         studentRankData: StudentRankData
     }
 ) {
-    const totalRank = studentRankData.ranks.totalRank;
+    const totalRank = 1;
+    //const totalRank = studentRankData.ranks.totalRank;
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
     return (
         <div
@@ -75,9 +76,8 @@ export default function ContainerComponent(
                     maxHeight: '100svh',
                     overflow: 'auto',
                     background: `linear-gradient(
-                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 0%,
-                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 40%,
-                        ${rankToColor(totalRank).darken(0.4).alpha(0.5).rgb()} 100%
+                        ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 0%,
+                        ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 100%
                     ),
                     url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
                     backgroundSize: 'cover',
@@ -87,12 +87,14 @@ export default function ContainerComponent(
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     `
                 }}>
-                <div className={`sticky top-0  ${Color(rankToColor(totalRank)).darken(0.1).alpha(0.75).isLight() ? 'text-black' : 'text-white'}`} style={{
+                <div className={`sticky top-0  ${Color(rankToColor(totalRank)).darken(0.5).alpha(0.75).isLight() ? 'text-black' : 'text-white'}`} style={{
                     background: `
                     linear-gradient(180deg,
-                    ${rankToColor(totalRank).darken(0.1).alpha(0.75).rgb()} 90%,
-                    ${rankToColor(totalRank).darken(0.1).alpha(1).rgb()} 100%),
+                    ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 90%,
+                    ${rankToColor(totalRank).darken(0.5).alpha(1).rgb()} 100%),
                     url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                 }}>
                     <StudentName
                         firstName={studentData?.firstName || ""}
