@@ -44,8 +44,7 @@ export default function ContainerComponent(
         studentRankData: StudentRankData
     }
 ) {
-    const totalRank = 1;
-    //const totalRank = studentRankData.ranks.totalRank;
+    const totalRank = studentRankData.ranks.totalRank;
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
     return (
         <div
