@@ -14,50 +14,32 @@ export default async function GlobalDashboard() {
 
     const globalDashData: GlobalDashboardData = await getGlobalDashData(12);
 
-    const StudentDashTile = ({
-        rank,
-        pointGroup,
+    //console.log(globalDashData.topStudents.topByGrade[0].topStudents);
+
+    const StudentPointTile = ({
+        fullName,
+        points,
+        rank
     }: {
-        rank: number,
-        pointGroup: number | null,
-    }) => {
-        if (pointGroup !== null) {
-            if (globalDashData.topStudents.topByPointGroup[pointGroup]?.topStudents[rank] === undefined) { return <div className="border"></div> }
-            return (
-                <div className="border grid px-1 text-sm" style={{
-                    background: metalStyle(rankToColor(rank + 1).toString()),
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                    gridTemplateColumns: "2fr 1fr"
-                }}>
-                    <div className="flex justify-start place-items-center">
-                        {globalDashData.topStudents.topByPointGroup[pointGroup]?.topStudents[rank]?.firstName + " " + globalDashData.topStudents.topByPointGroup[pointGroup]?.topStudents[rank]?.lastName}
-                    </div>
-                    <div className="flex justify-end place-items-center">
-                        {globalDashData.topStudents.topByPointGroup[pointGroup]?.topStudents[rank]?.totalPoints.toLocaleString()}pts
-                    </div>
-                </div>
-            )
-        } else {
-            if (globalDashData.topStudents.topOverall[rank] === undefined) { return <div className="border"></div> }
-            return (
-                <div className="border grid px-1 text-sm" style={{
-                    background: metalStyle(rankToColor(rank + 1).toString()),
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                    gridTemplateColumns: "2fr 1fr"
-                }}>
-                    <div className="flex justify-start place-items-center">
-                        {globalDashData.topStudents.topOverall[rank]?.firstName + " " + globalDashData.topStudents.topOverall[rank]?.lastName}
-                    </div>
-                    <div className="flex justify-end place-items-center">
-                        {globalDashData.topStudents.topOverall[rank]?.totalPoints.toLocaleString()}pts
-                    </div>
-                </div>)
-        }
-    }
+        fullName: string,
+        points: number,
+        rank: number
+    }) => (
+        <div className="border grid px-1 text-sm" style={{
+            background: metalStyle(rankToColor(rank + 1).toString()),
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+            gridTemplateColumns: "2fr 1fr"
+        }}>
+            <div className="flex justify-start place-items-center">
+                {fullName}
+            </div>
+            <div className="flex justify-end place-items-center">
+                {points?.toLocaleString()}pts
+            </div>
+        </div>
+    )
 
     const summerImage = "https://cdn.midjourney.com/25cb2c71-19ba-4df8-b4ce-87fd9c61c400/0_0.png"
     const autumnImage = "https://cdn.midjourney.com/9238d38f-7e5d-404a-8348-94aa6862e583/0_1.png"
@@ -243,11 +225,24 @@ export default async function GlobalDashboard() {
                         {
                             [...Array(10)].map((_, index) => (
                                 <>
-                                    <StudentDashTile key={index} rank={index} pointGroup={null} />
+                                    <StudentPointTile
+                                        key={index}
+                                        fullName={globalDashData.topStudents.topOverall[index]?.firstName + " " + globalDashData.topStudents.topOverall[index]?.lastName}
+                                        points={globalDashData.topStudents.topOverall[index]?.totalPoints}
+                                        rank={index}
+                                    />
                                     {
-                                        globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
-                                            <StudentDashTile key={pointGroup.id + ":" + index} rank={index} pointGroup={pointGroup.id} />
-                                        ))
+                                        globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => {
+                                            const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
+                                            return (
+                                                <StudentPointTile
+                                                    key={pointGroup.id + ":" + index}
+                                                    fullName={student?.firstName + " " + student?.lastName}
+                                                    points={student?.totalPoints || 0}
+                                                    rank={index}
+                                                />
+                                            )
+                                        })
                                     }
                                 </>
                             ))
@@ -264,23 +259,21 @@ export default async function GlobalDashboard() {
                             ))
                         }
                         {
-                            [...Array(10)].map((_, index) => (
-                                globalDashData.topStudents.topByGrade.map(grade => (
-                                    grade.topStudents[index] ? <div key={grade + ":" + index} className="border grid px-1 text-sm" style={{
-                                        background: metalStyle(rankToColor(index + 1).toString()),
-                                        backgroundSize: "cover",
-                                        backgroundPosition: "center",
-                                        backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                        gridTemplateColumns: "2fr 1fr"
-                                    }}>
-                                        <div className="flex justify-start place-items-center">
-                                            {grade.topStudents[index]?.firstName + " " + grade.topStudents[index]?.lastName}
-                                        </div>
-                                        <div className="flex justify-end place-items-center">
-                                            {grade.topStudents[index]?.totalPoints.toLocaleString()}pts
-                                        </div>
-                                    </div> : <div key={grade + ":" + index} className="border"></div>
-                                ))
+                            globalDashData.topStudents.topByGrade.map(grade => (
+                                <div className="grid grid-cols-1">{
+                                    [...Array(10)].map((_, index) => (
+                                        <>
+                                            {
+                                                grade.topStudents[index] ? <StudentPointTile
+                                                    key={grade.grade + ":" + index}
+                                                    fullName={grade.topStudents[index]?.firstName + " " + grade.topStudents[index]?.lastName}
+                                                    points={grade.topStudents[index]?.totalPoints || 0}
+                                                    rank={index}
+                                                /> : <div key={grade.grade + ":" + index} className="border"></div>
+                                            }
+                                        </>
+                                    ))}
+                                </div>
                             ))
                         }
                     </div>

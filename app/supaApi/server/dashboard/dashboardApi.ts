@@ -340,12 +340,17 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
             topByGrade: Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
                 if (studentPoint.student.grade < 0) return acc;
                 if (acc[studentPoint.student.grade]) {
-                    acc[studentPoint.student.grade].topStudents.push({
-                        id: studentPoint.student_id,
-                        firstName: studentPoint.student.first_name,
-                        lastName: studentPoint.student.last_name,
-                        totalPoints: studentPoint.totalPoints
-                    });
+                    const studentData = acc[studentPoint.student.grade].topStudents.find(student => student.id === studentPoint.student_id);
+                    if (studentData) {
+                        studentData.totalPoints += studentPoint.totalPoints;
+                    } else {
+                        acc[studentPoint.student.grade].topStudents.push({
+                            id: studentPoint.student_id,
+                            firstName: studentPoint.student.first_name,
+                            lastName: studentPoint.student.last_name,
+                            totalPoints: studentPoint.totalPoints
+                        });
+                    }
                 } else {
                     acc[studentPoint.student.grade] = {
                         grade: studentPoint.student.grade,
@@ -372,6 +377,7 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
             }))
                 .sort((a, b) => a.grade - b.grade)
                 .map(grade => {
+                    console.log(grade);
                     return {
                         grade: grade.grade,
                         topStudents: grade.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
