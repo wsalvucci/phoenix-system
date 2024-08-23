@@ -30,7 +30,7 @@ export default async function GlobalDashboard() {
         points: number,
         rank: number
     }) => (
-        <div className="text-xl border grid px-1 mx-2" style={{
+        <div className="text-lg border grid py-1 px-2 mx-2" style={{
             background: metalStyle(rankToColor(rank + 1).toString()),
             backgroundSize: "cover",
             backgroundPosition: "center",
@@ -381,7 +381,7 @@ export default async function GlobalDashboard() {
                     <div className="text-2xl border-b mb-1 flex justify-center">Weekly Trends</div>
                     {
                         globalDashData.topStudents.topTrending.map(student => (
-                            <div key={student.id} className="text-xl border grid px-1 my-2" style={{
+                            <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
                                 background: metalStyle('#000'),
                                 backgroundSize: "cover",
                                 backgroundPosition: "center",
