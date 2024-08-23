@@ -621,14 +621,14 @@ export type RankingGroupData = {
 
 export const metalStyle = (colorOverlay: string): string => `
                     linear-gradient(180deg,
-                    ${Color(colorOverlay).darken(0.5).alpha(0.5).rgb()},
-                    ${Color(colorOverlay).darken(0.5).alpha(0.5).rgb()}),
+                    ${Color(colorOverlay).darken(0.75).alpha(0.75).rgb()},
+                    ${Color(colorOverlay).darken(0.75).alpha(0.75).rgb()}),
                     url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
 
 export const metalStyleGradient = (colors: { color: string, percent: number }[]): string => {
     let gradient = 'linear-gradient(90deg,';
     for (let i = 0; i < colors.length; i++) {
-        gradient += `${Color(colors[i].color).darken(0.5).alpha(0.5).rgb()} ${colors[i].percent}%`
+        gradient += `${Color(colors[i].color).darken(0.75).alpha(0.75).rgb()} ${colors[i].percent}%`
         if (i < colors.length - 1) {
             gradient += ','
         }

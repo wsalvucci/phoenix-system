@@ -2,13 +2,18 @@ import { convertPointUsingRuleType, GlobalDashboardData, metalStyle, metalStyleG
 import { getGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import Color from "color";
 import { DateTime } from "luxon";
-import { Quicksand } from "next/font/google";
+import { Quicksand, Russo_One, Montserrat, Staatliches } from "next/font/google";
 const Quote = require("inspirational-quotes");
 
-const quicksand = Quicksand({
-    weight: "700",
+const customFont = Russo_One({
+    weight: "400",
     subsets: ["latin"]
 });
+
+const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
+                         -1px -1px 2px rgba(255, 255, 255, 0.2),
+                         2px 2px 4px rgba(0, 0, 0, 1),
+                         -2px -2px 4px rgba(255, 255, 255, 0.3)`
 
 export default async function GlobalDashboard() {
 
@@ -25,12 +30,13 @@ export default async function GlobalDashboard() {
         points: number,
         rank: number
     }) => (
-        <div className="border grid px-1 text-sm" style={{
+        <div className="border grid px-1" style={{
             background: metalStyle(rankToColor(rank + 1).toString()),
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-            gridTemplateColumns: "2fr 1fr"
+            gridTemplateColumns: "2fr 1fr",
+            textShadow: metalTextShadow
         }}>
             <div className="flex justify-start place-items-center">
                 {fullName}
@@ -45,13 +51,61 @@ export default async function GlobalDashboard() {
     const autumnImage = "https://cdn.midjourney.com/9238d38f-7e5d-404a-8348-94aa6862e583/0_1.png"
     const halloweenImage = "https://cdn.midjourney.com/dcff86bf-6e0a-490c-8d9a-dabf8b57bebd/0_2.png"
     const thanksgivingImage = "https://cdn.midjourney.com/d8260d25-7f96-48b6-82c8-10adf86793b4/0_2.png"
+    const christmasImage = "https://cdn.midjourney.com/e9a1702e-8700-4256-b5de-b5c86dbd7347/0_2.png"
+    const winterImage = "https://cdn.midjourney.com/7864ac3b-9750-49c4-b7b0-ffb134b73a00/0_3.png"
+
+    const seasonalImage = (): string => {
+        const currentTime = DateTime.now();
+        const currentMonth = currentTime.month;
+        const currentDay = currentTime.day;
+        switch (currentMonth) {
+            case 6:
+                if (currentDay >= 21) {
+                    return summerImage;
+                } else {
+                    return "";
+                }
+            case 7:
+            case 8:
+                return summerImage;
+            case 9:
+                if (currentDay < 22) {
+                    return summerImage;
+                } else {
+                    return autumnImage;
+                }
+            case 10:
+                if (currentDay < 24) {
+                    return autumnImage;
+                } else {
+                    return halloweenImage;
+                }
+            case 11:
+                if (currentDay < 15) {
+                    return autumnImage;
+                } else {
+                    return thanksgivingImage;
+                }
+            case 12:
+                if (currentDay < 15) {
+                    return autumnImage
+                } else {
+                    return christmasImage;
+                }
+            case 1: {
+                return winterImage;
+            }
+            default: return "";
+        }
+    }
 
     return (
-        <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip text-white ${quicksand.className}`} style={{
+        <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip ${customFont.className}`} style={{
             gridTemplateColumns: "1fr 4fr 1fr",
-            background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${summerImage}')`,
+            background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${seasonalImage()}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
+            color: "#eee"
         }}>
             <div className="border rounded-xl p-5 overflow-auto">
                 <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
@@ -66,6 +120,7 @@ export default async function GlobalDashboard() {
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
                                     backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    textShadow: metalTextShadow
                                 }}>
                                     <div className="grid grid-cols-2">
                                         <div>
@@ -109,6 +164,7 @@ export default async function GlobalDashboard() {
                             background: metalStyle(`#000`),
                             backgroundSize: "cover",
                             backgroundPosition: "center",
+                            textShadow: metalTextShadow
                         }}>
                             {globalDashData.totals.allTime.totalPoints.toLocaleString()}
                         </div>
@@ -160,7 +216,8 @@ export default async function GlobalDashboard() {
                             }, [] as { color: string, percent: number }[])),
                             backgroundSize: "cover",
                             backgroundPosition: "center",
-                            gridTemplateColumns: globalDashData.totals.allTime.totalPointsByPointGroup.map(group => `${group.totalPoints / globalDashData.totals.allTime.totalPoints * 100}%`).join(" ")
+                            gridTemplateColumns: globalDashData.totals.allTime.totalPointsByPointGroup.map(group => `${group.totalPoints / globalDashData.totals.allTime.totalPoints * 100}%`).join(" "),
+                            textShadow: metalTextShadow
                         }}>
                             {
                                 globalDashData.totals.allTime.totalPointsByPointGroup.map((group, index) => {
@@ -184,6 +241,7 @@ export default async function GlobalDashboard() {
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
                                     backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    textShadow: metalTextShadow
                                 }}>
                                     {rankingGroup.name}
                                 </div>
@@ -198,6 +256,7 @@ export default async function GlobalDashboard() {
                                                 backgroundSize: "cover",
                                                 backgroundPosition: "center",
                                                 backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                textShadow: metalTextShadow
                                             }}>
                                                 <div>
                                                     <div className="flex justify-center">
@@ -225,7 +284,7 @@ export default async function GlobalDashboard() {
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
                     <div className={`grid grid-cols-${globalDashData.totals.allTime.totalPointsByPointGroup.length + 1} gap-1`}>
-                        <div className="border px-1 flex justify-center text-sm place-items-center" style={{
+                        <div className="border px-1 flex justify-center place-items-center" style={{
                             background: metalStyleGradient([
                                 { color: '#ff0000', percent: 0 },
                                 { color: '#ffa500', percent: 17 },
@@ -237,14 +296,16 @@ export default async function GlobalDashboard() {
                             ]),
                             backgroundSize: "cover",
                             backgroundPosition: "center",
+                            textShadow: metalTextShadow
                         }}>Overall</div>
                         {
                             globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
-                                <div key={pointGroup.id} className="border px-1 flex justify-center text-sm place-items-center" style={{
+                                <div key={pointGroup.id} className="border px-1 flex justify-center place-items-center" style={{
                                     background: metalStyle(pointGroup.color),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
                                     backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    textShadow: metalTextShadow
                                 }}>{pointGroup.name}</div>
                             ))
                         }
@@ -281,7 +342,13 @@ export default async function GlobalDashboard() {
                     }}>
                         {
                             globalDashData.topStudents.topByGrade.map(grade => (
-                                <div key={grade.grade} className="text-2xl flex justify-center">Grade {grade.grade}</div>
+                                <div key={grade.grade} className="border flex justify-center" style={{
+                                    background: metalStyle('#000'),
+                                    backgroundSize: "cover",
+                                    backgroundPosition: "center",
+                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    textShadow: metalTextShadow
+                                }}>Grade {grade.grade}</div>
                             ))
                         }
                         {
@@ -317,7 +384,8 @@ export default async function GlobalDashboard() {
                                 backgroundSize: "cover",
                                 backgroundPosition: "center",
                                 backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                gridTemplateColumns: "3fr 1fr"
+                                gridTemplateColumns: "3fr 1fr",
+                                textShadow: metalTextShadow
                             }}>
                                 <div className="flex justify-start">
                                     {student.firstName + " " + student.lastName}
