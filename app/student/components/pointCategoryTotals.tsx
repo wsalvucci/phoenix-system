@@ -98,10 +98,9 @@ export default function PointCategoryTotals(
                         }}>
                             {
                                 organizedCategories.map((category, index) => {
-                                    if (category.totalPoints / totalPoints < 0.05) return null;
                                     return (
                                         <div key={category.pointGroup.id} className="text-sm text-center">
-                                            <div>{Math.round(category.totalPoints / totalPoints * 100)}%</div>
+                                            {category.totalPoints / totalPoints >= 0.05 && <div>{Math.round(category.totalPoints / totalPoints * 100)}%</div>}
                                         </div>
                                     )
                                 })

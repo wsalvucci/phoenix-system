@@ -47,7 +47,7 @@ export default async function GlobalDashboard() {
     const thanksgivingImage = "https://cdn.midjourney.com/d8260d25-7f96-48b6-82c8-10adf86793b4/0_2.png"
 
     return (
-        <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip ${quicksand.className}`} style={{
+        <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip text-white ${quicksand.className}`} style={{
             gridTemplateColumns: "1fr 4fr 1fr",
             background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${summerImage}')`,
             backgroundSize: "cover",
@@ -55,7 +55,7 @@ export default async function GlobalDashboard() {
         }}>
             <div className="border rounded-xl p-5 overflow-auto">
                 <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
-                <div className="grid grid-cols-1 gap-1">
+                <div className="grid grid-cols-1 gap-5">
                     {
                         globalDashData.pointEvents
                             .filter(event => DateTime.fromISO(event.date) > DateTime.now())
@@ -70,8 +70,6 @@ export default async function GlobalDashboard() {
                                     <div className="grid grid-cols-2">
                                         <div>
                                             <div className="text-2xl">{event.name}</div>
-
-                                            <div className="text-lg flex">{event.pointGroup.name}</div>
                                             <div className="text-lg">{
                                                 convertPointUsingRuleType(
                                                     stringToRuleType(event.pointTemplate.conversionRuleType.name),
@@ -146,6 +144,34 @@ export default async function GlobalDashboard() {
                                 </div>
                             ))}
                         </div>
+                        <div className="grid rounded-full border my-1" style={{
+                            background: metalStyleGradient(globalDashData.totals.allTime.totalPointsByPointGroup.reduce((acc, group, index) => {
+                                const color = Color(group.color);
+                                const percent = group.totalPoints / globalDashData.totals.allTime.totalPoints;
+                                acc.push({
+                                    color: color.hex(),
+                                    percent: acc[acc.length - 1]?.percent || 0
+                                })
+                                acc.push({
+                                    color: color.hex(),
+                                    percent: index === globalDashData.totals.allTime.totalPointsByPointGroup.length - 1 ? 100 : acc[acc.length - 1].percent + (percent * 100)
+                                })
+                                return acc;
+                            }, [] as { color: string, percent: number }[])),
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                            gridTemplateColumns: globalDashData.totals.allTime.totalPointsByPointGroup.map(group => `${group.totalPoints / globalDashData.totals.allTime.totalPoints * 100}%`).join(" ")
+                        }}>
+                            {
+                                globalDashData.totals.allTime.totalPointsByPointGroup.map((group, index) => {
+                                    return (
+                                        <div key={group.id} className="text-sm flex justify-center">
+                                            {group.totalPoints / globalDashData.totals.allTime.totalPoints >= 0.05 && <div>{Math.round(group.totalPoints / globalDashData.totals.allTime.totalPoints * 100)}%</div>}
+                                        </div>
+                                    )
+                                })
+                            }
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -199,7 +225,7 @@ export default async function GlobalDashboard() {
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
                     <div className={`grid grid-cols-${globalDashData.totals.allTime.totalPointsByPointGroup.length + 1} gap-1`}>
-                        <div className="border px-1 flex justify-center" style={{
+                        <div className="border px-1 flex justify-center text-sm place-items-center" style={{
                             background: metalStyleGradient([
                                 { color: '#ff0000', percent: 0 },
                                 { color: '#ffa500', percent: 17 },
@@ -214,7 +240,7 @@ export default async function GlobalDashboard() {
                         }}>Overall</div>
                         {
                             globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
-                                <div key={pointGroup.id} className="border px-1 flex justify-center text-sm" style={{
+                                <div key={pointGroup.id} className="border px-1 flex justify-center text-sm place-items-center" style={{
                                     background: metalStyle(pointGroup.color),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
@@ -260,7 +286,7 @@ export default async function GlobalDashboard() {
                         }
                         {
                             globalDashData.topStudents.topByGrade.map(grade => (
-                                <div className="grid grid-cols-1">{
+                                <div className="grid grid-cols-1 gap-1">{
                                     [...Array(10)].map((_, index) => (
                                         <>
                                             {
