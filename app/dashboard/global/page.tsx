@@ -5,7 +5,7 @@ import { DateTime } from "luxon";
 import { Quicksand, Russo_One, Montserrat, Staatliches } from "next/font/google";
 const Quote = require("inspirational-quotes");
 
-const customFont = Russo_One({
+const customFont = Quicksand({
     weight: "400",
     subsets: ["latin"]
 });
@@ -30,7 +30,7 @@ export default async function GlobalDashboard() {
         points: number,
         rank: number
     }) => (
-        <div className="border grid px-1" style={{
+        <div className="text-xl border grid px-1 mx-2" style={{
             background: metalStyle(rankToColor(rank + 1).toString()),
             backgroundSize: "cover",
             backgroundPosition: "center",
@@ -38,7 +38,9 @@ export default async function GlobalDashboard() {
             gridTemplateColumns: "2fr 1fr",
             textShadow: metalTextShadow
         }}>
-            <div className="flex justify-start place-items-center">
+            <div className="flex justify-start place-items-center" style={{
+                textWrap: "nowrap"
+            }}>
                 {fullName}
             </div>
             <div className="flex justify-end place-items-center">
@@ -155,7 +157,7 @@ export default async function GlobalDashboard() {
                 </div>
             </div>
             <div className="border rounded-xl p-5">
-                <div className="grid grid-cols-2 gap-10 mb-5">
+                {/* <div className="grid grid-cols-2 gap-10 mb-5">
                     <div>
                         <div className="text-2xl">Total Points Scored This Year</div>
                         <div className="p-4 border flex justify-end" style={{
@@ -230,7 +232,7 @@ export default async function GlobalDashboard() {
                             }
                         </div>
                     </div>
-                </div>
+                </div> */}
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Groups</div>
                     {
@@ -251,7 +253,7 @@ export default async function GlobalDashboard() {
                                     )
                                         .slice(0, 5)
                                         .map((studentGroup, rankIndex) => (
-                                            <div key={studentGroup.id} className="grid grid-cols-1 place-items-center" style={{
+                                            <div key={studentGroup.id} className="text-lg grid grid-cols-1 place-items-center" style={{
                                                 background: metalStyle(rankToColor(rankIndex + 1).toString()),
                                                 backgroundSize: "cover",
                                                 backgroundPosition: "center",
@@ -269,7 +271,7 @@ export default async function GlobalDashboard() {
                                                         {
                                                             (() => {
                                                                 const topStudent = studentGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)[0]
-                                                                return topStudent ? topStudent.firstName + " " + topStudent.lastName + " " + topStudent.totalPoints.toLocaleString() + "pts" : ""
+                                                                return topStudent ? topStudent.firstName + " " + topStudent.lastName : ""
                                                             })()
                                                         }
                                                     </div>
@@ -284,7 +286,7 @@ export default async function GlobalDashboard() {
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
                     <div className={`grid grid-cols-${globalDashData.totals.allTime.totalPointsByPointGroup.length + 1} gap-1`}>
-                        <div className="border px-1 flex justify-center place-items-center" style={{
+                        <div className="text-xl border px-1 flex justify-center place-items-center" style={{
                             background: metalStyleGradient([
                                 { color: '#ff0000', percent: 0 },
                                 { color: '#ffa500', percent: 17 },
@@ -300,7 +302,7 @@ export default async function GlobalDashboard() {
                         }}>Overall</div>
                         {
                             globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
-                                <div key={pointGroup.id} className="border px-1 flex justify-center place-items-center" style={{
+                                <div key={pointGroup.id} className="text-xl border px-1 flex justify-center place-items-center" style={{
                                     background: metalStyle(pointGroup.color),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
@@ -342,7 +344,7 @@ export default async function GlobalDashboard() {
                     }}>
                         {
                             globalDashData.topStudents.topByGrade.map(grade => (
-                                <div key={grade.grade} className="border flex justify-center" style={{
+                                <div key={grade.grade} className="text-xl border flex justify-center" style={{
                                     background: metalStyle('#000'),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
@@ -362,7 +364,7 @@ export default async function GlobalDashboard() {
                                                     fullName={grade.topStudents[index]?.firstName + " " + grade.topStudents[index]?.lastName}
                                                     points={grade.topStudents[index]?.totalPoints || 0}
                                                     rank={index}
-                                                /> : <div key={grade.grade + ":" + index} className="border"></div>
+                                                /> : <div key={grade.grade + ":" + index} className="border mx-2"></div>
                                             }
                                         </>
                                     ))}
@@ -379,13 +381,14 @@ export default async function GlobalDashboard() {
                     <div className="text-2xl border-b mb-1 flex justify-center">Weekly Trends</div>
                     {
                         globalDashData.topStudents.topTrending.map(student => (
-                            <div key={student.id} className="border grid px-1 my-2" style={{
+                            <div key={student.id} className="text-xl border grid px-1 my-2" style={{
                                 background: metalStyle('#000'),
                                 backgroundSize: "cover",
                                 backgroundPosition: "center",
                                 backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                 gridTemplateColumns: "3fr 1fr",
-                                textShadow: metalTextShadow
+                                textShadow: metalTextShadow,
+                                textWrap: "nowrap"
                             }}>
                                 <div className="flex justify-start">
                                     {student.firstName + " " + student.lastName}
