@@ -377,7 +377,6 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
             }))
                 .sort((a, b) => a.grade - b.grade)
                 .map(grade => {
-                    console.log(grade);
                     return {
                         grade: grade.grade,
                         topStudents: grade.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)

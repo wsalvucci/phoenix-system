@@ -1,8 +1,11 @@
+"use client";
 import { convertPointUsingRuleType, GlobalDashboardData, metalStyle, metalStyleGradient, rankToColor, stringToRuleType } from "@/app/dataClasses";
 import { getGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { createClient } from "@/utils/supabase/client";
 import Color from "color";
 import { DateTime } from "luxon";
 import { Quicksand, Russo_One, Montserrat, Staatliches } from "next/font/google";
+import { useEffect, useState } from "react";
 const Quote = require("inspirational-quotes");
 
 const customFont = Quicksand({
@@ -15,11 +18,32 @@ const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
                          2px 2px 4px rgba(0, 0, 0, 1),
                          -2px -2px 4px rgba(255, 255, 255, 0.3)`
 
-export default async function GlobalDashboard() {
+export default function GlobalDashboard() {
 
-    const globalDashData: GlobalDashboardData = await getGlobalDashData(12);
+    const [globalDashData, setGlobalDashData] = useState<GlobalDashboardData | null>(null);
 
-    //console.log(globalDashData.topStudents.topByGrade[0].topStudents);
+    const updateData = async () => {
+        console.log("Updating data");
+        getGlobalDashData(12).then((data) => {
+            setGlobalDashData(data);
+        })
+    }
+
+    const supabase = createClient();
+    const broadcastChannel = supabase.channel("student-points-channel");
+
+    broadcastChannel.on(
+        'broadcast',
+        { event: 'sync' },
+        (payload) => {
+            console.log('Received broadcast:', payload);
+            updateData();
+        }
+    ).subscribe();
+
+    useEffect(() => {
+        updateData();
+    }, [])
 
     const StudentPointTile = ({
         fullName,
@@ -34,7 +58,7 @@ export default async function GlobalDashboard() {
             background: metalStyle(rankToColor(rank + 1).toString()),
             backgroundSize: "cover",
             backgroundPosition: "center",
-            backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+            //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
             gridTemplateColumns: "2fr 1fr",
             textShadow: metalTextShadow
         }}>
@@ -113,7 +137,7 @@ export default async function GlobalDashboard() {
                 <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
                 <div className="grid grid-cols-1 gap-5">
                     {
-                        globalDashData.pointEvents
+                        globalDashData?.pointEvents
                             .filter(event => DateTime.fromISO(event.date) > DateTime.now())
                             .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
                             .map(event => (
@@ -121,7 +145,7 @@ export default async function GlobalDashboard() {
                                     background: metalStyle(event.pointGroup.color),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
-                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                     textShadow: metalTextShadow
                                 }}>
                                     <div className="grid grid-cols-2">
@@ -236,13 +260,13 @@ export default async function GlobalDashboard() {
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Groups</div>
                     {
-                        globalDashData.rankingGroups.map((rankingGroup, index) => (
+                        globalDashData?.rankingGroups.map((rankingGroup, index) => (
                             <div key={rankingGroup.id} className="grid grid-cols-6 px-1 my-1 gap-1">
                                 <div className="flex justify-center place-items-center text-2xl" style={{
                                     background: metalStyle('#000'),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
-                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                     textShadow: metalTextShadow
                                 }}>
                                     {rankingGroup.name}
@@ -257,7 +281,7 @@ export default async function GlobalDashboard() {
                                                 background: metalStyle(rankToColor(rankIndex + 1).toString()),
                                                 backgroundSize: "cover",
                                                 backgroundPosition: "center",
-                                                backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                                 textShadow: metalTextShadow
                                             }}>
                                                 <div>
@@ -285,7 +309,7 @@ export default async function GlobalDashboard() {
                 </div>
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
-                    <div className={`grid grid-cols-${globalDashData.totals.allTime.totalPointsByPointGroup.length + 1} gap-1`}>
+                    <div className={`grid grid-cols-${(globalDashData?.totals.allTime.totalPointsByPointGroup.length ?? 0) + 1} gap-1`}>
                         <div className="text-xl border px-1 flex justify-center place-items-center" style={{
                             background: metalStyleGradient([
                                 { color: '#ff0000', percent: 0 },
@@ -301,12 +325,12 @@ export default async function GlobalDashboard() {
                             textShadow: metalTextShadow
                         }}>Overall</div>
                         {
-                            globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
+                            globalDashData?.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
                                 <div key={pointGroup.id} className="text-xl border px-1 flex justify-center place-items-center" style={{
                                     background: metalStyle(pointGroup.color),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
-                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                     textShadow: metalTextShadow
                                 }}>{pointGroup.name}</div>
                             ))
@@ -316,12 +340,12 @@ export default async function GlobalDashboard() {
                                 <>
                                     <StudentPointTile
                                         key={index}
-                                        fullName={globalDashData.topStudents.topOverall[index]?.firstName + " " + globalDashData.topStudents.topOverall[index]?.lastName}
-                                        points={globalDashData.topStudents.topOverall[index]?.totalPoints}
+                                        fullName={globalDashData?.topStudents.topOverall[index]?.firstName + " " + globalDashData?.topStudents.topOverall[index]?.lastName}
+                                        points={globalDashData?.topStudents.topOverall[index]?.totalPoints || 0}
                                         rank={index}
                                     />
                                     {
-                                        globalDashData.totals.allTime.totalPointsByPointGroup.map(pointGroup => {
+                                        globalDashData?.totals.allTime.totalPointsByPointGroup.map(pointGroup => {
                                             const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
                                             return (
                                                 <StudentPointTile
@@ -340,21 +364,21 @@ export default async function GlobalDashboard() {
                 </div>
                 <div>
                     <div className="grid my-5 gap-1" style={{
-                        gridTemplateColumns: `repeat(${globalDashData.topStudents.topByGrade.length}, 1fr)`
+                        gridTemplateColumns: `repeat(${globalDashData?.topStudents.topByGrade.length}, 1fr)`
                     }}>
                         {
-                            globalDashData.topStudents.topByGrade.map(grade => (
+                            globalDashData?.topStudents.topByGrade.map(grade => (
                                 <div key={grade.grade} className="text-xl border flex justify-center" style={{
                                     background: metalStyle('#000'),
                                     backgroundSize: "cover",
                                     backgroundPosition: "center",
-                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                    //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                     textShadow: metalTextShadow
                                 }}>Grade {grade.grade}</div>
                             ))
                         }
                         {
-                            globalDashData.topStudents.topByGrade.map(grade => (
+                            globalDashData?.topStudents.topByGrade.map(grade => (
                                 <div className="grid grid-cols-1 gap-1">{
                                     [...Array(10)].map((_, index) => (
                                         <>
@@ -380,12 +404,12 @@ export default async function GlobalDashboard() {
                 <div>
                     <div className="text-2xl border-b mb-1 flex justify-center">Weekly Trends</div>
                     {
-                        globalDashData.topStudents.topTrending.map(student => (
+                        globalDashData?.topStudents.topTrending.map(student => (
                             <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
                                 background: metalStyle('#000'),
                                 backgroundSize: "cover",
                                 backgroundPosition: "center",
-                                backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                 gridTemplateColumns: "3fr 1fr",
                                 textShadow: metalTextShadow,
                                 textWrap: "nowrap"

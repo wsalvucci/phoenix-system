@@ -7,6 +7,7 @@ import { Database } from "@/types/supabase";
 import { Fragment, useEffect, useState } from "react";
 import { DateTime } from "luxon";
 import CSVReader from "react-csv-reader";
+import { createClient } from "@/utils/supabase/client";
 
 type NewPointEventData = {
     templateId: number,
@@ -36,6 +37,20 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     const [editPointEventModalOpen, setEditPointEventModalOpen] = useState(false)
     const [currentlyEditedPointEvent, setCurrentlyEditedPointEvent] = useState<ScorebookPointEvent | null>(null)
     const [updatedPointEvent, setUpdatedPointEvent] = useState<ScorebookPointEvent | null>(null)
+
+    const supabase = createClient();
+    const broadcastChannel = supabase.channel("student-points-channel");
+    broadcastChannel.subscribe((message) => {
+        console.log(message)
+    })
+
+    const sendBroadcastSignal = () => {
+        broadcastChannel.send({
+            type: 'broadcast',
+            event: 'sync',
+            payload: { message: "Syncing student points" }
+        })
+    }
 
     const fetchScorebookData = async () => {
         setShowLoadingScreen(true)
@@ -203,6 +218,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             console.error("Error editing point event")
         }
         console.log(updatedPointEvent)
+        sendBroadcastSignal()
         setCurrentlyEditedPointEvent(null)
         setUpdatedPointEvent(null)
         setEditPointEventModalOpen(false)
