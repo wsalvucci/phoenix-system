@@ -473,6 +473,53 @@ export type StudentRankData =
         }
     }
 
+export type MobileDashboardData =
+    {
+        schoolData: {
+            id: number;
+            name: string;
+        };
+        topStudents: {
+            topOverall: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+            }[];
+            byGrade: {
+                grade: number;
+                topStudents: {
+                    id: number;
+                    firstName: string;
+                    lastName: string;
+                    totalPoints: number;
+                }[];
+            }[];
+            studentData: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+                grade: number;
+                rank: number;
+            } | null;
+        };
+        rankingGroups: {
+            id: number;
+            name: string;
+            topGroups: {
+                id: number;
+                name: string;
+                totalPoints: number;
+            }[];
+            studentGroup: {
+                id: number;
+                name: string;
+                totalPoints: number;
+            } | null;
+        }[];
+    }
+
 export type GlobalDashboardData =
     {
         schoolData: {
@@ -636,3 +683,8 @@ export const metalStyleGradient = (colors: { color: string, percent: number }[])
     gradient += `),url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
     return gradient;
 }
+
+export const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
+-1px -1px 2px rgba(255, 255, 255, 0.2),
+2px 2px 4px rgba(0, 0, 0, 1),
+-2px -2px 4px rgba(255, 255, 255, 0.3)`
