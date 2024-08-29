@@ -62,6 +62,55 @@ export async function createPointEvent(
     return true;
 }
 
+export async function checkTeacherAccessToPointEvent(pointEventId: number): Promise<boolean> {
+    const teacherData = await getOwnTeacherData();
+
+    if (!teacherData) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data: pointEventData, error: pointEventError } = await supabase.from("point_event").select("*").eq("id", pointEventId).single();
+
+    if (pointEventError) {
+        console.error("Error fetching point event", pointEventError);
+        return false;
+    }
+
+    if (!pointEventData) {
+        console.error("Point event not found");
+        return false;
+    }
+
+    const { data: teacherGroupPairData, error: teacherGroupPairError } = await supabase.from("teacher_student_group_pair").select("*").eq("teacher_id", teacherData.id).eq("group_id", pointEventData.student_group_id).single();
+
+    if (teacherGroupPairError) {
+        console.error(teacherGroupPairError);
+        return false;
+    }
+
+    if (teacherGroupPairData === null) return false;
+
+    return true;
+}
+
+export async function deletePointEvent(pointEventId: number): Promise<boolean> {
+    console.log("Deleting point event", pointEventId);
+    const teacherAccess = await checkTeacherAccessToPointEvent(pointEventId);
+    console.log(teacherAccess);
+    if (!teacherAccess) return false;
+
+    const supabase = await supabaseServiceClient();
+
+    const { data: pointEventData, error: pointEventError } = await supabase.from("point_event").delete().eq("id", pointEventId).single();
+
+    if (pointEventError) {
+        console.error("Error deleting point event", pointEventError);
+        return false;
+    }
+
+    return true;
+}
+
 export async function getScorebookData(studentGroupId: number): Promise<ScorebookData> {
     const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 

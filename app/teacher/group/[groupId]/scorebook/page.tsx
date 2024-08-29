@@ -2,7 +2,7 @@
 
 import { convertPointUsingRuleType, PointConversionRuleType, ruleTypeAndValueToFormula, ScorebookData, ScorebookPointEvent, stringToRuleType } from "@/app/dataClasses";
 import { clientCreatePointEvent } from "@/app/supaApi/client/teacher/teacherApi";
-import { editPointEvent, getScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
+import { deletePointEvent, editPointEvent, getScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { Database } from "@/types/supabase";
 import { Fragment, useEffect, useState } from "react";
 import { DateTime } from "luxon";
@@ -37,6 +37,8 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     const [editPointEventModalOpen, setEditPointEventModalOpen] = useState(false)
     const [currentlyEditedPointEvent, setCurrentlyEditedPointEvent] = useState<ScorebookPointEvent | null>(null)
     const [updatedPointEvent, setUpdatedPointEvent] = useState<ScorebookPointEvent | null>(null)
+
+    const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
 
     const supabase = createClient();
     const broadcastChannel = supabase.channel("student-points-channel");
@@ -371,11 +373,57 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
         )
     }
 
+    const confirmDeletePointEvent = async () => {
+        if (currentlyEditedPointEvent === null) return
+        const result = deletePointEvent(currentlyEditedPointEvent.id)
+        if (!result) {
+            console.error("Error deleting point event")
+        }
+        setCurrentlyEditedPointEvent(null)
+        setUpdatedPointEvent(null)
+        setConfirmDeletePointEventDialogOpen(false)
+        setEditPointEventModalOpen(false)
+        fetchScorebookData()
+    }
+
+    const confirmDeletePointEventDialog = () => {
+        return (
+            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
+                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-fit">
+                    <div className="text-2xl">
+                        <div className="flex justify-center">Confirm Point Event Deletion</div>
+                        <div className="flex justify-center">{currentlyEditedPointEvent?.name}</div>
+                        <div className="flex justify-center">{DateTime.fromISO(currentlyEditedPointEvent?.date ?? "").toFormat('yyyy LLL dd').toString()}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <button className="bg-red-600 dark:bg-red-400 font-bold py-2 px-4 rounded-lg"
+                            onClick={() => {
+                                confirmDeletePointEvent()
+                            }}
+                        >Delete Event</button>
+                        <button className="bg-blue-500 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg" onClick={() => {
+                            setConfirmDeletePointEventDialogOpen(false)
+                        }}>Cancel</button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     const editPointEventModal = () => {
         return (
             <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
                 <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-3/4 grid grid-cols-1 gap-1">
-                    <div className="text-2xl">Edit Point Event</div>
+                    <div className="grid" style={{
+                        gridTemplateColumns: "3fr 1fr"
+                    }}>
+                        <div className="text-2xl">Editing Point Event</div>
+                        <button className="bg-red-600 dark:bg-red-400 px-1 rounded-lg h-fit flex justify-center"
+                            onClick={() => {
+                                setConfirmDeletePointEventDialogOpen(true)
+                            }}
+                        >Delete Event</button>
+                    </div>
                     <div className="grid grid-cols-1">
                         <CSVReader
                             cssClass="flex justify-center"
@@ -591,6 +639,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             {showLoadingScreen && loadingScreen()}
             {addNewPointEventModalOpen && addNewPointEventModal()}
             {editPointEventModalOpen && editPointEventModal()}
+            {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
             <div className="h-1/5 grid grid-cols-2 border-b">
                 <div>
                     <div className="text-xl">
