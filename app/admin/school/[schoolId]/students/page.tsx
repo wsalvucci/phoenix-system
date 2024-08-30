@@ -182,8 +182,8 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                             console.log(student)
                             studentData.push(new PreviewStudent(
                                 student.Id,
-                                student.Name.split(",")[0],
                                 student.Name.split(",")[1],
+                                student.Name.split(",")[0],
                                 student.Grade,
                                 DateTime.fromFormat(student.Birthday, "MM/dd/yy"),
                                 student.Gender
