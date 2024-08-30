@@ -240,7 +240,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 const pointAmount = convertPointUsingRuleType(
                     stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
                     pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
-                    pointEvent.linkedTemplateData.conversionRuleTarget ?? 0
+                    pointEvent.maxInput ?? 0
                 )
                 pointMap["Total"] += pointAmount
                 const groupName = pointEvent.linkedTemplateData.pointGroup?.name ?? ""
@@ -287,10 +287,16 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                             }}
                         >
                             <div className="h-2 rounded-b-full" style={{ backgroundColor: pointEvent.linkedTemplateData.pointGroup?.color ?? "" }} />
-                            <div className="flex justify-center">{pointEvent.linkedTemplateData.name}</div>
                             <div className="flex justify-center">{pointEvent.name ?? "-"}</div>
                             <div className="grid grid-cols-1">
                                 <div className="flex justify-center">{DateTime.fromISO(pointEvent.date ?? "").toFormat("EEE, MMM d yyyy")}</div>
+                            </div>
+                            <div className="flex justify-center">
+                                {convertPointUsingRuleType(
+                                    stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
+                                    pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
+                                    pointEvent.maxInput ?? 0
+                                )}pts
                             </div>
                             <button
                                 className="border rounded-lg w-full"
@@ -561,9 +567,10 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                         {currentStudentOrder.map(student => (
                             <div key={student.id} className="grid grid-cols-4 my-1 py-1 border-b border-collapse">
                                 <div>{student.first_name} {student.last_name}</div>
-                                <input className="dark:[color-scheme:dark] px-2 rounded-full" type="number" defaultValue={
-                                    currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
-                                }
+                                <input className="dark:[color-scheme:dark] px-2 rounded-full" type="number"
+                                    defaultValue={
+                                        currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
+                                    }
                                     value={
                                         updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
                                     }
