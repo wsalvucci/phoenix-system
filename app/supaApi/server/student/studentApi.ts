@@ -200,7 +200,7 @@ export async function getStudentRankData(): Promise<StudentRankData> {
             rank: (studentGroup.students.findIndex((student) => student.id === studentData.id) ?? -1) + 1,
             totalPoints: (studentGroup.students.find((student) => student.id === studentData.id) ?? { totalPoints: 0 }).totalPoints
         }
-    });
+    }).filter((studentGroupRank) => studentGroupRank.rank !== 0);
 
     return {
         points: studentPointsData.filter((pointData) => {
