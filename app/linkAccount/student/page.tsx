@@ -21,13 +21,13 @@ export default function LinkStudent() {
     return (
         <div>
             <input
-                className="w-full dark:[color-scheme:dark]"
+                className="w-full dark:[color-scheme:dark] py-1 px-3 my-2"
                 type="number"
                 placeholder="School ID"
                 onChange={(e) => setSchoolId(parseInt(e.target.value))}
             />
             <input
-                className="w-full dark:[color-scheme:dark]"
+                className="w-full dark:[color-scheme:dark] py-1 px-3 my-2"
                 type="text"
                 placeholder="Student Link Code"
                 onChange={(e) => setStudentLinkCode(e.target.value)}
