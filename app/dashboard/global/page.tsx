@@ -148,7 +148,9 @@ export default function GlobalDashboard() {
                                     //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                     textShadow: metalTextShadow
                                 }}>
-                                    <div className="grid grid-cols-2">
+                                    <div className="grid" style={{
+                                        gridTemplateColumns: "3fr 1fr",
+                                    }}>
                                         <div>
                                             <div className="text-2xl">{event.name}</div>
                                             <div className="text-lg">{
