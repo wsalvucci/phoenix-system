@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
 import { DateTime } from "luxon";
 import { Quicksand } from "next/font/google";
+import Link from "next/link";
 
 const roboto = Quicksand({
     weight: "600",
@@ -128,6 +129,11 @@ export default function ContainerComponent(
                         categories={studentRankData.ranks.studentGroupRanks}
                         grade={studentRankData.ranks.gradeRank}
                     />
+                    <div className="flex justify-center">
+                        <Link
+                            href="/dashboard/mobile"
+                            className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
+                    </div>
                     <RecentPoints recentPoints={studentRankData.points} />
                 </div>
             </div>

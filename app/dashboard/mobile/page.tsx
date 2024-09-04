@@ -3,6 +3,7 @@ import { metalStyle, metalTextShadow, MobileDashboardData, rankToColor } from "@
 import { getMobileDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import { useEffect, useState } from "react";
 import { Quicksand } from "next/font/google"
+import Link from "next/link";
 
 const customFont = Quicksand({
     weight: "400",
@@ -33,7 +34,7 @@ export default function MobileDashboard() {
         rank: number;
     }) => {
         return (
-            <div className="grid grid-cols-3 px-2 py-1" style={{
+            <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
                 background: metalStyle(rankToColor(rank).toString()),
                 gridTemplateColumns: "1fr 4fr 1fr",
                 backgroundSize: "cover",
@@ -86,6 +87,11 @@ export default function MobileDashboard() {
                         )
                     }
                 </div>
+            </div>
+            <div className="flex justify-center">
+                <Link
+                    href="/student"
+                    className="px-2 py-1 mb-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Your Page</Link>
             </div>
             <div className="pb-5">
                 <div className="px-2 py-1 my-1 flex justify-center text-2xl" style={{
