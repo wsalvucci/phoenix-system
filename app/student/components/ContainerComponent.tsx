@@ -8,7 +8,7 @@ import Color from "color";
 import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
-
+import { DateTime } from "luxon";
 import { Quicksand } from "next/font/google";
 
 const roboto = Quicksand({
@@ -36,6 +36,10 @@ const rankToColor = (rank: number) => {
     }
 }
 
+function isBirthday(birthdate: DateTime) {
+    return birthdate.day === DateTime.now().day && birthdate.month === DateTime.now().month;
+}
+
 export default function ContainerComponent(
     {
         studentData, studentRankData
@@ -46,6 +50,7 @@ export default function ContainerComponent(
 ) {
     const totalRank = studentRankData.ranks.totalRank;
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
+
     return (
         <div
             className={`animate-in w-full overflow-auto overscroll-y-none rounded-lg border ${Color(rankToColor(totalRank)).darken(0.4).alpha(0.5).isLight() ? 'text-black' : 'text-white'} ${roboto.className}`}
@@ -104,6 +109,13 @@ export default function ContainerComponent(
                         opacity={pointHeaderOpacity}
                     />
                 </div>
+                {
+                    studentData.birthdate && isBirthday(DateTime.fromJSDate(studentData.birthdate, { zone: 'utc' })) && (
+                        <div className="flex justify-center items-center p-2">
+                            <div className="text-3xl">Happy Birthday {studentData.firstName}!</div>
+                        </div>
+                    )
+                }
                 <div className="p-6">
                     <div>
                         <TotalPointsRank
