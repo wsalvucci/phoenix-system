@@ -6,6 +6,7 @@ import AdminPortal from "./components/AdminPortal";
 import getOwnAdminData from "./supaApi/client/admin/getOwnAdminData";
 import { getOwnStudentData } from "./supaApi/server/student/studentApi";
 import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
+import InstallPrompt from "./components/InstallPrompt";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -47,6 +48,8 @@ export default async function Index() {
         </div>
       </nav>
 
+      <InstallPrompt />
+
       <div className="animate-in flex-1 flex flex-col opacity-0 max-w-4xl px-3">
         <div className="font-bold text-left sm:text-xl md:text-4xl">
           WELCOME TO
@@ -59,20 +62,6 @@ export default async function Index() {
         {userData.user !== null && <LinkTeacher user={teacherData} />}
         {userData.user !== null && <LinkStudent user={studentData} />}
       </div>
-
-      <footer className="w-full border-t border-t-foreground/10 p-8 flex justify-center text-center text-xs">
-        <p>
-          Powered by{" "}
-          <a
-            href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
-            target="_blank"
-            className="font-bold hover:underline"
-            rel="noreferrer"
-          >
-            Supabase
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }
