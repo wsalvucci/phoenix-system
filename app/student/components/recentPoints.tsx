@@ -1,11 +1,13 @@
-import { convertPointUsingRuleType, stringToRuleType } from "@/app/dataClasses";
+import { convertPointUsingRuleType, customMetalStyle, rankToColor, stringToRuleType } from "@/app/dataClasses";
 import Color from "color";
 import { DateTime } from "luxon";
 
 export default function RecentPoints(
     {
+        totalRank,
         recentPoints
     }: {
+        totalRank: number,
         recentPoints: {
             id: number;
             value: number;
@@ -42,8 +44,10 @@ export default function RecentPoints(
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b flex justify-center">
-                Upcoming Points
+            <div className="text-xl border-b flex justify-start" style={
+                customMetalStyle(rankToColor(totalRank).toString())
+            }>
+                UPCOMING
             </div>
             {
                 recentPoints
@@ -79,8 +83,10 @@ export default function RecentPoints(
                         )
                     })
             }
-            <div className="text-xl border-b flex justify-center">
-                Recent Points
+            <div className="text-xl border-b flex justify-start" style={
+                customMetalStyle(rankToColor(totalRank).toString())
+            }>
+                RECENT
             </div>
             {
                 recentPoints

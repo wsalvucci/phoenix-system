@@ -1,5 +1,6 @@
 "use client";
 
+import { customMetalStyle, rankToColor } from "@/app/dataClasses";
 import Color from "color"
 
 const numberToOrdinal = (n: number) => {
@@ -11,9 +12,11 @@ const numberToOrdinal = (n: number) => {
 
 export default function StudentCategoryTotals(
     {
+        totalRank,
         categories,
         grade
     }: {
+        totalRank: number,
         categories: {
             studentGroup: {
                 id: number;
@@ -31,38 +34,38 @@ export default function StudentCategoryTotals(
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b flex justify-center">
-                Group Rankings
+            <div className="text-3xl border-b flex justify-start" style={
+                customMetalStyle(rankToColor(totalRank).toString())
+            }>
+                GROUPS
             </div>
             <div
-                className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
+                className={`text-xl grid justify-center my-1 ps-3`}
                 style={{
-                    background: `linear-gradient(
-                        90deg,
-                        rgba(0, 0, 0, 0) 0%,
-                        rgba(0, 0, 0, 0.25) 25%,
-                        rgba(0, 0, 0, 0.25) 75%,
-                        rgba(0, 0, 0, 0) 100%
-                        )`
+                    borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
+                    gridTemplateColumns: `3fr 1fr`
                 }}
             >
-                <div className="flex justify-center">{numberToOrdinal(grade.grade) + ' Grade'}</div>
-                <div className="flex justify-center">{numberToOrdinal(grade.rank)}</div>
+                <div className="flex justify-start" style={
+                    customMetalStyle(rankToColor(totalRank).toString())
+                    }>
+                        {numberToOrdinal(grade.grade) + ' Grade'}
+                </div>
+                <div className="flex justify-start" style={
+                    customMetalStyle(rankToColor(totalRank).toString())
+                    }>
+                        {numberToOrdinal(grade.rank)}
+                </div>
             </div>
             {
                 categories.map((category) => {
                     return (
                         <div
                             key={category.studentGroup.id}
-                            className={`text-xl grid grid-cols-2 justify-center my-1 rounded-full ps-3`}
+                            className={`text-xl grid justify-center my-1 rounded-full ps-3`}
                             style={{
-                                background: `linear-gradient(
-                                    90deg,
-                                    rgba(0, 0, 0, 0) 0%,
-                                    rgba(0, 0, 0, 0.25) 25%,
-                                    rgba(0, 0, 0, 0.25) 75%,
-                                    rgba(0, 0, 0, 0) 100%
-                                    )`
+                                borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
+                                gridTemplateColumns: `3fr 1fr`
                             }}
                         >
                             <div className="flex justify-center">{category.studentGroup.name}</div>

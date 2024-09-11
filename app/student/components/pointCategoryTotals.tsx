@@ -1,6 +1,6 @@
 "use client";
 
-import { metalStyleGradient } from "@/app/dataClasses";
+import { customMetalStyle, metalStyleGradient, metalTextStyle, rankToColor } from "@/app/dataClasses";
 import Color from "color"
 
 const numberToOrdinal = (n: number) => {
@@ -12,8 +12,9 @@ const numberToOrdinal = (n: number) => {
 
 export default function PointCategoryTotals(
     {
-        categories
+        totalRank, categories
     }: {
+        totalRank: number,
         categories: {
             pointGroup: {
                 id: number;
@@ -28,29 +29,32 @@ export default function PointCategoryTotals(
 
     return (
         <div className="mt-20">
-            <div className="text-xl border-b flex justify-center">
-                Points by Category
+            <div className="text-3xl border-b flex justify-start" style={
+                customMetalStyle(rankToColor(totalRank).toString())
+            }>
+                CATEGORIES
             </div>
             {
                 categories.map((category) => {
                     return (
                         <div
                             key={category.pointGroup.id}
-                            className={`text-xl grid grid-cols-3 justify-center my-1 ps-3`}
+                            className={`text-xl grid justify-center my-1 ps-3`}
                             style={{
                                 borderLeft: `1px solid ${category.pointGroup.color}`,
-                                background: `linear-gradient(
-                                    90deg,
-                                    rgba(0, 0, 0, 0) 0%,
-                                    rgba(0, 0, 0, 0.25) 25%,
-                                    rgba(0, 0, 0, 0.25) 75%,
-                                    rgba(0, 0, 0, 0) 100%
-                                    )`
+                                borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
+                                gridTemplateColumns: `2fr 1fr 1fr`
                             }}
                         >
-                            <div>{category.pointGroup.name}</div>
-                            <div className="flex justify-end">{category.totalPoints}pts</div>
-                            <div className="flex justify-end">{numberToOrdinal(category.rank)}</div>
+                            <div style={
+                                customMetalStyle(rankToColor(totalRank).toString())
+                                }>{category.pointGroup.name.toLocaleUpperCase()}</div>
+                            <div className="flex justify-end" style={
+                                customMetalStyle(rankToColor(totalRank).toString())
+                                }>{category.totalPoints}pts</div>
+                            <div className="flex justify-end" style={
+                                customMetalStyle(rankToColor(totalRank).toString())
+                                }>{numberToOrdinal(category.rank)}</div>
                         </div>
                     )
                 })

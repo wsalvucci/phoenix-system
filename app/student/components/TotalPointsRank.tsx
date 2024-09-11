@@ -1,5 +1,8 @@
 "use client";
 
+import { metalStyle, metalTextShadow, metalTextStyle, rankToColor } from "@/app/dataClasses";
+import Color from "color";
+
 const numberToOrdinal = (n: number) => {
     if (n === 0) return "0";
     const s = ["th", "st", "nd", "rd"];
@@ -9,18 +12,42 @@ const numberToOrdinal = (n: number) => {
 
 export default function TotalPointsRank(
     {
-        totalPoints, totalRank
+        fullName, totalPoints, totalRank
     }: {
+        fullName: string,
         totalPoints: number,
         totalRank: number
     }) {
     return (
-        <div>
-            <div className="text-5xl flex justify-center">
-                {totalPoints.toLocaleString()}pts
+        <div className="pt-10 pb-20">
+            <div
+            className={`text-5xl`}
+            style={{
+                background: metalTextStyle(rankToColor(totalRank).toString()),
+                backgroundSize: 'cover',
+                backgroundClip: 'text',
+                color: 'transparent',
+                WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+            }}>
+                {fullName.toLocaleUpperCase()}
             </div>
-            <div className="text-3xl flex justify-center">
-                {numberToOrdinal(totalRank || 0)}
+            <div className="text-4xl flex justify-between">
+                <div style={{
+                    background: metalTextStyle(rankToColor(totalRank).toString()),
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                }}>
+                    {totalPoints.toLocaleString()} PTS
+                </div>
+                <div style={{
+                    background: metalTextStyle(rankToColor(totalRank).toString()),
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                }}>
+                    {numberToOrdinal(totalRank || 0)}
+                </div>
             </div>
         </div>
     )

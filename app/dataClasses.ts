@@ -632,9 +632,22 @@ export const rankToColor = (rank: number) => {
     } else if (rank <= 10) {
         return Color("#DC143C");
     } else if (rank <= 20) {
-        return Color("#1318C5")
+        return Color("#40D13B")
     } else {
         return Color("#000000");
+    }
+}
+
+export const rankToTextGradient = (rank: number) => {
+    if (rank === 1) {
+        `from-`
+    } else if (rank === 2) {
+    } else if (rank === 3) {
+    } else if (rank === 4) {
+    } else if (rank === 5) {
+    } else if (rank <= 10) {
+    } else if (rank <= 20) {
+    } else {
     }
 }
 
@@ -665,6 +678,20 @@ export type RankingGroupData = {
         name: string;
     }[];
 }
+
+export const customMetalStyle = (colorOverlay: string) => ({
+    background: metalTextStyle(colorOverlay),
+    backgroundSize: 'cover',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextStroke: 'thin ' + Color(colorOverlay).lighten(0.5).toString()
+})
+
+export const metalTextStyle = (colorOverlay: string): string => `
+                    linear-gradient(180deg,
+                    ${Color(colorOverlay).lighten(0.5).alpha(0.5).rgb()},
+                    ${Color(colorOverlay).lighten(0.5).alpha(0.5).rgb()}),
+                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
 
 export const metalStyle = (colorOverlay: string): string => `
                     linear-gradient(180deg,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Student, StudentRankData } from "@/app/dataClasses";
+import { rankToColor, Student, StudentRankData } from "@/app/dataClasses";
 import TotalPointsRank from "./TotalPointsRank";
 import PointCategoryTotals from "./pointCategoryTotals";
 import RecentPoints from "./recentPoints";
@@ -9,33 +9,13 @@ import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
 import { DateTime } from "luxon";
-import { Quicksand } from "next/font/google";
+import { Quicksand, Roboto } from "next/font/google";
 import Link from "next/link";
 
-const roboto = Quicksand({
-    weight: "600",
+const roboto = Roboto({
+    weight: "700",
     subsets: ["latin"]
 });
-
-const rankToColor = (rank: number) => {
-    if (rank === 1) {
-        return Color("#FFD700");
-    } else if (rank === 2) {
-        return Color("#C0C0C0");
-    } else if (rank === 3) {
-        return Color("#CD7F32");
-    } else if (rank === 4) {
-        return Color("#800080");
-    } else if (rank === 5) {
-        return Color("#008080");
-    } else if (rank <= 10) {
-        return Color("#DC143C");
-    } else if (rank <= 20) {
-        return Color("#1318C5")
-    } else {
-        return Color("#000000");
-    }
-}
 
 function isBirthday(birthdate: DateTime) {
     return birthdate.day === DateTime.now().day && birthdate.month === DateTime.now().month;
@@ -54,7 +34,7 @@ export default function ContainerComponent(
 
     return (
         <div
-            className={`animate-in w-full overflow-auto overscroll-y-none rounded-lg border ${Color(rankToColor(totalRank)).darken(0.4).alpha(0.5).isLight() ? 'text-black' : 'text-white'} ${roboto.className}`}
+            className={`animate-in w-full overflow-auto overscroll-y-none border ${Color(rankToColor(totalRank)).darken(0.4).alpha(0.5).isLight() ? 'text-black' : 'text-white'} ${roboto.className}`}
             style={{
                 height: '100svh',
                 maxHeight: '100svh',
@@ -80,13 +60,7 @@ export default function ContainerComponent(
                     minHeight: '100svh',
                     maxHeight: '100svh',
                     overflow: 'auto',
-                    background: `linear-gradient(
-                        ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 0%,
-                        ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 100%
-                    ),
-                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    background: totalRank > 20 ? '#EEE' : '#111',
                     boxShadow: `
                     inset 0 0 10px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
@@ -112,20 +86,22 @@ export default function ContainerComponent(
                 </div>
                 {
                     studentData.birthdate && isBirthday(DateTime.fromJSDate(studentData.birthdate, { zone: 'utc' })) && (
-                        <div className="flex justify-center items-center p-2">
+                        <div className="flex justify-center items-center p-2" style={{
+                            color: totalRank > 20 ? '#000' : '#FFF'
+                        }}>
                             <div className="text-3xl">Happy Birthday {studentData.firstName}!</div>
                         </div>
                     )
                 }
-                <div className="p-6">
-                    <div>
-                        <TotalPointsRank
-                            totalPoints={studentRankData?.ranks.totalPoints || 0}
-                            totalRank={totalRank}
-                        />
-                    </div>
-                    <PointCategoryTotals categories={studentRankData.ranks.pointGroupRanks} />
+                <div className="px-6 pb-6">
+                    <TotalPointsRank
+                        fullName={studentData?.firstName + " " + studentData?.lastName}
+                        totalPoints={studentRankData?.ranks.totalPoints || 0}
+                        totalRank={totalRank}
+                    />
+                    <PointCategoryTotals totalRank={totalRank} categories={studentRankData.ranks.pointGroupRanks} />
                     <StudentCategoryTotals
+                        totalRank={totalRank}
                         categories={studentRankData.ranks.studentGroupRanks}
                         grade={studentRankData.ranks.gradeRank}
                     />
@@ -134,7 +110,9 @@ export default function ContainerComponent(
                             href="/dashboard/mobile"
                             className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
                     </div>
-                    <RecentPoints recentPoints={studentRankData.points} />
+                    <RecentPoints
+                    totalRank={totalRank}
+                    recentPoints={studentRankData.points} />
                 </div>
             </div>
         </div>
