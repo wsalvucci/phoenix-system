@@ -125,6 +125,11 @@ export default function GlobalDashboard() {
         }
     }
 
+    const isToday = (dateTime: DateTime) => {
+        const curDate = DateTime.now()
+        return (curDate.year == dateTime.year) && (curDate.month == dateTime.month) && (curDate.day == dateTime.day)
+    }
+
     return (
         <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip ${customFont.className}`} style={{
             gridTemplateColumns: "1fr 4fr 1fr",
@@ -138,7 +143,7 @@ export default function GlobalDashboard() {
                 <div className="grid grid-cols-1 gap-5">
                     {
                         globalDashData?.pointEvents
-                            .filter(event => DateTime.fromISO(event.date) > DateTime.now())
+                            .filter(event => DateTime.fromISO(event.date).plus({'days': 1}) > DateTime.now())
                             .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
                             .map(event => (
                                 <div key={event.id} className="p-2" style={{
@@ -167,7 +172,9 @@ export default function GlobalDashboard() {
                                                     event.date <= DateTime.now().plus({ days: 7 }).toISODate() ?
 
                                                         <div className="flex justify-end">
-                                                            {DateTime.fromISO(event.date).toFormat('EEEE')}
+                                                            {
+                                                                isToday(DateTime.fromISO(event.date)) ? 'Today' : DateTime.fromISO(event.date).toFormat('EEEE')
+                                                            }
                                                         </div> :
                                                         <div className="flex justify-end">
                                                             {DateTime.fromISO(event.date).toFormat('MMM d')}
