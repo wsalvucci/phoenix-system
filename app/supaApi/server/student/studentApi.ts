@@ -34,6 +34,38 @@ export async function getOwnStudentData(): Promise<Student | null> {
     };
 }
 
+export async function getStudentDashboardData(): Promise<StudentRankData> {
+    const studentData = await getOwnStudentData();
+
+    if (studentData === null) {
+        throw new Error("Student not found");
+    }
+
+    const supabase = await supabaseServiceClient();
+
+    const { data: studentPointsData, error: studentPointsError } =
+        await supabase
+            .from("student")
+            .select("*, student_point (*, point_event (*, student_group (*), point_template (*, point_group)))")
+            .eq("school_id", studentData.schoolId)
+
+    console.log(studentPointsData)
+
+    return {
+        points: [],
+        ranks: {
+            totalPoints: 0,
+            totalRank: 0,
+            pointGroupRanks: [],
+            studentGroupRanks: [],
+            gradeRank: {
+                grade: studentData.grade,
+                rank: 0
+            }
+        }
+    }
+}
+
 export async function getStudentRankData(): Promise<StudentRankData> {
     const studentData = await getOwnStudentData();
 
@@ -78,6 +110,7 @@ export async function getStudentRankData(): Promise<StudentRankData> {
     const sortedStudentPointsData = allStudentPointsData.sort((a, b) => b.totalPoints - a.totalPoints);
     const studentRank = (sortedStudentPointsData.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;
 
+    console.log(allStudentPointsData)
     const studentRankByTheirGrade = allStudentPointsData.filter((pointData) => pointData.student.grade === studentData.grade);
     const sortedStudentPointsByGrade = studentRankByTheirGrade.sort((a, b) => b.totalPoints - a.totalPoints);
     const studentRankByGrade = (sortedStudentPointsByGrade.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;

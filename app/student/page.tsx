@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getOwnStudentData, getStudentRankData } from "../supaApi/server/student/studentApi";
+import { getOwnStudentData, getStudentDashboardData, getStudentRankData } from "../supaApi/server/student/studentApi";
 import ContainerComponent from "./components/ContainerComponent";
 
 export default async function StudentDashboard() {

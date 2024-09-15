@@ -1,12 +1,10 @@
 "use client";
-import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { Teacher } from "@/app/dataClasses";
-import { clientGetSchoolTeachers, clientRevokeTeacher, clientUpdateTeacher } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
+import { clientGetSchoolTeachers, clientRevokeTeacher } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
+import { addTeacherToSchool } from "@/app/supaApi/server/admin/adminApi";
 
 export default function TeachersDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
-
-    const supabase = createClient();
 
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [addTeacherDialogOpen, setAddTeacherDialogOpen] = useState<boolean>(false);
@@ -23,13 +21,11 @@ export default function TeachersDashboard({ params: { schoolId } }: { params: { 
     }, []);
 
     const addNewTeacher = async (firstName: string, lastName: string) => {
-        // await supabase.from("teacher").insert([
-        //     {
-        //         first_name: firstName,
-        //         last_name: lastName,
-        //         school_id: parseInt(schoolId)
-        //     }
-        // ]);
+        addTeacherToSchool(
+            parseInt(schoolId),
+            firstName,
+            lastName
+        )
         setAddTeacherDialogOpen(false);
         await fetchTeachers();
     }

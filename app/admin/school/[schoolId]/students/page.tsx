@@ -5,7 +5,7 @@ import CSVReader from 'react-csv-reader'
 import { Student } from '@/app/dataClasses';
 import { clientGetSchoolStudents } from '@/app/supaApi/client/admin/students/adminStudentsApi';
 import { DateTime } from 'luxon';
-import { bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
+import { addStudentToSchool, bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
 
 enum SortDirections {
     ASC = "ASC",
@@ -69,6 +69,16 @@ class PreviewStudent {
     }
 }
 
+type ManuallyAddStudentData = {
+    schoolId: number,
+    powerSchoolId: number,
+    firstName: string,
+    lastName: string,
+    birthday: DateTime,
+    grade: number,
+    gender: string
+}
+
 export default function StudentsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
 
     const [bulkAddStudentsDialogueOpen, setBulkAddStudentsDialogueOpen] = useState<boolean>(false)
@@ -83,6 +93,17 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
     const [currentSortFilter, setCurrentSortFilter] = useState<SortFilterOptions>(SortFilterOptions.ID)
 
     const [studentFilters, setStudentFilters] = useState<StudentFilters>(new StudentFilters("", null, null, null, null))
+
+    const [manuallyAddStudentDialogueVisible, setManuallyAddStudentDialogueVisible] = useState<boolean>(false)
+    const [currentManuallyAddedStudent, setCurrentManuallyAddedStudent] = useState<ManuallyAddStudentData>({
+        schoolId: parseInt(schoolId),
+        powerSchoolId: -1,
+        firstName: "",
+        lastName: "",
+        birthday: DateTime.now(),
+        grade: -1,
+        gender: ""
+    })
 
     const fetchStudents = async () => {
         const fetchedStudents = await clientGetSchoolStudents(parseInt(schoolId))
@@ -158,6 +179,107 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                             Sort: {sortFilter === currentSortFilter ? currentSortDirection : "---"}
                         </button>
                     </div>}
+            </div>
+        )
+    }
+
+    const manuallyAddStudent = () => {
+        addStudentToSchool(
+            currentManuallyAddedStudent.schoolId,
+            currentManuallyAddedStudent.powerSchoolId,
+            currentManuallyAddedStudent.firstName,
+            currentManuallyAddedStudent.lastName,
+            currentManuallyAddedStudent.birthday.toJSDate(),
+            currentManuallyAddedStudent.grade,
+            currentManuallyAddedStudent.gender
+        ).then(() => {
+            setManuallyAddStudentDialogueVisible(false)
+            fetchStudents()
+        })
+            .catch((error) => console.log(error))
+    }
+
+    const manuallyAddStudentDialogue = () => {
+        return (
+            <div className="bg-slate-200 dark:bg-slate-800 p-5 rounded-lg w-fit absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="text-xl">Manually Enter a New Student</div>
+                <div className='grid grid-cols-1'>
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="number"
+                        placeholder="Powerschool Id"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            powerSchoolId: parseInt(e.target.value)
+                        }
+                        )}
+                    />
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="text"
+                        placeholder="First Name"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            firstName: e.target.value
+                        }
+                        )}
+                    />
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="text"
+                        placeholder="Last Name"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            lastName: e.target.value
+                        }
+                        )}
+                    />
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="date"
+                        placeholder="Birthday"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            birthday: DateTime.fromFormat(e.target.value, 'yyyy-LL-dd')
+                        }
+                        )}
+                    />
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="number"
+                        placeholder="Grade"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            grade: parseInt(e.target.value)
+                        }
+                        )}
+                    />
+                    <input
+                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
+                        type="text"
+                        placeholder="Gender"
+                        onChange={e => setCurrentManuallyAddedStudent({
+                            ...currentManuallyAddedStudent,
+                            gender: e.target.value
+                        }
+                        )}
+                    />
+                </div>
+                <div className='grid grid-cols-2'>
+                    <button
+                        className='rounded-full text-white bg-green-300 dark:bg-green-700'
+                        onClick={() => {
+                            manuallyAddStudent()
+                        }}
+                    >Submit</button>
+                    <button
+                        className='rounded-full text-white bg-red-300 dark:bg-red-700'
+                        onClick={() => {
+                            setManuallyAddStudentDialogueVisible(false)
+                        }}>
+                        Cancel
+                    </button>
+                </div>
             </div>
         )
     }
@@ -250,6 +372,14 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                             {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
                         Add Student
                     </button> */}
+                            <button
+                                className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
+                                onClick={() => {
+                                    setManuallyAddStudentDialogueVisible(!manuallyAddStudentDialogueVisible)
+                                }}
+                            >
+                                Manually Add Student
+                            </button>
                             <button
                                 className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                                 onClick={() => {
@@ -433,7 +563,10 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                             })
                             .map((student: Student) => {
                                 return (
-                                    <div className='grid col-span-8 grid-cols-8 hover:bg-slate-200 dark:hover:bg-slate-800'>
+                                    <div
+                                        className='grid col-span-8 grid-cols-8 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                        key={student.id}
+                                    >
                                         <div>{student.id}</div>
                                         <div>{student.powerSchoolId}</div>
                                         <div>{student.lastName}</div>
@@ -449,6 +582,7 @@ export default function StudentsDashboard({ params: { schoolId } }: { params: { 
                 </div>
             </div>
             {bulkAddStudentsDialogueOpen && bulkAddStudentsDialogue()}
+            {manuallyAddStudentDialogueVisible && manuallyAddStudentDialogue()}
         </div>
     )
 }
