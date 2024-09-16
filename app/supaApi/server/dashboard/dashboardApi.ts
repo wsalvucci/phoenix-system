@@ -2,7 +2,7 @@
 
 import { DateTime } from "luxon";
 import Color from "color";
-import { GlobalDashboardData, MobileDashboardData } from "@/app/dataClasses";
+import { GlobalDashboardData, MobileDashboardData, TimedTotalPointData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { getOwnStudentData } from "../student/studentApi";
 
@@ -160,7 +160,7 @@ export async function getMobileDashData(schoolId: number): Promise<MobileDashboa
 
 }
 
-export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboardData> {
+export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDashboardData> {
     const supabase = await supabaseServiceClient();
 
     const { data: schoolData, error: schoolDataError } = await supabase
@@ -178,384 +178,243 @@ export async function getGlobalDashData(schoolId: number): Promise<GlobalDashboa
 
     const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
-            .from("student_point")
-            .select("created_at, student_id, totalPoints: point_value.sum(), student (school_id, first_name, last_name, grade)")
-            .eq("student.school_id", schoolId)
-            .returns<{
-                student_id: number,
-                totalPoints: number,
-                created_at: string,
-                student: {
-                    first_name: string,
-                    last_name: string,
-                    schoolId: number,
-                    grade: number
-                }
-            }[]>();
+            .from("student")
+            .select("*, student_point(*, point_event (*, point_template (*, point_group (*)))), student_group (*, ranking_group (*))")
+            .eq("school_id", schoolId)
 
-    if (allStudentPointsError) {
+    if (allStudentPointsError !== null) {
         console.error(allStudentPointsError);
         throw allStudentPointsError;
     }
 
     if (allStudentPointsData === null) throw new Error("All student points not found");
 
-    const { data: allStudentPointsByGroupData, error: allStudentPointsByGroupError } =
+    const { data: rankingGroupsData, error: rankingGroupsError } =
         await supabase
-            .from("student_point")
-            .select("created_at, point_value, point_event (point_template (point_group (*))), student (*, student_group (*, ranking_group (*)))")
-            .eq("student.school_id", schoolId)
-            .returns<{
-                created_at: string,
-                point_value: number,
-                student: {
-                    id: number,
-                    first_name: string,
-                    last_name: string,
-                    student_group: {
-                        id: number,
-                        name: string,
-                        ranking_group: {
-                            id: number,
-                            name: string
-                        }[]
-                    }[]
-                },
-                point_event: {
-                    point_template: {
-                        point_group: {
-                            id: number,
-                            name: string,
-                            color: string
+            .from("ranking_group")
+            .select("*, student_group (*)")
+            .eq("school_id", schoolData.id)
+
+    if (rankingGroupsError !== null) {
+        console.error(rankingGroupsError)
+        throw rankingGroupsError
+    }
+
+    if (rankingGroupsData === null) throw new Error("Ranking groups not found")
+
+    const { data: futurePointData, error: futurePointError } =
+        await supabase
+            .from("point_event")
+            .select("*, point_template (*, point_group (*), point_conversion_rule_type (*))")
+            .gt("date", DateTime.now().startOf("day").toString())
+
+    if (futurePointError !== null) {
+        console.error(futurePointError)
+        throw futurePointError
+    }
+
+    if (futurePointData === null) throw new Error("Future point data not found")
+
+    const studentPointTotals = Object.values(allStudentPointsData.reduce((acc, cur) => {
+        if (!acc[cur.id]) {
+            acc[cur.id] = {
+                id: cur.id,
+                firstName: cur.first_name,
+                lastName: cur.last_name,
+                grade: cur.grade,
+                studentGroups: cur.student_group.map((group) => {
+                    return {
+                        id: group.id,
+                        name: group.name
+                    }
+                }),
+                byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
+                    const pointGroup = cur.point_event?.point_template?.point_group
+                    const pointGroupId = pointGroup?.id
+                    if (typeof pointGroupId !== 'number') return acc
+                    if (!acc[pointGroupId]) {
+                        acc[pointGroupId] = {
+                            groupId: pointGroupId,
+                            groupName: pointGroup?.name ?? "",
+                            groupColor: pointGroup?.color ?? "",
+                            totalPoints: 0
                         }
                     }
-                }
-            }[]>();
-
-    if (allStudentPointsByGroupError) {
-        console.error(allStudentPointsByGroupError);
-        throw allStudentPointsByGroupError;
-    }
-
-    if (allStudentPointsByGroupData === null) throw new Error("All student points by point group not found");
-
-    const pointGroups = allStudentPointsByGroupData.reduce((acc, pointData) => {
-        const pointGroup = pointData.point_event.point_template.point_group;
-        if (!acc[pointGroup.id]) {
-            acc[pointGroup.id] = {
-                id: pointGroup.id,
-                name: pointGroup.name,
-                color: pointGroup.color,
-                totalPoints: 0,
-                students: []
+                    acc[pointGroupId].totalPoints += cur.point_value
+                    return acc
+                }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
+                lastWeekTotal: cur.student_point.reduce((acc, cur) => {
+                    if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
+                        acc += cur.point_value
+                    }
+                    return acc
+                }, 0),
+                totalPoints: cur.student_point.reduce((acc, cur) => {
+                    acc += cur.point_value
+                    return acc
+                }, 0)
             }
         }
-        acc[pointGroup.id].totalPoints += pointData.point_value;
-        acc[pointGroup.id].students.push({
-            id: pointData.student.id,
-            totalPoints: pointData.point_value
-        });
-        return acc;
-    }, {} as { [key: number]: { id: number, name: string, color: string, totalPoints: number, students: { id: number, totalPoints: number }[] } });
-
-    const sortedPointGroups = Object.values(pointGroups).map((pointGroup) => {
-        return {
-            ...pointGroup,
-            students: pointGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)
+        return acc
+    }, {} as {
+        [key: number]: {
+            id: number,
+            firstName: string,
+            lastName: string,
+            grade: number,
+            studentGroups: {
+                id: number,
+                name: string
+            }[],
+            byPointGroup: {
+                groupId: number,
+                groupName: string,
+                groupColor: string,
+                totalPoints: number
+            }[],
+            lastWeekTotal: number,
+            totalPoints: number
         }
-    })
+    }))
 
-    const studentGroupRankings = allStudentPointsByGroupData.reduce((acc, pointData) => {
-        pointData.student.student_group.forEach((studentGroup) => {
-            if (!acc[studentGroup.id]) {
-                acc[studentGroup.id] = {
-                    id: studentGroup.id,
-                    name: studentGroup.name,
-                    totalPoints: 0,
-                    students: []
-                }
+    const allPointGroups = studentPointTotals.reduce((acc, cur) => {
+        cur.byPointGroup.forEach((pointGroup) => {
+            const exists = acc.find((value) => value.id == pointGroup.groupId)
+            if (exists === undefined) {
+                acc.push({
+                    id: pointGroup.groupId,
+                    name: pointGroup.groupName,
+                    color: pointGroup.groupColor
+                })
             }
-            acc[studentGroup.id].totalPoints += pointData.point_value;
-            acc[studentGroup.id].students.push({
-                id: pointData.student.id,
-                totalPoints: pointData.point_value
-            });
-        });
-        return acc;
-    }, {} as { [key: number]: { id: number, name: string, totalPoints: number, students: { id: number, totalPoints: number }[] } });
+        })
+        return acc
+    }, [] as { id: number, name: string, color: string }[])
 
-    const sortedStudentGroups = Object.values(studentGroupRankings).map((studentGroup) => {
-        return {
-            ...studentGroup,
-            students: studentGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)
-        }
-    })
+    const allGrades = studentPointTotals.reduce((acc, cur) => {
+        if (cur.grade < 0) return acc
+        const exists = acc.find((grade) => grade == cur.grade)
+        if (exists === undefined) acc.push(cur.grade)
+        return acc
+    }, [] as number[]).sort((a, b) => a - b)
 
-    const { data: allPointEventsForSchoolData, error: allPointEventsForSchoolError } = await supabase
-        .from("point_event")
-        .select("*, point_template (id, conversion_rule_value, point_conversion_rule_type (*), point_group (*))")
-        .eq("point_template.point_group.school_id", schoolId);
-
-    if (allPointEventsForSchoolError) {
-        console.error(allPointEventsForSchoolError);
-        throw allPointEventsForSchoolError;
+    const blankTimedPointData: TimedTotalPointData = {
+        totalPoints: 0,
+        totalPointsByPointGroup: [],
+        totalPointsByStudentGroup: []
     }
-
-    if (allPointEventsForSchoolData === null) throw new Error("All point events for school not found");
 
     return {
         schoolData: {
             id: schoolData.id,
-            name: schoolData.name,
+            name: schoolData.name
         },
         totals: {
-            allTime: {
-                totalPoints: allStudentPointsData.reduce((acc, studentPoint) => acc + studentPoint.totalPoints, 0),
-                totalPointsByPointGroup: sortedPointGroups.map((pointGroup) => ({
-                    id: pointGroup.id,
-                    name: pointGroup.name,
-                    color: pointGroup.color,
-                    totalPoints: pointGroup.totalPoints
-                })),
-                totalPointsByStudentGroup: sortedStudentGroups.map((studentGroup) => ({
-                    id: studentGroup.id,
-                    name: studentGroup.name,
-                    totalPoints: studentGroup.totalPoints,
-                    totalStudents: studentGroup.students.length
-                }))
-            },
-            thisMonth: {
-                totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('month').toUnixInteger())
-                    .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
-                totalPointsByPointGroup: [],
-                totalPointsByStudentGroup: []
-            },
-            thisWeek: {
-                totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('week').toUnixInteger())
-                    .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
-                totalPointsByPointGroup: [],
-                totalPointsByStudentGroup: []
-            },
-            today: {
-                totalPoints: allStudentPointsByGroupData
-                    .filter((studentPoint) => DateTime.fromISO(studentPoint.created_at).toUnixInteger() > DateTime.now().startOf('day').toUnixInteger())
-                    .reduce((acc, studentPoint) => acc + studentPoint.point_value, 0),
-                totalPointsByPointGroup: [],
-                totalPointsByStudentGroup: []
-            }
+            allTime: blankTimedPointData,
+            thisMonth: blankTimedPointData,
+            thisWeek: blankTimedPointData,
+            today: blankTimedPointData
         },
-        rankingGroups: Object.values(allStudentPointsByGroupData.reduce((acc, studentPoint) => {
-            studentPoint.student.student_group.forEach((studentGroup) => {
-                studentGroup.ranking_group.forEach((rankingGroup) => {
-                    if (!acc[rankingGroup.id]) {
-                        acc[rankingGroup.id] = {
-                            id: rankingGroup.id,
-                            name: rankingGroup.name,
-                            studentGroups: [{
-                                id: studentGroup.id,
-                                name: studentGroup.name,
-                                totalPoints: studentPoint.point_value,
-                                students: [{
-                                    id: studentPoint.student.id,
-                                    firstName: studentPoint.student.first_name,
-                                    lastName: studentPoint.student.last_name,
-                                    totalPoints: studentPoint.point_value
-                                }]
-                            }]
-                        }
-                    } else {
-                        const studentGroupIndex = acc[rankingGroup.id].studentGroups.findIndex(group => group.id === studentGroup.id);
-                        if (studentGroupIndex === -1) {
-                            acc[rankingGroup.id].studentGroups.push({
-                                id: studentGroup.id,
-                                name: studentGroup.name,
-                                totalPoints: studentPoint.point_value,
-                                students: [{
-                                    id: studentPoint.student.id,
-                                    firstName: studentPoint.student.first_name,
-                                    lastName: studentPoint.student.last_name,
-                                    totalPoints: studentPoint.point_value
-                                }]
-                            });
-                        } else {
-                            acc[rankingGroup.id].studentGroups[studentGroupIndex].totalPoints += studentPoint.point_value;
-                            const studentIndex = acc[rankingGroup.id].studentGroups[studentGroupIndex].students.findIndex(student => student.id === studentPoint.student.id);
-                            if (studentIndex === -1) {
-                                acc[rankingGroup.id].studentGroups[studentGroupIndex].students.push({
-                                    id: studentPoint.student.id,
-                                    firstName: studentPoint.student.first_name,
-                                    lastName: studentPoint.student.last_name,
-                                    totalPoints: studentPoint.point_value
-                                });
-                            } else {
-                                acc[rankingGroup.id].studentGroups[studentGroupIndex].students[studentIndex].totalPoints += studentPoint.point_value;
-                            }
-                        }
-                    }
-                });
-            });
-            return acc;
-        }, {} as {
-            [key: number]: {
-                id: number,
-                name: string,
-                studentGroups: {
-                    id: number;
-                    name: string;
-                    totalPoints: number;
-                    students: {
-                        id: number,
-                        firstName: string,
-                        lastName: string,
-                        totalPoints: number
-                    }[];
-                }[];
-            }
-        })),
-        topStudents: {
-            topOverall: Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
-                if (acc[studentPoint.student_id]) {
-                    acc[studentPoint.student_id].totalPoints += studentPoint.totalPoints;
-                } else {
-                    acc[studentPoint.student_id] = {
-                        id: studentPoint.student_id,
-                        totalPoints: studentPoint.totalPoints,
-                        firstName: studentPoint.student.first_name,
-                        lastName: studentPoint.student.last_name,
-                    }
-                }
-                return acc;
-            }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number } }))
-                .sort((a, b) => b.totalPoints - a.totalPoints)
-                .slice(0, 10),
-            topTrending: Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
-                if (acc[studentPoint.student_id]) {
-                    acc[studentPoint.student_id].totalPoints += studentPoint.totalPoints;
-                    acc[studentPoint.student_id].lastWeekTotalPoints += DateTime.fromISO(studentPoint.created_at).toUnixInteger() < DateTime.now().startOf('week').toUnixInteger() ? studentPoint.totalPoints : 0;
-                } else {
-                    acc[studentPoint.student_id] = {
-                        id: studentPoint.student_id,
-                        totalPoints: studentPoint.totalPoints,
-                        firstName: studentPoint.student.first_name,
-                        lastName: studentPoint.student.last_name,
-                        lastWeekTotalPoints: DateTime.fromISO(studentPoint.created_at).toUnixInteger() < DateTime.now().startOf('week').toUnixInteger() ? studentPoint.totalPoints : 0
-                    }
-                }
-                return acc;
-            }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number, lastWeekTotalPoints: number } }))
-                .sort((a, b) => (b.totalPoints - b.lastWeekTotalPoints) - (a.totalPoints - a.lastWeekTotalPoints))
-                .slice(0, 20),
-            topByPointGroup: Object.values(allStudentPointsByGroupData.reduce((acc, studentPoint) => {
-                const pointGroup = studentPoint.point_event.point_template.point_group;
-                if (!acc[pointGroup.id]) {
-                    acc[pointGroup.id] = {
-                        id: pointGroup.id,
-                        name: pointGroup.name,
-                        topStudents: [{
-                            id: studentPoint.student.id,
-                            firstName: studentPoint.student.first_name,
-                            lastName: studentPoint.student.last_name,
-                            totalPoints: studentPoint.point_value
-                        }]
-                    }
-                } else {
-                    const studentIndex = acc[pointGroup.id].topStudents.findIndex(student => student.id === studentPoint.student.id);
-                    if (studentIndex === -1) {
-                        acc[pointGroup.id].topStudents.push({
-                            id: studentPoint.student.id,
-                            firstName: studentPoint.student.first_name,
-                            lastName: studentPoint.student.last_name,
-                            totalPoints: studentPoint.point_value
-                        });
-                    } else {
-                        acc[pointGroup.id].topStudents[studentIndex].totalPoints += studentPoint.point_value;
-                    }
-                }
-                return acc;
-            }, {} as {
-                [key: number]: {
-                    id: number,
-                    name: string,
-                    topStudents: {
-                        id: number,
-                        firstName: string,
-                        lastName: string,
-                        totalPoints: number
-                    }[]
-                }
-            })).map(pointGroup => {
-                return {
-                    id: pointGroup.id,
-                    name: pointGroup.name,
-                    topStudents: pointGroup.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
-                }
-            }),
-            topByGrade: Object.values(allStudentPointsData.reduce((acc, studentPoint) => {
-                if (studentPoint.student.grade < 0) return acc;
-                if (acc[studentPoint.student.grade]) {
-                    const studentData = acc[studentPoint.student.grade].topStudents.find(student => student.id === studentPoint.student_id);
-                    if (studentData) {
-                        studentData.totalPoints += studentPoint.totalPoints;
-                    } else {
-                        acc[studentPoint.student.grade].topStudents.push({
-                            id: studentPoint.student_id,
-                            firstName: studentPoint.student.first_name,
-                            lastName: studentPoint.student.last_name,
-                            totalPoints: studentPoint.totalPoints
-                        });
-                    }
-                } else {
-                    acc[studentPoint.student.grade] = {
-                        grade: studentPoint.student.grade,
-                        topStudents: [{
-                            id: studentPoint.student_id,
-                            firstName: studentPoint.student.first_name,
-                            lastName: studentPoint.student.last_name,
-                            totalPoints: studentPoint.totalPoints
-                        }]
-                    }
-                }
-                return acc;
-            }, {} as {
-                [key: number]: {
-                    grade: number,
-                    topStudents: {
-                        id: number,
-                        firstName:
-                        string,
-                        lastName: string,
-                        totalPoints: number
-                    }[]
-                }
-            }))
-                .sort((a, b) => a.grade - b.grade)
-                .map(grade => {
+        rankingGroups: rankingGroupsData.map((rankingGroup) => {
+            return {
+                id: rankingGroup.id,
+                name: rankingGroup.name,
+                studentGroups: rankingGroup.student_group.map((studentGroup) => {
                     return {
-                        grade: grade.grade,
-                        topStudents: grade.topStudents.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
+                        id: studentGroup.id,
+                        name: studentGroup.name,
+                        averagePoints: studentPointTotals.reduce((acc, cur) => {
+                            if (cur.studentGroups.find((studentGroupData) => studentGroupData.id === studentGroup.id)) {
+                                acc.count += 1
+                                acc.totalPoints += cur.totalPoints
+                                acc.averagePoints = acc.totalPoints / acc.count
+                            }
+                            return acc
+                        }, { count: 0, totalPoints: 0, averagePoints: 0 }).averagePoints,
+                        students: []
                     }
+                }).sort((a, b) => {
+                    return b.averagePoints - a.averagePoints
                 })
-        },
-        pointEvents: allPointEventsForSchoolData.map((pointEvent) => ({
-            id: pointEvent.id,
-            name: pointEvent.name || "",
-            date: pointEvent.date || "",
-            pointGroup: {
-                id: pointEvent.point_template?.point_group?.id || 0,
-                name: pointEvent.point_template?.point_group?.name || "",
-                color: pointEvent.point_template?.point_group?.color || ""
-            },
-            pointTemplate: {
-                id: pointEvent.point_template?.id || 0,
-                conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0,
-                conversionRuleType: {
-                    id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
-                    name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
+            }
+        }),
+        topStudents: {
+            topOverall: studentPointTotals.map((student) => {
+                return {
+                    id: student.id,
+                    firstName: student.firstName,
+                    lastName: student.lastName,
+                    grade: student.grade,
+                    totalPoints: student.totalPoints
                 }
-            },
-            maxInput: pointEvent.max_input,
-        }))
+            }).sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10),
+            topTrending: studentPointTotals.map((student) => {
+                return {
+                    id: student.id,
+                    firstName: student.firstName,
+                    lastName: student.lastName,
+                    totalPoints: student.totalPoints,
+                    lastWeekTotalPoints: student.lastWeekTotal
+                }
+            }).sort((a, b) => (b.totalPoints - b.lastWeekTotalPoints) - (a.totalPoints - a.lastWeekTotalPoints)).slice(0, 20),
+            topByPointGroup: allPointGroups.reduce((acc, cur) => {
+                acc.push(
+                    {
+                        id: cur.id,
+                        name: cur.name,
+                        color: cur.color,
+                        topStudents: studentPointTotals.sort((a, b) => {
+                            const aGroup = a.byPointGroup.find((group) => group.groupId == cur.id)
+                            const bGroup = b.byPointGroup.find((group) => group.groupId == cur.id)
+                            if (aGroup === undefined) return 1
+                            if (bGroup === undefined) return -1
+                            return bGroup.totalPoints - aGroup.totalPoints
+                        }).map((student) => {
+                            const groupPoints = student.byPointGroup.find((group) => group.groupId == cur.id)
+                            return {
+                                id: student.id,
+                                firstName: student.firstName,
+                                lastName: student.lastName,
+                                totalPoints: groupPoints?.totalPoints ?? 0
+                            }
+                        }).slice(0, 10)
+                    }
+                )
+                return acc
+            }, [] as { id: number, name: string, color: string, topStudents: { id: number, firstName: string, lastName: string, totalPoints: number }[] }[]),
+            topByGrade: allGrades.reduce((acc, cur) => {
+                acc.push(
+                    {
+                        grade: cur,
+                        topStudents: studentPointTotals
+                            .filter((student) => student.grade == cur)
+                            .sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
+                    }
+                )
+                return acc
+            }, [] as { grade: number, topStudents: { id: number, firstName: string, lastName: string, totalPoints: number }[] }[])
+        },
+        pointEvents: futurePointData
+            .map((futurePoint) => {
+                return {
+                    id: futurePoint.id,
+                    name: futurePoint.name ?? "",
+                    date: futurePoint.date ?? "",
+                    pointGroup: {
+                        id: futurePoint.point_template?.point_group?.id ?? -1,
+                        name: futurePoint.point_template?.point_group?.name ?? "",
+                        color: futurePoint.point_template?.point_group?.color ?? ""
+                    },
+                    pointTemplate: {
+                        id: futurePoint.point_template?.id ?? -1,
+                        conversionRuleValue: futurePoint.point_template?.conversion_rule_value ?? 0,
+                        conversionRuleType: {
+                            id: futurePoint.point_template?.point_conversion_rule_type?.id ?? -1,
+                            name: futurePoint.point_template?.point_conversion_rule_type?.name ?? ""
+                        }
+                    },
+                    maxInput: futurePoint.max_input
+                }
+            })
     }
 }

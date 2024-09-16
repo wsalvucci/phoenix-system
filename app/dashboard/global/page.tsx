@@ -1,6 +1,6 @@
 "use client";
 import { convertPointUsingRuleType, GlobalDashboardData, metalStyle, metalStyleGradient, rankToColor, stringToRuleType } from "@/app/dataClasses";
-import { getGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import { createClient } from "@/utils/supabase/client";
 import Color from "color";
 import { DateTime } from "luxon";
@@ -24,7 +24,8 @@ export default function GlobalDashboard() {
 
     const updateData = async () => {
         console.log("Updating data");
-        getGlobalDashData(12).then((data) => {
+        newGetGlobalDashData(12).then((data) => {
+            console.log(data)
             setGlobalDashData(data);
         })
     }
@@ -143,7 +144,7 @@ export default function GlobalDashboard() {
                 <div className="grid grid-cols-1 gap-5">
                     {
                         globalDashData?.pointEvents
-                            .filter(event => DateTime.fromISO(event.date).plus({'days': 1}) > DateTime.now())
+                            .filter(event => DateTime.fromISO(event.date).plus({ 'days': 1 }) > DateTime.now())
                             .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
                             .map(event => (
                                 <div key={event.id} className="p-2" style={{
@@ -282,7 +283,7 @@ export default function GlobalDashboard() {
                                 </div>
                                 {
                                     rankingGroup.studentGroups.sort((a, b) =>
-                                        (b.totalPoints / b.students.length) - (a.totalPoints / a.students.length)
+                                        (b.averagePoints / b.students.length) - (a.averagePoints / a.students.length)
                                     )
                                         .slice(0, 5)
                                         .map((studentGroup, rankIndex) => (
@@ -298,7 +299,7 @@ export default function GlobalDashboard() {
                                                         {studentGroup.name}
                                                     </div>
                                                     <div className="flex justify-center">
-                                                        {Math.round(studentGroup.totalPoints / studentGroup.students.length).toLocaleString()}pts
+                                                        {Math.round(studentGroup.averagePoints).toLocaleString()}pts
                                                     </div>
                                                     <div className="flex justify-center">
                                                         {
@@ -318,7 +319,7 @@ export default function GlobalDashboard() {
                 </div>
                 <div>
                     <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
-                    <div className={`grid grid-cols-${(globalDashData?.totals.allTime.totalPointsByPointGroup.length ?? 0) + 1} gap-1`}>
+                    <div className={`grid grid-cols-${(globalDashData?.topStudents.topByPointGroup.length ?? 0) + 1} gap-1`}>
                         <div className="text-xl border px-1 flex justify-center place-items-center" style={{
                             background: metalStyleGradient([
                                 { color: '#ff0000', percent: 0 },
@@ -334,7 +335,7 @@ export default function GlobalDashboard() {
                             textShadow: metalTextShadow
                         }}>Overall</div>
                         {
-                            globalDashData?.totals.allTime.totalPointsByPointGroup.map(pointGroup => (
+                            globalDashData?.topStudents.topByPointGroup.map(pointGroup => (
                                 <div key={pointGroup.id} className="text-xl border px-1 flex justify-center place-items-center" style={{
                                     background: metalStyle(pointGroup.color),
                                     backgroundSize: "cover",
@@ -354,8 +355,9 @@ export default function GlobalDashboard() {
                                         rank={index}
                                     />
                                     {
-                                        globalDashData?.totals.allTime.totalPointsByPointGroup.map(pointGroup => {
-                                            const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
+                                        globalDashData?.topStudents.topByPointGroup.map(pointGroup => {
+                                            const student = pointGroup.topStudents[index]
+                                            //const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
                                             return (
                                                 <StudentPointTile
                                                     key={pointGroup.id + ":" + index}

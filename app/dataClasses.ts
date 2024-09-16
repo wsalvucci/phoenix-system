@@ -538,7 +538,7 @@ export type GlobalDashboardData =
             studentGroups: {
                 id: number;
                 name: string;
-                totalPoints: number;
+                averagePoints: number;
                 students: {
                     id: number;
                     firstName: string;
@@ -564,6 +564,7 @@ export type GlobalDashboardData =
             topByPointGroup: {
                 id: number;
                 name: string;
+                color: string;
                 topStudents: {
                     id: number;
                     firstName: string;
