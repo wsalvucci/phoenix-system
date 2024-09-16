@@ -74,6 +74,26 @@ export default function GlobalDashboard() {
         </div>
     )
 
+    const EmptyStudentPointTile = () => (
+        <div className="text-lg border grid py-1 px-2 mx-2" style={{
+            background: metalStyle("#000"),
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+            gridTemplateColumns: "2fr 1fr",
+            textShadow: metalTextShadow
+        }}>
+            <div className="flex justify-start place-items-center" style={{
+                textWrap: "nowrap"
+            }}>
+                :
+            </div>
+            <div className="flex justify-end place-items-center">
+                :
+            </div>
+        </div>
+    )
+
     const summerImage = "https://cdn.midjourney.com/25cb2c71-19ba-4df8-b4ce-87fd9c61c400/0_0.png"
     const autumnImage = "https://cdn.midjourney.com/9238d38f-7e5d-404a-8348-94aa6862e583/0_1.png"
     const halloweenImage = "https://cdn.midjourney.com/dcff86bf-6e0a-490c-8d9a-dabf8b57bebd/0_2.png"
@@ -399,7 +419,7 @@ export default function GlobalDashboard() {
                                                     fullName={grade.topStudents[index]?.firstName + " " + grade.topStudents[index]?.lastName}
                                                     points={grade.topStudents[index]?.totalPoints || 0}
                                                     rank={index}
-                                                /> : <div key={grade.grade + ":" + index} className="border mx-2"></div>
+                                                /> : <EmptyStudentPointTile />
                                             }
                                         </>
                                     ))}

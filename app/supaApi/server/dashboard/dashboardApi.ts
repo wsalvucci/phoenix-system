@@ -388,11 +388,16 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                         grade: cur,
                         topStudents: studentPointTotals
                             .filter((student) => student.grade == cur)
-                            .sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
+                            .sort((a, b) => b.totalPoints - a.totalPoints)
                     }
                 )
                 return acc
             }, [] as { grade: number, topStudents: { id: number, firstName: string, lastName: string, totalPoints: number }[] }[])
+                .map((grade, index, array) => {
+                    console.log(grade.topStudents.length)
+                    grade.topStudents = grade.topStudents.slice(0, Math.min(10, grade.topStudents.length / 2))
+                    return grade
+                })
         },
         pointEvents: futurePointData
             .map((futurePoint) => {
