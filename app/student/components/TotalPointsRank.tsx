@@ -21,28 +21,28 @@ export default function TotalPointsRank(
     return (
         <div className="pt-10 pb-20">
             <div
-            className={`text-5xl`}
-            style={{
-                background: metalTextStyle(rankToColor(totalRank).toString()),
-                backgroundSize: 'cover',
-                backgroundClip: 'text',
-                color: 'transparent',
-                WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
-            }}>
+                className={`text-5xl`}
+                style={{
+                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
+                    backgroundSize: 'cover',
+                    WebkitBackgroundClip: 'text',
+                    color: 'transparent',
+                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                }}>
                 {fullName.toLocaleUpperCase()}
             </div>
             <div className="text-4xl flex justify-between">
                 <div style={{
-                    background: metalTextStyle(rankToColor(totalRank).toString()),
-                    backgroundClip: 'text',
+                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
+                    WebkitBackgroundClip: 'text',
                     color: 'transparent',
                     WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
                 }}>
                     {totalPoints.toLocaleString()} PTS
                 </div>
                 <div style={{
-                    background: metalTextStyle(rankToColor(totalRank).toString()),
-                    backgroundClip: 'text',
+                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
+                    WebkitBackgroundClip: 'text',
                     color: 'transparent',
                     WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
                 }}>

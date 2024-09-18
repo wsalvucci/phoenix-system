@@ -11,6 +11,8 @@ import StudentCategoryTotals from "./studentCategoryTotals";
 import { DateTime } from "luxon";
 import { Quicksand, Roboto } from "next/font/google";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
+import { getStudentDashboardData } from "@/app/supaApi/server/student/studentApi";
 
 const roboto = Roboto({
     weight: "700",
@@ -29,8 +31,28 @@ export default function ContainerComponent(
         studentRankData: StudentRankData
     }
 ) {
-    const totalRank = studentRankData.ranks.totalRank;
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
+    const [liveStudentData, setLiveStudentData] = useState<StudentRankData>(studentRankData)
+    const [totalRank, setTotalRank] = useState<number>(studentRankData.ranks.totalRank)
+
+    const updateData = async () => {
+        const newData = await getStudentDashboardData();
+        setLiveStudentData(newData)
+        setTotalRank(newData.ranks.totalRank)
+    }
+
+
+    const supabase = createClient();
+    const broadcastChannel = supabase.channel("student-points-channel");
+
+    broadcastChannel.on(
+        'broadcast',
+        { event: 'sync' },
+        (payload) => {
+            console.log('Received broadcast:', payload);
+            updateData();
+        }
+    ).subscribe();
 
     return (
         <div
@@ -39,7 +61,7 @@ export default function ContainerComponent(
                 height: '100svh',
                 maxHeight: '100svh',
                 overflow: 'scroll',
-                background: `
+                backgroundImage: `
                 linear-gradient(135deg,
                 ${rankToColor(totalRank).alpha(0.75).rgb()} 0%,
                 #fcfbfa 20%,
@@ -67,7 +89,7 @@ export default function ContainerComponent(
                     `
                 }}>
                 <div className={`sticky top-0  ${Color(rankToColor(totalRank)).darken(0.5).alpha(0.75).isLight() ? 'text-black' : 'text-white'}`} style={{
-                    background: `
+                    backgroundImage: `
                     linear-gradient(180deg,
                     ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 90%,
                     ${rankToColor(totalRank).darken(0.5).alpha(1).rgb()} 100%),
@@ -79,7 +101,7 @@ export default function ContainerComponent(
                         firstName={studentData?.firstName || ""}
                         lastName={studentData?.lastName || ""}
                         grade={studentData?.grade || 0}
-                        totalPoints={studentRankData?.ranks.totalPoints || 0}
+                        totalPoints={liveStudentData?.ranks.totalPoints || 0}
                         totalRank={totalRank}
                         opacity={pointHeaderOpacity}
                     />
@@ -96,14 +118,14 @@ export default function ContainerComponent(
                 <div className="px-6 pb-6">
                     <TotalPointsRank
                         fullName={studentData?.firstName + " " + studentData?.lastName}
-                        totalPoints={studentRankData?.ranks.totalPoints || 0}
+                        totalPoints={liveStudentData?.ranks.totalPoints || 0}
                         totalRank={totalRank}
                     />
-                    <PointCategoryTotals totalRank={totalRank} categories={studentRankData.ranks.pointGroupRanks} />
+                    <PointCategoryTotals totalRank={totalRank} categories={liveStudentData.ranks.pointGroupRanks} />
                     <StudentCategoryTotals
                         totalRank={totalRank}
-                        categories={studentRankData.ranks.studentGroupRanks}
-                        grade={studentRankData.ranks.gradeRank}
+                        categories={liveStudentData.ranks.studentGroupRanks}
+                        grade={liveStudentData.ranks.gradeRank}
                     />
                     <div className="flex justify-center">
                         <Link
@@ -112,7 +134,7 @@ export default function ContainerComponent(
                     </div>
                     <RecentPoints
                         totalRank={totalRank}
-                        recentPoints={studentRankData.points} />
+                        recentPoints={liveStudentData.points} />
                 </div>
             </div>
         </div>

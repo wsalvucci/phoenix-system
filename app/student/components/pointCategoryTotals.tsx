@@ -48,13 +48,13 @@ export default function PointCategoryTotals(
                         >
                             <div style={
                                 customMetalStyle(rankToColor(totalRank).toString())
-                                }>{category.pointGroup.name.toLocaleUpperCase()}</div>
+                            }>{category.pointGroup.name.toLocaleUpperCase()}</div>
                             <div className="flex justify-end" style={
                                 customMetalStyle(rankToColor(totalRank).toString())
-                                }>{category.totalPoints}pts</div>
+                            }>{category.totalPoints}pts</div>
                             <div className="flex justify-end" style={
                                 customMetalStyle(rankToColor(totalRank).toString())
-                                }>{numberToOrdinal(category.rank)}</div>
+                            }>{numberToOrdinal(category.rank)}</div>
                         </div>
                     )
                 })
@@ -83,7 +83,7 @@ export default function PointCategoryTotals(
                         <div className="grid rounded-full text-xl my-1 px-3" style={{
 
                             // Hard 0% stop between each color
-                            background: metalStyleGradient(categories.reduce((acc, category, index) => {
+                            backgroundImage: metalStyleGradient(categories.reduce((acc, category, index) => {
                                 const color = Color(category.pointGroup.color);
                                 const percent = category.totalPoints / totalPoints;
                                 acc.push({

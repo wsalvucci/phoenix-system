@@ -689,9 +689,9 @@ export type RankingGroupData = {
 }
 
 export const customMetalStyle = (colorOverlay: string) => ({
-    background: metalTextStyle(colorOverlay),
+    backgroundImage: metalTextStyle(colorOverlay),
     backgroundSize: 'cover',
-    backgroundClip: 'text',
+    WebkitBackgroundClip: 'text',
     color: 'transparent',
     WebkitTextStroke: 'thin ' + Color(colorOverlay).lighten(0.5).toString()
 })

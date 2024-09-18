@@ -1,7 +1,6 @@
 "use client";
 
 import { customMetalStyle, rankToColor } from "@/app/dataClasses";
-import Color from "color"
 
 const numberToOrdinal = (n: number) => {
     if (n === 0) return "0";
