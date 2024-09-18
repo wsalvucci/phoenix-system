@@ -46,7 +46,7 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
     const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
             .from("student")
-            .select("*, student_point(*, point_event (*, point_template (*, point_group (*)))), student_group (*, ranking_group (*))")
+            .select("*, student_point(*, point_event (*, point_template (*, point_group (*), point_conversion_rule_type (*)))), student_group (*, ranking_group (*))")
             .eq("school_id", studentData.schoolId)
 
     if (allStudentPointsError !== null) {
@@ -164,8 +164,46 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
         .sort((a, b) => b.totalPoints - a.totalPoints)
         .findIndex((student) => student.id == thisStudent.id) + 1
 
+
+    const thisStudentPointEvents = allStudentPointsData
+        .filter((student) => student.id == thisStudent.id)
+        .at(0)
+        ?.student_point.map((point) => {
+            return {
+                id: point.id,
+                value: point.point_value,
+                date: point.point_event?.date ?? "",
+                pointEvent: {
+                    id: point.point_event_id,
+                    name: point.point_event?.name ?? "",
+                    date: point.point_event?.date ?? "",
+                    maxInput: point.point_event?.max_input ?? 0,
+                    studentGroup: {
+                        id: point.point_event?.student_group_id ?? -1,
+                        name: "",
+                    },
+                    pointTemplate: {
+                        id: point.point_event?.point_template?.id ?? -1,
+                        name: point.point_event?.point_template?.name ?? "",
+                        pointGroup: {
+                            id: point.point_event?.point_template?.point_group_id ?? -1,
+                            name: point.point_event?.point_template?.point_group?.name ?? "",
+                            color: point.point_event?.point_template?.point_group?.color ?? ""
+                        },
+                        pointConversionRule: {
+                            pointConversionRuleType: {
+                                id: point.point_event?.point_template?.point_conversion_rule_type?.id ?? -1,
+                                name: point.point_event?.point_template?.point_conversion_rule_type?.name ?? "",
+                            },
+                            ruleValue: point.point_event?.point_template?.conversion_rule_value ?? 0
+                        }
+                    }
+                }
+            }
+        })
+
     return {
-        points: [],
+        points: thisStudentPointEvents ?? [],
         ranks: {
             totalPoints: thisStudent.totalPoints,
             totalRank: thisStudentTotalRank,

@@ -48,13 +48,13 @@ export default function StudentCategoryTotals(
             >
                 <div className="flex justify-start" style={
                     customMetalStyle(rankToColor(totalRank).toString())
-                    }>
-                        {numberToOrdinal(grade.grade) + ' Grade'}
+                }>
+                    {numberToOrdinal(grade.grade) + ' Grade'}
                 </div>
                 <div className="flex justify-start" style={
                     customMetalStyle(rankToColor(totalRank).toString())
-                    }>
-                        {numberToOrdinal(grade.rank)}
+                }>
+                    {numberToOrdinal(grade.rank)}
                 </div>
             </div>
             {
@@ -62,14 +62,18 @@ export default function StudentCategoryTotals(
                     return (
                         <div
                             key={category.studentGroup.id}
-                            className={`text-xl grid justify-center my-1 rounded-full ps-3`}
+                            className={`text-xl grid justify-center my-1 ps-3`}
                             style={{
                                 borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
                                 gridTemplateColumns: `3fr 1fr`
                             }}
                         >
-                            <div className="flex justify-center">{category.studentGroup.name}</div>
-                            <div className="flex justify-center">{numberToOrdinal(category.rank)}</div>
+                            <div className="flex justify-start" style={
+                                customMetalStyle(rankToColor(totalRank).toString())
+                            }>{category.studentGroup.name}</div>
+                            <div className="flex justify-start" style={
+                                customMetalStyle(rankToColor(totalRank).toString())
+                            }>{numberToOrdinal(category.rank)}</div>
                         </div>
                     )
                 })
