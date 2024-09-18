@@ -43,264 +43,137 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
 
     const supabase = await supabaseServiceClient();
 
-    const { data: studentPointsData, error: studentPointsError } =
+    const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
             .from("student")
-            .select("*, student_point (*, point_event (*, student_group (*), point_template (*, point_group)))")
+            .select("*, student_point(*, point_event (*, point_template (*, point_group (*)))), student_group (*, ranking_group (*))")
             .eq("school_id", studentData.schoolId)
 
-    console.log(studentPointsData)
+    if (allStudentPointsError !== null) {
+        console.error(allStudentPointsError);
+        throw allStudentPointsError;
+    }
+
+    if (allStudentPointsData === null) throw new Error("All student points not found");
+
+    const studentPointTotals = Object.values(allStudentPointsData.reduce((acc, cur) => {
+        if (!acc[cur.id]) {
+            acc[cur.id] = {
+                id: cur.id,
+                firstName: cur.first_name,
+                lastName: cur.last_name,
+                grade: cur.grade,
+                studentGroups: cur.student_group.map((group) => {
+                    return {
+                        id: group.id,
+                        name: group.name
+                    }
+                }),
+                byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
+                    const pointGroup = cur.point_event?.point_template?.point_group
+                    const pointGroupId = pointGroup?.id
+                    if (typeof pointGroupId !== 'number') return acc
+                    if (!acc[pointGroupId]) {
+                        acc[pointGroupId] = {
+                            groupId: pointGroupId,
+                            groupName: pointGroup?.name ?? "",
+                            groupColor: pointGroup?.color ?? "",
+                            totalPoints: 0
+                        }
+                    }
+                    acc[pointGroupId].totalPoints += cur.point_value
+                    return acc
+                }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
+                lastWeekTotal: cur.student_point.reduce((acc, cur) => {
+                    if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
+                        acc += cur.point_value
+                    }
+                    return acc
+                }, 0),
+                totalPoints: cur.student_point.reduce((acc, cur) => {
+                    acc += cur.point_value
+                    return acc
+                }, 0)
+            }
+        }
+        return acc
+    }, {} as {
+        [key: number]: {
+            id: number,
+            firstName: string,
+            lastName: string,
+            grade: number,
+            studentGroups: {
+                id: number,
+                name: string
+            }[],
+            byPointGroup: {
+                groupId: number,
+                groupName: string,
+                groupColor: string,
+                totalPoints: number
+            }[],
+            lastWeekTotal: number,
+            totalPoints: number
+        }
+    }))
+
+    const thisStudent = studentPointTotals.find((student) => student.id == studentData.id)
+
+    if (thisStudent === undefined) {
+        throw new Error("Student not found in school totals")
+    }
+
+    const thisStudentTotalRank = studentPointTotals
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .findIndex((student) => student.id == thisStudent.id) + 1
+
+    const thisStudentPointGroupRanks = thisStudent.byPointGroup.map((pointGroup) => {
+        return {
+            pointGroup: {
+                id: pointGroup.groupId,
+                name: pointGroup.groupName,
+                color: pointGroup.groupColor
+            },
+            totalPoints: pointGroup.totalPoints,
+            rank: studentPointTotals
+                .sort((a, b) =>
+                    (b.byPointGroup.find((_) => _.groupId == pointGroup.groupId)?.totalPoints ?? 0) -
+                    (a.byPointGroup.find((_) => _.groupId == pointGroup.groupId)?.totalPoints ?? 0)
+                )
+                .findIndex((student) => student.id == thisStudent.id) + 1
+        }
+    })
+
+    const thisStudentGroupRanks = thisStudent.studentGroups.map((studentGroup) => {
+        return {
+            studentGroup: {
+                id: studentGroup.id,
+                name: studentGroup.name
+            },
+            totalPoints: thisStudent.totalPoints,
+            rank: studentPointTotals
+                .filter((student) => student.studentGroups.find((_) => _.id === studentGroup.id) !== undefined)
+                .sort((a, b) => b.totalPoints - a.totalPoints)
+                .findIndex((student) => student.id == thisStudent.id) + 1
+        }
+    })
+
+    const thisStudentGradeRank = studentPointTotals
+        .filter((student) => student.grade == thisStudent.grade)
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .findIndex((student) => student.id == thisStudent.id) + 1
 
     return {
         points: [],
         ranks: {
-            totalPoints: 0,
-            totalRank: 0,
-            pointGroupRanks: [],
-            studentGroupRanks: [],
+            totalPoints: thisStudent.totalPoints,
+            totalRank: thisStudentTotalRank,
+            pointGroupRanks: thisStudentPointGroupRanks,
+            studentGroupRanks: thisStudentGroupRanks,
             gradeRank: {
                 grade: studentData.grade,
-                rank: 0
-            }
-        }
-    }
-}
-
-export async function getStudentRankData(): Promise<StudentRankData> {
-    const studentData = await getOwnStudentData();
-
-    if (studentData === null) {
-        throw new Error("Student not found");
-    }
-
-    const supabase = await supabaseServiceClient();
-
-    const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").select("*, point_event (*, point_template (*, point_group (*), point_conversion_rule_type (*)), student_group (*))").eq("student_id", studentData.id);
-
-    if (studentPointsError) {
-        console.error(studentPointsError);
-        throw studentPointsError;
-    }
-
-    if (studentPointsData === null) throw new Error("Student points not found");
-
-    const { data: allStudentPointsData, error: allStudentPointsError } =
-        await supabase
-            .from("student_point")
-            .select("student_id, totalPoints: point_value.sum(), student (school_id, grade)")
-            .eq("student.school_id", studentData.schoolId)
-            .returns<{
-                student_id: number,
-                totalPoints: number,
-                student: {
-                    school_id: number,
-                    grade: number
-                }
-            }[]>();
-
-    if (allStudentPointsError) {
-        console.error(allStudentPointsError);
-        throw allStudentPointsError;
-    }
-
-    if (allStudentPointsData === null) throw new Error("All student points not found");
-
-    // Find the student's rank within the school
-
-    const sortedStudentPointsData = allStudentPointsData.sort((a, b) => b.totalPoints - a.totalPoints);
-    const studentRank = (sortedStudentPointsData.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;
-
-    console.log(allStudentPointsData)
-    const studentRankByTheirGrade = allStudentPointsData.filter((pointData) => pointData.student.grade === studentData.grade);
-    const sortedStudentPointsByGrade = studentRankByTheirGrade.sort((a, b) => b.totalPoints - a.totalPoints);
-    const studentRankByGrade = (sortedStudentPointsByGrade.findIndex((pointData) => pointData.student_id === studentData.id) ?? -1) + 1;
-
-    if (allStudentPointsError) {
-        console.error(allStudentPointsError);
-        throw allStudentPointsError;
-    }
-
-    if (allStudentPointsData === null) throw new Error("All student points not found");
-
-
-
-
-
-
-    const { data: allStudentPointsByPointGroupData, error: allStudentPointsByPointGroupError } =
-        await supabase
-            .from("student_point")
-            .select("point_event (point_template (point_group (*))), student (*, student_group (*)), totalPoints: point_value.sum()")
-            .eq("student.school_id", studentData.schoolId)
-            .returns<{
-                student: {
-                    id: number,
-                    student_group: {
-                        id: number,
-                        name: string
-                    }[]
-                },
-                totalPoints: number,
-                point_event: {
-                    point_template: {
-                        point_group: {
-                            id: number,
-                            name: string,
-                            color: string
-                        }
-                    }
-                }
-            }[]>();
-
-    if (allStudentPointsByPointGroupError) {
-        console.error(allStudentPointsByPointGroupError);
-        throw allStudentPointsByPointGroupError;
-    }
-
-    if (allStudentPointsByPointGroupData === null) throw new Error("All student points by point group not found");
-
-    // Find the student's rank within each point group
-
-    const pointGroups = allStudentPointsByPointGroupData.reduce((acc, pointData) => {
-        const pointGroup = pointData.point_event.point_template.point_group;
-        if (!acc[pointGroup.id]) {
-            acc[pointGroup.id] = {
-                id: pointGroup.id,
-                name: pointGroup.name,
-                color: pointGroup.color,
-                totalPoints: 0,
-                students: []
-            }
-        }
-        acc[pointGroup.id].totalPoints += pointData.totalPoints;
-        acc[pointGroup.id].students.push({
-            id: pointData.student.id,
-            totalPoints: pointData.totalPoints
-        });
-        return acc;
-    }, {} as { [key: number]: { id: number, name: string, color: string, totalPoints: number, students: { id: number, totalPoints: number }[] } });
-
-    const sortedGroups = Object.values(pointGroups).map((pointGroup) => {
-        return {
-            ...pointGroup,
-            students: pointGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)
-        }
-    })
-
-    const groupRanks = sortedGroups.map((group) => {
-        return {
-            id: group.id,
-            name: group.name,
-            color: group.color,
-            rank: (group.students.findIndex((student) => student.id === studentData.id) ?? -1) + 1,
-            totalPoints: (group.students.find((student) => student.id === studentData.id) ?? { totalPoints: 0 }).totalPoints
-        }
-    });
-
-
-    // Get the student's total point ranking within each student group that they are a part of
-
-    const studentGroupRankings = allStudentPointsByPointGroupData.reduce((acc, pointData) => {
-        pointData.student.student_group.forEach((studentGroup) => {
-            if (!acc[studentGroup.id]) {
-                acc[studentGroup.id] = {
-                    id: studentGroup.id,
-                    name: studentGroup.name,
-                    totalPoints: 0,
-                    students: []
-                }
-            }
-            acc[studentGroup.id].totalPoints += pointData.totalPoints;
-            acc[studentGroup.id].students.push({
-                id: pointData.student.id,
-                totalPoints: pointData.totalPoints
-            });
-        });
-        return acc;
-    }, {} as { [key: number]: { id: number, name: string, totalPoints: number, students: { id: number, totalPoints: number }[] } });
-
-    const sortedStudentGroups = Object.values(studentGroupRankings).map((studentGroup) => {
-        return {
-            ...studentGroup,
-            students: studentGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)
-        }
-    })
-
-    const studentGroupRanks = sortedStudentGroups.map((studentGroup) => {
-        return {
-            id: studentGroup.id,
-            name: studentGroup.name,
-            rank: (studentGroup.students.findIndex((student) => student.id === studentData.id) ?? -1) + 1,
-            totalPoints: (studentGroup.students.find((student) => student.id === studentData.id) ?? { totalPoints: 0 }).totalPoints
-        }
-    }).filter((studentGroupRank) => studentGroupRank.rank !== 0);
-
-    return {
-        points: studentPointsData.filter((pointData) => {
-            return pointData.point_event !== null &&
-                pointData.point_event.student_group !== null &&
-                pointData.point_event.point_template !== null &&
-                pointData.point_event.point_template.point_group !== null;
-        }).map((pointData) => {
-            return {
-                id: pointData.id,
-                value: pointData.point_value,
-                date: DateTime.fromISO(pointData.point_event?.date ?? "").toFormat("yyyy-MM-dd"),
-                pointEvent: {
-                    id: pointData.point_event!.id,
-                    name: pointData.point_event!.name ?? "",
-                    date: DateTime.fromISO(pointData.point_event!.date ?? "").toFormat("yyyy-MM-dd"),
-                    maxInput: pointData.point_event?.max_input ?? 0,
-                    studentGroup: {
-                        id: pointData.point_event!.student_group!.id,
-                        name: pointData.point_event!.student_group!.name ?? ""
-                    },
-                    pointTemplate: {
-                        id: pointData.point_event!.point_template!.id,
-                        name: pointData.point_event!.point_template!.name ?? "",
-                        pointGroup: {
-                            id: pointData.point_event!.point_template!.point_group!.id,
-                            name: pointData.point_event!.point_template!.point_group!.name,
-                            color: pointData.point_event!.point_template!.point_group!.color
-                        },
-                        pointConversionRule: {
-                            pointConversionRuleType: {
-                                id: pointData.point_event?.point_template?.point_conversion_rule_type?.id ?? 0,
-                                name: pointData.point_event?.point_template?.point_conversion_rule_type?.name ?? ""
-                            },
-                            ruleValue: pointData.point_event?.point_template?.conversion_rule_value ?? 0
-                        }
-                    }
-                }
-            }
-        }),
-        ranks: {
-            totalPoints: studentPointsData.reduce((acc, pointData) => acc + pointData.point_value, 0),
-            totalRank: studentRank,
-            pointGroupRanks: groupRanks.map((groupRank) => {
-                return {
-                    pointGroup: {
-                        id: groupRank.id,
-                        name: groupRank.name,
-                        color: groupRank.color
-                    },
-                    totalPoints: groupRank.totalPoints,
-                    rank: groupRank.rank
-                }
-            }),
-            studentGroupRanks: studentGroupRanks.map((studentGroupRank) => {
-                return {
-                    studentGroup: {
-                        id: studentGroupRank.id,
-                        name: studentGroupRank.name
-                    },
-                    totalPoints: studentGroupRank.totalPoints,
-                    rank: studentGroupRank.rank
-                }
-            }),
-            gradeRank: {
-                grade: studentData.grade,
-                rank: studentRankByGrade
+                rank: thisStudentGradeRank
             }
         }
     }

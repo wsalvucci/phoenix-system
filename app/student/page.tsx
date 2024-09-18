@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getOwnStudentData, getStudentDashboardData, getStudentRankData } from "../supaApi/server/student/studentApi";
+import { getOwnStudentData, getStudentDashboardData } from "../supaApi/server/student/studentApi";
 import ContainerComponent from "./components/ContainerComponent";
 
 export default async function StudentDashboard() {
@@ -17,7 +17,7 @@ export default async function StudentDashboard() {
             </div>
         )
     } else {
-        const studentRankData = await getStudentRankData();
+        const studentRankData = await getStudentDashboardData();
         return (
             <ContainerComponent studentData={studentData} studentRankData={studentRankData} />
         )

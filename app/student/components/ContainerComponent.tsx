@@ -105,11 +105,11 @@ export default function ContainerComponent(
                         categories={studentRankData.ranks.studentGroupRanks}
                         grade={studentRankData.ranks.gradeRank}
                     />
-                    {/* <div className="flex justify-center">
+                    <div className="flex justify-center">
                         <Link
                             href="/dashboard/mobile"
                             className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
-                    </div> */}
+                    </div>
                     <RecentPoints
                         totalRank={totalRank}
                         recentPoints={studentRankData.points} />
