@@ -581,6 +581,14 @@ export type GlobalDashboardData =
                     totalPoints: number;
                 }[];
             }[];
+            studentData: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+                grade: number;
+                rank: number;
+            } | null;
         };
         pointEvents: {
             id: number;

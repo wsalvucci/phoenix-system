@@ -95,3 +95,31 @@ export async function addStudentToSchool(
         throw new Error("Error adding student to school");
     }
 }
+
+export async function addPointGroupToSchool(
+    schoolId: number,
+    name: string,
+    parentId: number | null,
+    ranked: boolean,
+    color: string
+): Promise<void> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) throw new Error("Unauthorized school access");
+
+    const supabase = await supabaseServiceClient();
+
+    const { data, error } = await supabase
+        .from("point_group")
+        .insert({
+            name: name,
+            school_id: schoolId,
+            parent_id: parentId,
+            ranked: ranked,
+            color: color
+        })
+
+    if (error) {
+        console.error(error)
+        throw new Error("An error occured while adding the point group to the school")
+    }
+}

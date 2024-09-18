@@ -1,164 +1,9 @@
 "use server";
 
 import { DateTime } from "luxon";
-import Color from "color";
 import { GlobalDashboardData, MobileDashboardData, TimedTotalPointData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { getOwnStudentData } from "../student/studentApi";
-
-export async function getMobileDashData(schoolId: number): Promise<MobileDashboardData> {
-    const supabase = await supabaseServiceClient();
-
-    const { data: schoolData, error: schoolDataError } = await supabase
-        .from("school")
-        .select("*")
-        .eq("id", schoolId)
-        .single();
-
-    if (schoolDataError) {
-        console.error(schoolDataError);
-        throw schoolDataError;
-    } else if (schoolData === null) {
-        throw new Error("School not found");
-    }
-
-    const { data: allStudentPointsData, error: allStudentPointsError } =
-        await supabase
-            .from("student_point")
-            .select("created_at, student_id, point_value, student (school_id, first_name, last_name, grade, student_group (id, name, ranking_group (id, name)))")
-            .eq("student.school_id", schoolId)
-
-    if (allStudentPointsError) {
-        console.error(allStudentPointsError);
-        throw allStudentPointsError;
-    } else if (allStudentPointsData === null) {
-        throw new Error("All student points not found");
-    }
-
-    const fetchedStudent = await getOwnStudentData();
-    var studentGrade: number | null = null;
-    var studentGroups: { id: number, name: string }[] = [];
-
-    if (fetchedStudent !== null) {
-        const { data: fetchedStudentData, error: fetchedStudentDataError } = await supabase
-            .from("student")
-            .select("id, first_name, last_name, grade, student_group (id, name)")
-            .eq("id", fetchedStudent.id)
-            .single();
-
-        if (fetchedStudentDataError) {
-            console.error(fetchedStudentDataError);
-            throw fetchedStudentDataError;
-        } else if (fetchedStudentData === null) {
-            throw new Error("Student not found");
-        }
-
-        studentGrade = fetchedStudentData.grade;
-        studentGroups = fetchedStudentData.student_group.map((group: { id: number, name: string }) => ({
-            id: group.id,
-            name: group.name
-        }));
-    }
-
-    const topOverallStudents = allStudentPointsData.reduce((acc, studentPoint) => {
-        if (studentPoint.student == null) return acc;
-        if (studentPoint.student.grade < 0) return acc;
-        if (acc[studentPoint.student_id]) {
-            acc[studentPoint.student_id].totalPoints += studentPoint.point_value;
-        } else {
-            acc[studentPoint.student_id] = {
-                id: studentPoint.student_id,
-                totalPoints: studentPoint.point_value,
-                firstName: studentPoint.student.first_name,
-                lastName: studentPoint.student.last_name,
-                grade: studentPoint.student.grade
-            }
-        }
-        return acc;
-    }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number, grade: number } })
-
-    const topOverallStudentsSorted = Object.values(topOverallStudents)
-        .sort((a, b) => b.totalPoints - a.totalPoints)
-        .map((student, index) => ({ ...student, rank: index + 1 }))
-
-    const topOverallStudentsByGrade = topOverallStudentsSorted.reduce((acc, student) => {
-        if (student.grade < 0) return acc;
-        if (acc[student.grade]) {
-            acc[student.grade].push(student);
-        } else {
-            acc[student.grade] = [student];
-        }
-        return acc;
-    }, {} as { [key: number]: { id: number, firstName: string, lastName: string, totalPoints: number, grade: number }[] });
-
-    const topOverallStudentsByGradeSorted = Object.entries(topOverallStudentsByGrade).map(([grade, students]) => {
-        return {
-            grade: parseInt(grade),
-            topStudents: students.sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 10)
-        }
-    });
-
-    const thisStudentOverall = fetchedStudent !== null ? topOverallStudentsSorted.find((student) => student.id === fetchedStudent.id) || null : null;
-
-    const topOverallGroupsByRankingGroup = allStudentPointsData.reduce((acc, studentPoint) => {
-        if (studentPoint.student == null) return acc;
-        studentPoint.student.student_group.forEach((studentGroup: { id: number, name: string, ranking_group: { id: number, name: string }[] }) => {
-            studentGroup.ranking_group.forEach((rankingGroup: { id: number, name: string }) => {
-                if (!acc[rankingGroup.id]) {
-                    acc[rankingGroup.id] = {
-                        id: rankingGroup.id,
-                        name: rankingGroup.name,
-                        topGroups: {
-                            [studentGroup.id]: {
-                                id: studentGroup.id,
-                                name: studentGroup.name,
-                                totalPoints: studentPoint.point_value,
-                            }
-                        }
-                    }
-                } else {
-                    if (!acc[rankingGroup.id].topGroups[studentGroup.id]) {
-                        acc[rankingGroup.id].topGroups[studentGroup.id] = {
-                            id: studentGroup.id,
-                            name: studentGroup.name,
-                            totalPoints: studentPoint.point_value
-                        }
-                    } else {
-                        acc[rankingGroup.id].topGroups[studentGroup.id].totalPoints += studentPoint.point_value;
-                    }
-                }
-            });
-        });
-        return acc;
-    }, {} as { [key: number]: { id: number, name: string, topGroups: { [key: number]: { id: number, name: string, totalPoints: number } } } });
-
-    const topRankingGroupsSorted = Object.values(topOverallGroupsByRankingGroup).map((rankingGroup) => {
-        return {
-            id: rankingGroup.id,
-            name: rankingGroup.name,
-            topGroups: Object.values(rankingGroup.topGroups).map((studentGroup) => ({
-                id: studentGroup.id,
-                name: studentGroup.name,
-                totalPoints: studentGroup.totalPoints
-            })).sort((a, b) => b.totalPoints - a.totalPoints),
-            studentGroup: Object.values(rankingGroup.topGroups).find((studentGroup) => studentGroups.find((group) => group.id === studentGroup.id)) || null
-        }
-    });
-
-    return {
-        schoolData: {
-            id: schoolData.id,
-            name: schoolData.name,
-        },
-        topStudents: {
-            topOverall: topOverallStudentsSorted.slice(0, 10),
-            studentData: thisStudentOverall || null,
-            byGrade: topOverallStudentsByGradeSorted
-        },
-        rankingGroups: topRankingGroupsSorted
-    }
-
-}
 
 export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDashboardData> {
     const supabase = await supabaseServiceClient();
@@ -175,6 +20,8 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
     }
 
     if (schoolData === null) throw new Error("School not found");
+
+    const fetchedStudent = await getOwnStudentData();
 
     const { data: allStudentPointsData, error: allStudentPointsError } =
         await supabase
@@ -397,7 +244,15 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                     console.log(grade.topStudents.length)
                     grade.topStudents = grade.topStudents.slice(0, Math.min(10, grade.topStudents.length / 2))
                     return grade
-                })
+                }),
+            studentData: fetchedStudent !== null ? {
+                id: fetchedStudent.id,
+                firstName: fetchedStudent.firstName,
+                lastName: fetchedStudent.lastName,
+                totalPoints: 0,
+                grade: fetchedStudent.grade,
+                rank: 0
+            } : null
         },
         pointEvents: futurePointData
             .map((futurePoint) => {

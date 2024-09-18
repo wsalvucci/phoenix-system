@@ -1,6 +1,6 @@
 "use client";
-import { metalStyle, metalTextShadow, MobileDashboardData, rankToColor } from "@/app/dataClasses";
-import { getMobileDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { GlobalDashboardData, metalStyle, metalTextShadow, MobileDashboardData, rankToColor } from "@/app/dataClasses";
+import { newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import { useEffect, useState } from "react";
 import { Quicksand } from "next/font/google"
 import Link from "next/link";
@@ -11,10 +11,10 @@ const customFont = Quicksand({
 });
 
 export default function MobileDashboard() {
-    const [mobileDashData, setMobileDashData] = useState<MobileDashboardData | null>(null);
+    const [mobileDashData, setMobileDashData] = useState<GlobalDashboardData | null>(null);
 
     const updateData = async () => {
-        getMobileDashData(12).then((data) => {
+        newGetGlobalDashData(12).then((data) => {
             setMobileDashData(data);
             console.log(data);
         });
@@ -51,11 +51,7 @@ export default function MobileDashboard() {
     return (
         <div className={`w-full h-svh px-10 text-white bg-slate-800 ${customFont.className} overflow-auto`}>
             <div className="pb-10">
-                <div className="px-2 py-1 my-1 flex justify-center text-2xl" style={{
-                    background: metalStyle("#000"),
-                    backgroundSize: "cover",
-                    textShadow: metalTextShadow
-                }}>Top Students</div>
+                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
                 <div>
                     {
                         mobileDashData?.topStudents.topOverall.map((student, index) => {
@@ -94,13 +90,9 @@ export default function MobileDashboard() {
                     className="px-2 py-1 mb-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Your Page</Link>
             </div>
             <div className="pb-5">
-                <div className="px-2 py-1 my-1 flex justify-center text-2xl" style={{
-                    background: metalStyle("#000"),
-                    backgroundSize: "cover",
-                    textShadow: metalTextShadow
-                }}>Top Students by Grade</div>
+                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
                 {
-                    mobileDashData?.topStudents.byGrade.map((grade) => {
+                    mobileDashData?.topStudents.topByGrade.map((grade) => {
                         return (
                             <div className="pb-3">
                                 <div className="px-2 py-1 my-1 flex justify-center text-lg" style={{
@@ -131,15 +123,11 @@ export default function MobileDashboard() {
                     mobileDashData?.rankingGroups.map((rankingGroup) => {
                         return (
                             <div className="pb-10">
-                                <div className="px-2 py-1 my-1 flex justify-center text-2xl" style={{
-                                    background: metalStyle("#000"),
-                                    backgroundSize: "cover",
-                                    textShadow: metalTextShadow
-                                }}>
+                                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">
                                     {rankingGroup.name}
                                 </div>
                                 {
-                                    rankingGroup.topGroups.map((group, index) => {
+                                    rankingGroup.studentGroups.map((group, index) => {
                                         return (
                                             <div key={index}>
                                                 <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
@@ -151,7 +139,7 @@ export default function MobileDashboard() {
                                                 }}>
                                                     <div className="flex ">{index + 1}</div>
                                                     <div className="flex ">{group.name}</div>
-                                                    <div className="flex justify-end">{group.totalPoints}</div>
+                                                    <div className="flex justify-end">{Math.round(group.averagePoints)}</div>
                                                 </div>
                                             </div>
                                         )

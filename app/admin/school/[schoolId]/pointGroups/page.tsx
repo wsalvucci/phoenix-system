@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/client"
 import { PointGroup } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
 import { clientGetSchoolPointGroups } from "@/app/supaApi/client/admin/pointGroups/adminPointGroupsApi";
+import { addPointGroupToSchool } from "@/app/supaApi/server/admin/adminApi";
 
 export default function PointGroups({ params: { schoolId } }: { params: { schoolId: string } }) {
 
@@ -196,21 +197,17 @@ export default function PointGroups({ params: { schoolId } }: { params: { school
     }
 
     const addNewPointGroup = async (parent_id: number | null = null) => {
-        const { data, error } = await supabase.from("point_group").insert([
-            {
-                name: newPointGroupName,
-                school_id: parseInt(schoolId),
-                parent_id: parent_id,
-                ranked: newPointGroupRanked,
-                color: newPointGroupColor
-            }
-        ]);
-        if (error) {
-            console.error("Error adding new point group", error);
-        } else {
-            console.log("New point group added");
-        }
-        fetchPointGroups();
+        await addPointGroupToSchool(
+            parseInt(schoolId),
+            newPointGroupName,
+            parent_id,
+            newPointGroupRanked,
+            newPointGroupColor
+        ).then(() => {
+            fetchPointGroups();
+        }).catch((error) => {
+            console.log(error)
+        })
     }
 
     const [showAddPointGroupDialog, setShowAddPointGroupDialog] = useState<boolean>(false)
