@@ -61,17 +61,11 @@ export default function RecentPoints(
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
                                     borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
-                                    background: `linear-gradient(
-                                    90deg,
-                                    rgba(0, 0, 0, 0) 0%,
-                                    rgba(0, 0, 0, 0.25) 25%,
-                                    rgba(0, 0, 0, 0.25) 75%,
-                                    rgba(0, 0, 0, 0) 100%
-                                    )`
+                                    borderBottom: `1px solid #333`
                                 }}
                             >
-                                <div>{point.pointEvent.name}</div>
-                                <div className="grid col-span-2 grid-cols-2 gap-2">
+                                <div style={customMetalStyle(rankToColor(totalRank).toString())}>{point.pointEvent.name}</div>
+                                <div className="grid col-span-2 grid-cols-2 gap-2 items-center" style={customMetalStyle(rankToColor(totalRank).toString())}>
                                     <div className="flex justify-end">{convertPointUsingRuleType(
                                         stringToRuleType(point.pointEvent.pointTemplate.pointConversionRule.pointConversionRuleType.name),
                                         point.pointEvent.pointTemplate.pointConversionRule.ruleValue,
@@ -100,17 +94,11 @@ export default function RecentPoints(
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
                                     borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
-                                    background: `linear-gradient(
-                                    90deg,
-                                    rgba(0, 0, 0, 0) 0%,
-                                    rgba(0, 0, 0, 0.25) 25%,
-                                    rgba(0, 0, 0, 0.25) 75%,
-                                    rgba(0, 0, 0, 0) 100%
-                                    )`
+                                    borderBottom: `1px solid #333`
                                 }}
                             >
-                                <div>{point.pointEvent.name}</div>
-                                <div className="grid col-span-2 grid-cols-2 gap-2">
+                                <div style={customMetalStyle(rankToColor(totalRank).toString())}>{point.pointEvent.name}</div>
+                                <div className="grid col-span-2 grid-cols-2 gap-2 items-center" style={customMetalStyle(rankToColor(totalRank).toString())}>
                                     <div className="flex justify-end">{point.value}pts</div>
                                     <div className="flex justify-end">{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
                                 </div>
