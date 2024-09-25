@@ -473,6 +473,75 @@ export type StudentRankData =
         }
     }
 
+export type FeaturedDashboardData =
+    {
+        topOverall: {
+            id: number;
+            firstName: string;
+            lastName: string;
+            totalPoints: number;
+            grade: number;
+            byPointGroup: {
+                id: number;
+                name: string;
+                color: string;
+                totalPoints: number;
+            }[];
+        }[];
+        topByPointGroup: {
+            id: number;
+            name: string;
+            color: string;
+            students: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+                grade: number;
+                byPointGroup: {
+                    id: number;
+                    name: string;
+                    color: string;
+                    totalPoints: number;
+                }[];
+            }[];
+        }[];
+        topByGrade: {
+            grade: number;
+            students: {
+                id: number;
+                firstName: string;
+                lastName: string;
+                totalPoints: number;
+                grade: number;
+                byPointGroup: {
+                    id: number;
+                    name: string;
+                    color: string;
+                    totalPoints: number;
+                }[];
+            }[];
+            byPointGroup: {
+                id: number;
+                name: string;
+                color: string;
+                students: {
+                    id: number;
+                    firstName: string;
+                    lastName: string;
+                    totalPoints: number;
+                    grade: number;
+                    byPointGroup: {
+                        id: number;
+                        name: string;
+                        color: string;
+                        totalPoints: number;
+                    }[];
+                }[];
+            }[];
+        }[]
+    }
+
 export type MobileDashboardData =
     {
         schoolData: {
@@ -724,3 +793,10 @@ export const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
 -1px -1px 2px rgba(255, 255, 255, 0.2),
 2px 2px 4px rgba(0, 0, 0, 1),
 -2px -2px 4px rgba(255, 255, 255, 0.3)`
+
+export const numberToOrdinal = (n: number) => {
+    if (n === 0) return "0";
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
