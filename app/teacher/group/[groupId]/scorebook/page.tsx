@@ -1,9 +1,8 @@
 "use client";
 
-import { convertPointUsingRuleType, PointConversionRuleType, ruleTypeAndValueToFormula, ScorebookData, ScorebookPointEvent, stringToRuleType } from "@/app/dataClasses";
+import { convertPointUsingRuleType, NewScorebookData, NewScorebookPointEvent, ruleTypeAndValueToFormula, stringToRuleType } from "@/app/dataClasses";
 import { clientCreatePointEvent } from "@/app/supaApi/client/teacher/teacherApi";
-import { deletePointEvent, editPointEvent, getScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
-import { Database } from "@/types/supabase";
+import { deletePointEvent, editPointEvent, newGetScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { Fragment, useEffect, useState } from "react";
 import { DateTime } from "luxon";
 import CSVReader from "react-csv-reader";
@@ -20,7 +19,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
   const [showLoadingScreen, setShowLoadingScreen] = useState(true)
 
-  const [scorebookData, setScorebookData] = useState<ScorebookData | null>(null)
+  const [scorebookData, setScorebookData] = useState<NewScorebookData | null>(null)
   const [addNewPointEventModalOpen, setAddNewPointEventModalOpen] = useState(false)
   const [newPointEventData, setNewPointEventData] = useState<NewPointEventData>(
     {
@@ -32,11 +31,15 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   )
   const [addPointEventError, setAddPointEventError] = useState<boolean>(false)
 
-  const [currentStudentOrder, setCurrentStudentOrder] = useState<Database['public']['Tables']['student']['Row'][]>([])
+  const [currentStudentOrder, setCurrentStudentOrder] = useState<{
+    id: number,
+    firstName: string,
+    lastName: string
+  }[]>([])
 
   const [editPointEventModalOpen, setEditPointEventModalOpen] = useState(false)
-  const [currentlyEditedPointEvent, setCurrentlyEditedPointEvent] = useState<ScorebookPointEvent | null>(null)
-  const [updatedPointEvent, setUpdatedPointEvent] = useState<ScorebookPointEvent | null>(null)
+  const [currentlyEditedPointEvent, setCurrentlyEditedPointEvent] = useState<NewScorebookPointEvent | null>(null)
+  const [updatedPointEvent, setUpdatedPointEvent] = useState<NewScorebookPointEvent | null>(null)
 
   const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
 
@@ -56,13 +59,13 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
   const fetchScorebookData = async () => {
     setShowLoadingScreen(true)
-    const data = await getScorebookData(parseInt(groupId))
+    const data = await newGetScorebookData(parseInt(groupId))
     console.log(data)
     setScorebookData(data)
     setCurrentStudentOrder(
       data.students
         .filter(student => student !== null)
-        .sort((a, b) => a?.last_name.localeCompare(b?.last_name))
+        .sort((a, b) => a?.lastName.localeCompare(b?.lastName))
     )
     data.pointTemplates.length > 0 && setNewPointEventData({
       templateId: data.pointTemplates[0].id,
@@ -215,7 +218,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
   const saveEditedPointEventData = async () => {
     if (updatedPointEvent === null) return
-    const response = await editPointEvent(updatedPointEvent)
+    if (scorebookData === null) return
+    console.log(updatedPointEvent)
+    const response = await editPointEvent(updatedPointEvent, scorebookData.studentGroup.id)
     if (!response) {
       console.error("Error editing point event")
     }
@@ -228,7 +233,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   }
 
   const sumAllAvailablePoints = (
-    pointEvents: ScorebookPointEvent[]
+    pointEvents: NewScorebookPointEvent[]
   ): {
     [key: string]: number
   } => {
@@ -238,12 +243,12 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     pointEvents
       .forEach(pointEvent => {
         const pointAmount = convertPointUsingRuleType(
-          stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-          pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
+          stringToRuleType(pointEvent.template.conversionRuleType ?? "direct"),
+          pointEvent.template.conversionRuleValue ?? 0,
           pointEvent.maxInput ?? 0
         )
         pointMap["Total"] += pointAmount
-        const groupName = pointEvent.linkedTemplateData.pointGroup?.name ?? ""
+        const groupName = pointEvent.template.pointGroup?.name ?? ""
         if (pointMap[groupName] === undefined) {
           pointMap[groupName] = pointAmount
         } else {
@@ -254,19 +259,22 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   }
 
   const scorebookTable = () => {
-    const studentsLookup: { [key: number]: Database['public']['Tables']['student']['Row'] } = {}
+    const studentsLookup: {
+      [key: number]: {
+        id: number,
+        firstName: string,
+        lastName: string
+      }
+    } = {}
     scorebookData?.students.forEach(student => {
       if (student !== null) {
-        studentsLookup[student.id] = student
+        studentsLookup[student.id] = {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName
+        }
       }
     })
-
-    const pointEventsLookup: { [key: number]: ScorebookPointEvent } = {}
-    scorebookData?.pointEvents.forEach(pointEvent => {
-      pointEventsLookup[pointEvent.id] = pointEvent
-    })
-
-    console.log(scorebookData)
 
     return (
       <div
@@ -286,15 +294,15 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 gridColumnStart: index + 2,
               }}
             >
-              <div className="h-2 rounded-b-full" style={{ backgroundColor: pointEvent.linkedTemplateData.pointGroup?.color ?? "" }} />
+              <div className="h-2 rounded-b-full" style={{ backgroundColor: pointEvent.template.pointGroup.color ?? "" }} />
               <div className="flex justify-center">{pointEvent.name ?? "-"}</div>
               <div className="grid grid-cols-1">
                 <div className="flex justify-center">{DateTime.fromISO(pointEvent.date ?? "").toFormat("EEE, MMM d yyyy")}</div>
               </div>
               <div className="flex justify-center">
                 {convertPointUsingRuleType(
-                  stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                  pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
+                  stringToRuleType(pointEvent.template.conversionRuleType ?? "direct"),
+                  pointEvent.template.conversionRuleValue ?? 0,
                   pointEvent.maxInput ?? 0
                 )}pts
               </div>
@@ -324,29 +332,29 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 className={`sticky z-10 left-0 ps-1 border-b row-start-${studentIndex + 2} col-start-1 grid grid-cols-2 ${studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
               >
                 <div>
-                  {student.first_name}
+                  {student.firstName}
                 </div>
                 <div>
-                  {student.last_name}
+                  {student.lastName}
                 </div>
               </div>
               {
-                pointEventsLookup && scorebookData?.pointEvents.map((pointEvent, pointEventIndex) => {
-                  const studentPoint = pointEventsLookup[pointEvent.id].studentPoints?.find(studentPoint => studentPoint.studentData?.id === student.id)
+                scorebookData?.pointEvents.map((pointEvent, pointEventIndex) => {
+                  const studentPoint = pointEvent.studentPoints.find(studentPoint => studentPoint.student.id === student.id)
                   return (
                     <div
                       key={pointEvent.id}
-                      className={`flex justify-center border-b border-x ${(!studentPoint?.pointData.input_score || studentPoint?.pointData.input_score === 0) ? "bg-red-100 dark:bg-red-900 dark:bg-opacity-50" : studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
+                      className={`flex justify-center border-b border-x ${(!studentPoint?.pointData.input || studentPoint?.pointData.input === 0) ? "bg-red-100 dark:bg-red-900 dark:bg-opacity-50" : studentIndex % 2 === 0 ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-200 dark:bg-slate-800"}`}
                       style={{
                         gridRowStart: studentIndex + 2,
                         gridColumnStart: pointEventIndex + 2
                       }}
                     >
                       {
-                        studentPoint?.pointData.input_score === 0 ? "0" : convertPointUsingRuleType(
-                          stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                          pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
-                          studentPoint?.pointData.input_score ?? 0
+                        studentPoint?.pointData.input === 0 ? "0" : convertPointUsingRuleType(
+                          stringToRuleType(pointEvent.template.conversionRuleType ?? "direct"),
+                          pointEvent.template.conversionRuleValue ?? 0,
+                          studentPoint?.pointData.input ?? 0
                         )
                       }
                     </div>
@@ -361,11 +369,11 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 }}>
                   {
                     scorebookData?.pointEvents.map(pointEvent => {
-                      const studentPoint = pointEventsLookup[pointEvent.id].studentPoints?.find(studentPoint => studentPoint.studentData?.id === student.id)
+                      const studentPoint = pointEvent.studentPoints.find(studentPoint => studentPoint.student.id === student.id)
                       return convertPointUsingRuleType(
-                        stringToRuleType(pointEvent.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                        pointEvent.linkedTemplateData.conversionRuleValue ?? 0,
-                        studentPoint?.pointData.input_score ?? 0
+                        stringToRuleType(pointEvent.template.conversionRuleType ?? "direct"),
+                        pointEvent.template.conversionRuleValue ?? 0,
+                        studentPoint?.pointData.input ?? 0
                       )
                     }).reduce((a, b) => a + b, 0)
                   }
@@ -474,18 +482,18 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                     maxInput: parseInt(maxPts),
                     studentPoints: prevState.studentPoints?.map(studentPoint => {
                       const studentScore = studentScores.find(studentData => {
-                        return studentData.powerSchoolId == studentPoint.studentData.powerschool_id;
+                        return studentData.powerSchoolId == studentPoint.student.powerschoolId;
                       });
                       console.log(studentScore)
                       if (studentScore) {
                         return {
-                          studentData: studentPoint.studentData,
+                          student: studentPoint.student,
                           pointData: {
                             ...studentPoint.pointData,
                             input_score: studentScore.points,
                             point_value: convertPointUsingRuleType(
-                              stringToRuleType(prevState.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                              prevState.linkedTemplateData.conversionRuleValue ?? 0,
+                              stringToRuleType(prevState.template.conversionRuleType ?? "direct"),
+                              prevState.template.conversionRuleValue ?? 0,
                               studentScore.points
                             )
                           }
@@ -498,12 +506,15 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
               }}
             />
           </div>
-          <select className="text-xl dark:[color-scheme:dark]" defaultValue={currentlyEditedPointEvent?.template_id} onChange={
+          <select className="text-xl dark:[color-scheme:dark]" defaultValue={currentlyEditedPointEvent?.template.id} onChange={
             (e) => {
               const templateId = parseInt(e.target.value)
               updatedPointEvent && setUpdatedPointEvent({
                 ...updatedPointEvent,
-                template_id: templateId
+                template: {
+                  ...updatedPointEvent.template,
+                  id: templateId
+                }
               })
             }
           }>
@@ -535,7 +546,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 const date = e.target.value
                 updatedPointEvent && setUpdatedPointEvent({
                   ...updatedPointEvent,
-                  date: DateTime.fromISO(date).toISO()
+                  date: DateTime.fromISO(date).toISO() ?? "0"
                 })
               }
             } />
@@ -563,13 +574,10 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             </div>
             {currentStudentOrder.map(student => (
               <div key={student.id} className="grid grid-cols-4 my-1 py-1 border-b border-collapse">
-                <div>{student.first_name} {student.last_name}</div>
+                <div>{student.firstName} {student.lastName}</div>
                 <input className="dark:[color-scheme:dark] px-2 rounded-full" type="number"
                   defaultValue={
-                    currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
-                  }
-                  value={
-                    updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
+                    currentlyEditedPointEvent?.studentPoints?.find(studentPoint => studentPoint.student.id === student.id)?.pointData.input ?? 0
                   }
                   onChange={
                     (e) => {
@@ -577,17 +585,17 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                       updatedPointEvent && updatedPointEvent.studentPoints && setUpdatedPointEvent({
                         ...updatedPointEvent,
                         studentPoints: updatedPointEvent.studentPoints.map(studentPoint => {
-                          if (studentPoint.studentData.id === student.id) {
+                          if (studentPoint.student.id === student.id) {
                             console.log("Setting point value")
-                            console.log(studentPoint.studentData)
+                            console.log(studentPoint)
                             return {
-                              studentData: studentPoint.studentData,
+                              ...studentPoint,
                               pointData: {
                                 ...studentPoint.pointData,
-                                input_score: pointValue,
-                                point_value: convertPointUsingRuleType(
-                                  stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                                  updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
+                                input: pointValue,
+                                value: convertPointUsingRuleType(
+                                  stringToRuleType(updatedPointEvent?.template.conversionRuleType ?? "direct"),
+                                  updatedPointEvent?.template.conversionRuleValue ?? 0,
                                   pointValue
                                 )
                               }
@@ -601,9 +609,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 <div className="flex justify-center">
                   {
                     ruleTypeAndValueToFormula(
-                      stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                      updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
-                      updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0,
+                      stringToRuleType(updatedPointEvent?.template.conversionRuleType ?? "direct"),
+                      updatedPointEvent?.template.conversionRuleValue ?? 0,
+                      updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.student.id === student.id)?.pointData.input ?? 0,
                       null
                     )
                   }
@@ -611,9 +619,9 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 <div className="flex justify-center">
                   {
                     convertPointUsingRuleType(
-                      stringToRuleType(updatedPointEvent?.linkedTemplateData.conversionRuleType?.name ?? "direct"),
-                      updatedPointEvent?.linkedTemplateData.conversionRuleValue ?? 0,
-                      updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.studentData.id === student.id)?.pointData.input_score ?? 0
+                      stringToRuleType(updatedPointEvent?.template.conversionRuleType ?? "direct"),
+                      updatedPointEvent?.template.conversionRuleValue ?? 0,
+                      updatedPointEvent?.studentPoints?.find(studentPoint => studentPoint.student.id === student.id)?.pointData.input ?? 0
                     )
                   }
                 </div>

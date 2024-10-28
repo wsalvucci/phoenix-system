@@ -3,20 +3,23 @@ import supabaseServiceClient from "../../supabaseServiceClient";
 import getOwnTeacherData from "../getOwnTeacherData";
 
 export async function checkTeacherAccessToStudentGroup(studentGroupId: number): Promise<boolean> {
-    const teacherData = await getOwnTeacherData();
+        const teacherData = await getOwnTeacherData();
 
-    if (!teacherData) return false;
+        if (!teacherData) return false;
 
-    const supabase = await supabaseServiceClient();
+        const supabase = await supabaseServiceClient();
 
-    const { data: studentGroupPairData, error: studentGroupPairError } = await supabase.from("teacher_student_group_pair").select("*").eq("teacher_id", teacherData.id).eq("group_id", studentGroupId).single();
+        console.log(studentGroupId)
 
-    if (studentGroupPairError) {
-        console.error(studentGroupPairError);
-        return false;
-    }
+        const { data: studentGroupPairData, error: studentGroupPairError } = await supabase.from("teacher_student_group_pair").select("*").eq("teacher_id", teacherData.id).eq("group_id", studentGroupId).single();
 
-    if (studentGroupPairData === null) return false;
+        if (studentGroupPairError) {
+                console.error("Error getting teacher student group pairing");
+                console.error(studentGroupPairError);
+                return false;
+        }
 
-    return true;
+        if (studentGroupPairData === null) return false;
+
+        return true;
 }
