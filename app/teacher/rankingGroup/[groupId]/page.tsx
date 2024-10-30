@@ -101,12 +101,12 @@ export default function RankingGroupPage({ params: { groupId } }: { params: { gr
                                 return a.studentGroupName.localeCompare(b.studentGroupName);
                             }).map((point) => {
                                 return (
-                                    <div className="flex justify-between">
-                                        <div>{point.studentGroupId}</div>
+                                    <div className="flex justify-between gap-3">
+                                        <div>{point.studentGroupName}</div>
                                         <input
                                             type="number"
                                             value={point.value}
-                                            className="dark:[color-scheme:dark]"
+                                            className="px-1 dark:[color-scheme:dark]"
                                             onChange={(e) => {
                                                 setCurrentlyEditedPointEvent({
                                                     ...currentlyEditedPointEvent,
