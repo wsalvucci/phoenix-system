@@ -665,6 +665,7 @@ export type GlobalDashboardData =
                                 id: number;
                                 name: string;
                                 averagePoints: number;
+                                groupPoints: number;
                                 students: {
                                         id: number;
                                         firstName: string;
