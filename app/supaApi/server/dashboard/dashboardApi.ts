@@ -284,6 +284,9 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
 
         if (futurePointData === null) throw new Error("Future point data not found")
 
+        const rankingPeriodStart = 1725148800
+        const weeksPassed = (DateTime.now().toSeconds() - DateTime.fromSeconds(rankingPeriodStart).toSeconds()) / 604800
+
         const studentPointTotals = Object.values(allStudentPointsData.reduce((acc, cur) => {
                 if (!acc[cur.id]) {
                         acc[cur.id] = {
@@ -318,10 +321,20 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         }
                                         return acc
                                 }, 0),
+                                lastWeekPerWeekAvg: cur.student_point.reduce((acc, cur) => {
+                                        if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
+                                                acc += cur.point_value
+                                        }
+                                        return acc
+                                }, 0) / (weeksPassed - 1),
                                 totalPoints: cur.student_point.reduce((acc, cur) => {
                                         acc += cur.point_value
                                         return acc
-                                }, 0)
+                                }, 0),
+                                currentPerWeekAvg: cur.student_point.reduce((acc, cur) => {
+                                        acc += cur.point_value
+                                        return acc
+                                }, 0) / weeksPassed,
                         }
                 }
                 return acc
@@ -342,7 +355,9 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                 totalPoints: number
                         }[],
                         lastWeekTotal: number,
+                        lastWeekPerWeekAvg: number,
                         totalPoints: number
+                        currentPerWeekAvg: number
                 }
         }))
 
@@ -429,6 +444,16 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         lastWeekTotalPoints: student.lastWeekTotal
                                 }
                         }).sort((a, b) => (b.totalPoints - b.lastWeekTotalPoints) - (a.totalPoints - a.lastWeekTotalPoints)).slice(0, 20),
+                        topImproved: studentPointTotals.map((student) => {
+                                return {
+                                        id: student.id,
+                                        firstName: student.firstName,
+                                        lastName: student.lastName,
+                                        totalPoints: student.totalPoints,
+                                        lastWeekTotalPoints: student.lastWeekTotal,
+                                        percentAboveAverage: (student.currentPerWeekAvg - student.lastWeekPerWeekAvg) / student.lastWeekPerWeekAvg
+                                }
+                        }).sort((a, b) => b.percentAboveAverage - a.percentAboveAverage),
                         topByPointGroup: allPointGroups.reduce((acc, cur) => {
                                 acc.push(
                                         {

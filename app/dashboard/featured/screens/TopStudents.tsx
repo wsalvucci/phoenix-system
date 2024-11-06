@@ -4,7 +4,7 @@ import { getFeaturedDashData, newGetGlobalDashData } from "@/app/supaApi/server/
 import { createClient } from "@/utils/supabase/client";
 import { data } from "autoprefixer";
 import Color from "color";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function TopStudents(
   {
@@ -12,18 +12,40 @@ export default function TopStudents(
     groupFocusId: groupFocusId,
     gradeFocus: gradeFocus
   }: {
-    initGlobalDashData: GlobalDashboardData,
+    initGlobalDashData: FeaturedDashboardData,
     groupFocusId: number | null,
     gradeFocus: number | null
   }
 ) {
-  const [featuredDashData, setFeaturedDashData] = useState<GlobalDashboardData>(initFeaturedDashData)
+  const [featuredDashData, setFeaturedDashData] = useState<FeaturedDashboardData>(initFeaturedDashData)
 
   const updateData = async () => {
-    newGetGlobalDashData(12).then((data) => {
+    getFeaturedDashData(12).then((data) => {
       setFeaturedDashData(data)
     })
   }
+
+  const [curGroupFocusId, setCurGroupFocusId] = useState<number | null>(null)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurGroupFocusId((prevGroupFocusId) => {
+        if (prevGroupFocusId === null) {
+          console.log(0)
+          return 0
+        } else if (prevGroupFocusId < featuredDashData.topByPointGroup.length - 1) {
+          console.log(prevGroupFocusId + 1)
+          return prevGroupFocusId + 1
+        } else {
+          console.log(null)
+          return null
+        }
+      })
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
 
   const supabase = createClient();
   const broadcastChannel = supabase.channel("student-points-channel");
@@ -81,7 +103,7 @@ export default function TopStudents(
       color: string
     }[]
   }) => (
-    <div className="h-full flex items-center" style={{
+    <div className="h-full flex items-center text-white" style={{
       backgroundImage: metalStyle(rankToColor(rank).toString()),
       backgroundSize: 'cover',
       textShadow: metalTextShadow,
@@ -94,12 +116,12 @@ export default function TopStudents(
             groupFocusId !== null ?
               (
                 <div className={`flex justify-start ` + rankToNameTextSize(rank)}>
-                  {pointsByGroup.find((group) => group.groupId == groupFocusId)?.points} PTS
+                  {pointsByGroup.at(curGroupFocusId ?? -1)?.points.toLocaleString()} PTS
                 </div>
               ) :
               (
                 <div className={`flex justify-start ` + rankToNameTextSize(rank)}>
-                  {totalPoints} PTS
+                  {totalPoints.toLocaleString()} PTS
                 </div>
               )
           }
@@ -112,7 +134,7 @@ export default function TopStudents(
                   borderColor: pointGroup.color
                 }}>
                   <div className="flex justify-start">{pointGroup.groupName}</div>
-                  <div className="flex justify-end">{pointGroup.points}</div>
+                  <div className="flex justify-end">{pointGroup.points.toLocaleString()}</div>
                 </div>
               )
             })
@@ -139,6 +161,7 @@ export default function TopStudents(
   }) => (
     data !== undefined ?
       <FeaturedStudentTile
+        key={rank}
         fullName={data?.firstName + " " + data?.lastName}
         totalPoints={data?.totalPoints ?? 0}
         pointsByGroup={
@@ -155,28 +178,33 @@ export default function TopStudents(
       /> : <EmptyFeaturedStudentTile />
   )
 
-  const focusedGroupData = featuredDashData.topStudents.topByPointGroup.find((pointGroup) => pointGroup.id == groupFocusId)
-  var orderedStudents = featuredDashData.topStudents.topOverall
+  const focusedGroupData = featuredDashData.topByPointGroup.at(curGroupFocusId ?? -1) ?? undefined
+  var orderedStudents = featuredDashData.topOverall
 
-  if (groupFocusId !== null) {
-    orderedStudents = featuredDashData.topStudents.topByPointGroup.filter((group) => group.id == groupFocusId).flatMap((group) => group.topStudents)
+  if (curGroupFocusId !== null) {
+    orderedStudents = featuredDashData.topByPointGroup.at(curGroupFocusId)?.students ?? orderedStudents
   } else if (gradeFocus !== null) {
-    orderedStudents = featuredDashData.topStudents.topByGrade.filter((grade) => grade.grade == gradeFocus).flatMap((grade) => grade.topStudents)
+    orderedStudents = featuredDashData.topByGrade.filter((grade) => grade.grade == gradeFocus).flatMap((grade) => grade.students)
   }
 
 
   return (
-    <div className="w-lvw h-lvh">
+    <div className="w-lvw h-lvh bg-slate-900">
+      <div className="pb-3" style={{
+        height: '1%',
+      }}>
+
+      </div>
       <div className="pb-3" style={{
         height: '10%',
       }}>
-        <div className="w-full h-full grid grid-cols-1 items-center" style={{
+        <div className="w-full h-full grid grid-cols-1 items-center text-white" style={{
           backgroundImage: metalStyle(focusedGroupData === undefined ? '#000' : focusedGroupData.color),
           textShadow: metalTextShadow
         }}>
           <div className="flex justify-center text-5xl">
             {
-              groupFocusId === null ? 'TOP STUDENTS' : 'TOP ' + focusedGroupData?.name.toLocaleUpperCase()
+              curGroupFocusId === null ? 'TOP STUDENTS' : 'TOP ' + focusedGroupData?.name.toLocaleUpperCase()
             }
           </div>
           {
@@ -189,31 +217,31 @@ export default function TopStudents(
         </div>
       </div>
       <div className="grid grid-cols-4 gap-1" style={{
-        height: '90%'
+        height: '89%'
       }}>
         <div>
-          {/*                    {
-                        getFeaturedTileUsingStudentData({
-                            data: orderedStudents.at(0),
-                            rank: 0
-                        })
-                    }
-          */}
+          {
+            getFeaturedTileUsingStudentData({
+              data: orderedStudents.at(0),
+              rank: 0
+            })
+          }
+
         </div>
         <div className="grid grid-rows-4 gap-1">
-          {/*
-                    {
-                        [...Array(4)].map((_, index) => (
-                            getFeaturedTileUsingStudentData({
-                                data: orderedStudents?.at(index + 1),
-                                rank: index + 1
-                            })
-                        ))
-                    }
-          */}
+
+          {
+            [...Array(4)].map((_, index) => (
+              getFeaturedTileUsingStudentData({
+                data: orderedStudents?.at(index + 1),
+                rank: index + 1
+              })
+            ))
+          }
+
         </div>
         <div className="grid grid-rows-5 gap-1">
-          {/*
+
           {
             [...Array(5)].map((_, index) => (
               getFeaturedTileUsingStudentData({
@@ -222,10 +250,10 @@ export default function TopStudents(
               })
             ))
           }
-          */}
+
         </div>
         <div className="grid grid-rows-10 gap-1">
-          {/*
+
           {
             [...Array(10)].map((_, index) => (
               getFeaturedTileUsingStudentData({
@@ -234,7 +262,7 @@ export default function TopStudents(
               })
             ))
           }
-          */}
+
         </div>
       </div>
     </div>

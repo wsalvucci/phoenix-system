@@ -688,6 +688,14 @@ export type GlobalDashboardData =
                                 totalPoints: number;
                                 lastWeekTotalPoints: number;
                         }[];
+                        topImproved: {
+                                id: number;
+                                firstName: string;
+                                lastName: string;
+                                totalPoints: number;
+                                lastWeekTotalPoints: number;
+                                percentAboveAverage: number;
+                        }[];
                         topByPointGroup: {
                                 id: number;
                                 name: string;
