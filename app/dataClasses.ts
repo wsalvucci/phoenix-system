@@ -532,6 +532,13 @@ export type StudentRankData =
 
 export type FeaturedDashboardData =
         {
+                totalPoints: number,
+                totalPointsByGroup: {
+                        id: number,
+                        name: string,
+                        color: string,
+                        points: number
+                }[]
                 topOverall: {
                         id: number;
                         firstName: string;

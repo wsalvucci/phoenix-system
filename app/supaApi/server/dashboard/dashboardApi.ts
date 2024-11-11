@@ -120,6 +120,21 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
         }, [] as number[]).sort((a, b) => a - b)
 
         return {
+                totalPoints: studentPointTotals.reduce((acc, cur) => {
+                        acc += cur.totalPoints
+                        return acc
+                }, 0),
+                totalPointsByGroup: allPointGroups.map((pointGroup) => {
+                        return {
+                                id: pointGroup.id,
+                                name: pointGroup.name,
+                                color: pointGroup.color,
+                                points: studentPointTotals.reduce((acc, cur) => {
+                                        acc += cur.byPointGroup.find((group) => group.groupId == pointGroup.id)?.totalPoints ?? 0
+                                        return acc
+                                }, 0)
+                        }
+                }),
                 topOverall: studentPointTotals
                         .sort((a, b) => b.totalPoints - a.totalPoints)
                         .map((student) => {

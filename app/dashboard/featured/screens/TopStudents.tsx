@@ -1,23 +1,42 @@
 "use client";
-import { FeaturedDashboardData, GlobalDashboardData, metalStyle, metalTextShadow, numberToOrdinal, rankToColor } from "@/app/dataClasses";
-import { getFeaturedDashData, newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { FeaturedDashboardData } from "@/app/dataClasses";
+import { getFeaturedDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import { createClient } from "@/utils/supabase/client";
-import { data } from "autoprefixer";
-import Color from "color";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import TopStudentsByGroup from "./TopStudentsByGroup";
+import Link from "next/link";
+
+type CurrentDisplay = {
+  title: string,
+  students: {
+    id: number,
+    name: string,
+    totalPoints: number,
+    featuredPoints: number,
+    pointsByPointGroup: {
+      groupId: number,
+      groupName: string,
+      groupPoints: number,
+      groupColor: string,
+    }[]
+  }[]
+}
 
 export default function TopStudents(
   {
     initGlobalDashData: initFeaturedDashData,
-    groupFocusId: groupFocusId,
-    gradeFocus: gradeFocus
-  }: {
-    initGlobalDashData: FeaturedDashboardData,
-    groupFocusId: number | null,
-    gradeFocus: number | null
-  }
+    gradeFocus: gradeFocus }: {
+      initGlobalDashData: FeaturedDashboardData,
+      groupFocusId: number | null,
+      gradeFocus: number | null,
+      completedCallback: Function
+    }
 ) {
   const [featuredDashData, setFeaturedDashData] = useState<FeaturedDashboardData>(initFeaturedDashData)
+  const [currentDisplayData, setCurrentDisplayData] = useState<CurrentDisplay>({
+    title: "",
+    students: []
+  })
 
   const updateData = async () => {
     getFeaturedDashData(12).then((data) => {
@@ -26,25 +45,96 @@ export default function TopStudents(
   }
 
   const [curGroupFocusId, setCurGroupFocusId] = useState<number | null>(null)
+  const [paused, setPaused] = useState<boolean>(false)
+
+  const TEMP_INTERVAL_LENGTH = 5000
+  const [passedTime, setPassedTime] = useState<number>(0)
+
+  function advanceGroup() {
+    setCurGroupFocusId((prevGroupFocusId) => {
+      const currentIndex = featuredDashData.topByPointGroup.findIndex((pointGroup) => pointGroup.id === prevGroupFocusId)
+      if (prevGroupFocusId === null) {
+        return featuredDashData.topByPointGroup.at(0)?.id ?? null
+      } else {
+        return featuredDashData.topByPointGroup.at(currentIndex + 1)?.id ?? null
+      }
+    })
+    setPassedTime(0)
+  }
+
+  function retreatGroup() {
+    setCurGroupFocusId((prevGroupFocusId) => {
+      const currentIndex = featuredDashData.topByPointGroup.findIndex((pointGroup) => pointGroup.id === prevGroupFocusId)
+      if (prevGroupFocusId === null) {
+        return featuredDashData.topByPointGroup.at(featuredDashData.topByPointGroup.length - 1)?.id ?? null
+      } else {
+        if (currentIndex - 1 < 0) return null
+        return featuredDashData.topByPointGroup.at(currentIndex - 1)?.id ?? null
+      }
+    })
+    setPassedTime(0)
+  }
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurGroupFocusId((prevGroupFocusId) => {
-        if (prevGroupFocusId === null) {
-          console.log(0)
-          return 0
-        } else if (prevGroupFocusId < featuredDashData.topByPointGroup.length - 1) {
-          console.log(prevGroupFocusId + 1)
-          return prevGroupFocusId + 1
-        } else {
-          console.log(null)
-          return null
-        }
-      })
-    }, 30000)
+    const timePassedInterval = setInterval(() => {
+      if (paused) return
+      if ((passedTime + 100) >= TEMP_INTERVAL_LENGTH) {
+        advanceGroup()
+      } else {
+        setPassedTime((prevTime) => prevTime + 100)
+      }
+    }, 100)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearInterval(timePassedInterval)
+  }, [featuredDashData, paused, passedTime])
+
+  useEffect(() => {
+    if (curGroupFocusId == null) {
+      setCurrentDisplayData({
+        title: "TOP STUDENTS",
+        students: featuredDashData.topOverall.map((student) => {
+          return {
+            id: student.id,
+            name: student.firstName + " " + student.lastName,
+            totalPoints: student.totalPoints,
+            featuredPoints: student.totalPoints,
+            pointsByPointGroup: student.byPointGroup.map((pointGroup) => {
+              return {
+                groupId: pointGroup.id,
+                groupName: pointGroup.name,
+                groupPoints: pointGroup.totalPoints,
+                groupColor: pointGroup.color
+              }
+            })
+          }
+        })
+      })
+    } else {
+      const focusedGroup = featuredDashData.topByPointGroup.find((pointGroup) => pointGroup.id == curGroupFocusId)
+      if (focusedGroup === undefined) return
+      setCurrentDisplayData({
+        title: "TOP " + focusedGroup.name.toUpperCase(),
+        students: focusedGroup.students.map((student) => {
+          return {
+            id: student.id,
+            name: student.firstName + " " + student.lastName,
+            totalPoints: student.totalPoints,
+            featuredPoints: student.byPointGroup.find((pointGroup) => pointGroup.id === focusedGroup.id)?.totalPoints ?? 0,
+            pointsByPointGroup: student.byPointGroup.map((pointGroup) => {
+              return {
+                groupId: pointGroup.id,
+                groupName: pointGroup.name,
+                groupPoints: pointGroup.totalPoints,
+                groupColor: pointGroup.color
+              }
+            })
+          }
+        })
+      })
+    }
+
+    return
+  }, [curGroupFocusId])
 
 
   const supabase = createClient();
@@ -59,126 +149,6 @@ export default function TopStudents(
     }
   ).subscribe();
 
-  const rankToNameTextSize = (rank: number): string => {
-    if (rank === 1) {
-      return 'text-5xl'
-    } else if (rank <= 5) {
-      return 'text-3xl'
-    } else if (rank <= 10) {
-      return 'text-2xl'
-    } else {
-      return 'text-xl'
-    }
-  }
-
-  const rankToPointGroupTextSize = (rank: number): string => {
-    if (rank === 1) {
-      return 'text-3xl'
-    } else if (rank <= 5) {
-      return 'text-xl'
-    } else if (rank <= 10) {
-      return 'text-lg'
-    } else {
-      return ''
-    }
-  }
-
-  const EmptyFeaturedStudentTile = () => (
-    <div className="h-full flex items-center" style={{
-      backgroundImage: metalStyle('#000'),
-      backgroundSize: 'cover',
-      textShadow: metalTextShadow,
-    }}>
-    </div>
-  )
-
-  const FeaturedStudentTile = ({ fullName, totalPoints, rank, pointsByGroup }: {
-    fullName: string,
-    totalPoints: number,
-    rank: number,
-    pointsByGroup: {
-      groupId: number,
-      groupName: string,
-      points: number,
-      color: string
-    }[]
-  }) => (
-    <div className="h-full flex items-center text-white" style={{
-      backgroundImage: metalStyle(rankToColor(rank).toString()),
-      backgroundSize: 'cover',
-      textShadow: metalTextShadow,
-    }}>
-      <div className={`px-5 w-full ` + (rank > 1 ? 'grid grid-cols-2 gap-1 items-center' : 'grid grid-cols-1 gap-10')}>
-        <div>
-          <div className={`flex justify-start ` + rankToNameTextSize(rank)}>{numberToOrdinal(rank)}</div>
-          <div className={`flex justify-start ` + rankToNameTextSize(rank)}>{fullName}</div>
-          {
-            groupFocusId !== null ?
-              (
-                <div className={`flex justify-start ` + rankToNameTextSize(rank)}>
-                  {pointsByGroup.at(curGroupFocusId ?? -1)?.points.toLocaleString()} PTS
-                </div>
-              ) :
-              (
-                <div className={`flex justify-start ` + rankToNameTextSize(rank)}>
-                  {totalPoints.toLocaleString()} PTS
-                </div>
-              )
-          }
-        </div>
-        <div>
-          {
-            pointsByGroup.map((pointGroup) => {
-              return (
-                <div className={`grid grid-cols-2 border-b ` + rankToPointGroupTextSize(rank)} style={{
-                  borderColor: pointGroup.color
-                }}>
-                  <div className="flex justify-start">{pointGroup.groupName}</div>
-                  <div className="flex justify-end">{pointGroup.points.toLocaleString()}</div>
-                </div>
-              )
-            })
-          }
-        </div>
-      </div>
-    </div>
-  )
-
-  const getFeaturedTileUsingStudentData = ({ data, rank }: {
-    data: {
-      id: number
-      firstName: string
-      lastName: string
-      totalPoints: number
-      byPointGroup: {
-        id: number
-        name: string
-        color: string
-        totalPoints: number
-      }[]
-    } | undefined,
-    rank: number
-  }) => (
-    data !== undefined ?
-      <FeaturedStudentTile
-        key={rank}
-        fullName={data?.firstName + " " + data?.lastName}
-        totalPoints={data?.totalPoints ?? 0}
-        pointsByGroup={
-          data?.byPointGroup.map((pointGroup => {
-            return {
-              groupId: pointGroup.id,
-              groupName: pointGroup.name,
-              points: pointGroup.totalPoints,
-              color: pointGroup.color
-            }
-          })) ?? []
-        }
-        rank={rank + 1}
-      /> : <EmptyFeaturedStudentTile />
-  )
-
-  const focusedGroupData = featuredDashData.topByPointGroup.at(curGroupFocusId ?? -1) ?? undefined
   var orderedStudents = featuredDashData.topOverall
 
   if (curGroupFocusId !== null) {
@@ -187,83 +157,50 @@ export default function TopStudents(
     orderedStudents = featuredDashData.topByGrade.filter((grade) => grade.grade == gradeFocus).flatMap((grade) => grade.students)
   }
 
-
   return (
-    <div className="w-lvw h-lvh bg-slate-900">
-      <div className="pb-3" style={{
-        height: '1%',
+    <div className="h-dvh w-dvw bg-slate-900 text-white">
+      <div className="bg-slate-500" style={{
+        height: '0.5%'
       }}>
-
-      </div>
-      <div className="pb-3" style={{
-        height: '10%',
-      }}>
-        <div className="w-full h-full grid grid-cols-1 items-center text-white" style={{
-          backgroundImage: metalStyle(focusedGroupData === undefined ? '#000' : focusedGroupData.color),
-          textShadow: metalTextShadow
+        <div className="h-full bg-green-500" style={{
+          width: `${(passedTime / TEMP_INTERVAL_LENGTH) * 100}%`
         }}>
-          <div className="flex justify-center text-5xl">
-            {
-              curGroupFocusId === null ? 'TOP STUDENTS' : 'TOP ' + focusedGroupData?.name.toLocaleUpperCase()
-            }
-          </div>
-          {
-            gradeFocus !== null && (
-              <div className="flex justify-center text-3xl">
-                {numberToOrdinal(gradeFocus).toLocaleUpperCase() + ' GRADE'}
-              </div>
-            )
-          }
+
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-1" style={{
-        height: '89%'
+      <div className="flex justify-between" style={{
+        height: '1.5%'
       }}>
         <div>
-          {
-            getFeaturedTileUsingStudentData({
-              data: orderedStudents.at(0),
-              rank: 0
-            })
-          }
-
+          <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
+            onClick={(e) => { retreatGroup() }}
+          >
+            Previous
+          </button>
+          <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
+            onClick={(e) => { setPaused(!paused) }}
+          >
+            {
+              paused ? 'Resume' : 'Pause'
+            }
+          </button>
+          <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
+            onClick={(e) => { advanceGroup() }}
+          >
+            Next
+          </button>
         </div>
-        <div className="grid grid-rows-4 gap-1">
-
-          {
-            [...Array(4)].map((_, index) => (
-              getFeaturedTileUsingStudentData({
-                data: orderedStudents?.at(index + 1),
-                rank: index + 1
-              })
-            ))
-          }
-
+        <div>
+          <Link className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700" href={'/dashboard'}>Back</Link>
         </div>
-        <div className="grid grid-rows-5 gap-1">
-
-          {
-            [...Array(5)].map((_, index) => (
-              getFeaturedTileUsingStudentData({
-                data: orderedStudents?.at(index + 5),
-                rank: index + 5
-              })
-            ))
-          }
-
-        </div>
-        <div className="grid grid-rows-10 gap-1">
-
-          {
-            [...Array(10)].map((_, index) => (
-              getFeaturedTileUsingStudentData({
-                data: orderedStudents?.at(index + 10),
-                rank: index + 10
-              })
-            ))
-          }
-
-        </div>
+      </div>
+      <div style={{
+        height: '98%'
+      }}>
+        <TopStudentsByGroup
+          title={currentDisplayData.title}
+          students={currentDisplayData.students}
+        />
       </div>
     </div>
   )

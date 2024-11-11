@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function DashbaordButton() {
+export default function DashboardButton() {
 
     return (
         <div className="my-5">

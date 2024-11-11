@@ -7,7 +7,7 @@ import getOwnAdminData from "./supaApi/client/admin/getOwnAdminData";
 import { getOwnStudentData } from "./supaApi/server/student/studentApi";
 import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
 import InstallPrompt from "./components/InstallPrompt";
-import DashbaordButton from "./components/DashboardButton";
+import DashboardButton from "./components/DashboardButton";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -62,7 +62,7 @@ export default async function Index() {
         {userData.user !== null && adminData != null && <AdminPortal user={adminData} />}
         {userData.user !== null && <LinkTeacher user={teacherData} />}
         {userData.user !== null && <LinkStudent user={studentData} />}
-        {userData.user !== null && <DashbaordButton />}
+        {userData.user !== null && <DashboardButton />}
       </div>
     </div>
   );
