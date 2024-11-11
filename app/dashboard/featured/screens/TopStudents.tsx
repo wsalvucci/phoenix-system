@@ -28,8 +28,7 @@ export default function TopStudents(
     gradeFocus: gradeFocus }: {
       initGlobalDashData: FeaturedDashboardData,
       groupFocusId: number | null,
-      gradeFocus: number | null,
-      completedCallback: Function
+      gradeFocus: number | null
     }
 ) {
   const [featuredDashData, setFeaturedDashData] = useState<FeaturedDashboardData>(initFeaturedDashData)
