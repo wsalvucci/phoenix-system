@@ -46,7 +46,7 @@ export default function TopStudents(
   const [curGroupFocusId, setCurGroupFocusId] = useState<number | null>(null)
   const [paused, setPaused] = useState<boolean>(false)
 
-  const TEMP_INTERVAL_LENGTH = 60000
+  const TEMP_INTERVAL_LENGTH = 30000
   const [passedTime, setPassedTime] = useState<number>(0)
 
   function advanceGroup() {
