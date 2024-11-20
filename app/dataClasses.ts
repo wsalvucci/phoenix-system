@@ -530,6 +530,36 @@ export type StudentRankData =
                 }
         }
 
+export type AdminDashboardData = {
+        school: {
+                id: number,
+                name: string
+        },
+        teachers: {
+                id: number,
+                name: string
+        }[],
+        students: {
+                id: number,
+                name: string,
+                grade: number,
+        }[],
+        studentGroups: {
+                id: number,
+                name: string,
+                parentId: number | null
+        }[],
+        pointGroups: {
+                id: number,
+                name: string,
+                color: string
+        }[],
+        rankingGroups: {
+                id: number,
+                name: string
+        }[]
+}
+
 export type FeaturedDashboardData =
         {
                 totalPoints: number,

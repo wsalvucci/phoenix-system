@@ -2,6 +2,7 @@
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
+import { AdminDashboardData } from "@/app/dataClasses";
 
 export async function bulkAddStudentsToSchool(
     students: {
@@ -121,5 +122,65 @@ export async function addPointGroupToSchool(
     if (error) {
         console.error(error)
         throw new Error("An error occured while adding the point group to the school")
+    }
+}
+
+export async function getAdminDashboardData(
+    schoolId: number
+): Promise<AdminDashboardData | null> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return null
+
+    const supabase = await supabaseServiceClient()
+
+    const { data: schoolData, error: schoolDataError } = await supabase
+        .from("school")
+        .select("*, teacher (*), student_group (*), student(*), point_group (*), ranking_group (*)")
+        .eq("id", schoolId)
+        .single()
+
+    if (schoolDataError) {
+        console.error(schoolDataError)
+        return null
+    }
+
+    return {
+        school: {
+            id: schoolData.id,
+            name: schoolData.name
+        },
+        teachers: schoolData.teacher.map((teacher) => {
+            return {
+                id: teacher.id,
+                name: teacher.last_name + ", " + teacher.first_name
+            }
+        }),
+        students: schoolData.student.map((student) => {
+            return {
+                id: student.id,
+                name: student.last_name + ", " + student.first_name,
+                grade: student.grade
+            }
+        }),
+        studentGroups: schoolData.student_group.map((studentGroup) => {
+            return {
+                id: studentGroup.id,
+                name: studentGroup.name,
+                parentId: studentGroup.parent_id
+            }
+        }),
+        pointGroups: schoolData.point_group.map((pointGroup) => {
+            return {
+                id: pointGroup.id,
+                name: pointGroup.name,
+                color: pointGroup.color
+            }
+        }),
+        rankingGroups: schoolData.ranking_group.map((rankingGroup) => {
+            return {
+                id: rankingGroup.id,
+                name: rankingGroup.name
+            }
+        })
     }
 }
