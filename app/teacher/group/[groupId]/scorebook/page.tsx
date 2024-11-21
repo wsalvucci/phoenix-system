@@ -7,12 +7,31 @@ import { Fragment, useEffect, useState } from "react";
 import { DateTime } from "luxon";
 import CSVReader from "react-csv-reader";
 import { createClient } from "@/utils/supabase/client";
+import Color from "color";
+import { saveAs } from "file-saver"
 
 type NewPointEventData = {
   templateId: number,
   date: string,
   name: string,
   maxInput: number
+}
+
+type ExportScorebookTemplateData = {
+  events: {
+    id: number,
+    name: string,
+    date: string,
+    students: {
+      id: number,
+      inputScore: number
+    }[],
+    pointGroupColor: string
+  }[],
+  students: {
+    id: number,
+    name: string,
+  }[]
 }
 
 export default function TeacherGroupScorebook({ params: { groupId } }: { params: { groupId: string } }) {
@@ -42,6 +61,11 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   const [updatedPointEvent, setUpdatedPointEvent] = useState<NewScorebookPointEvent | null>(null)
 
   const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
+
+  const [scorebookDataToExport, setScorebookDataToExport] = useState<ExportScorebookTemplateData>({
+    events: [],
+    students: []
+  })
 
   const supabase = createClient();
   const broadcastChannel = supabase.channel("student-points-channel");
@@ -105,6 +129,31 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
       )
     )
     fetchScorebookData()
+  }
+
+  const createScorebookTemplateExportFile = () => {
+    const csvEventIds = scorebookDataToExport.events.flatMap((pointEvent) => {
+      return pointEvent.id
+    }).join(',')
+    const csvEventNames = scorebookDataToExport.events.flatMap((pointEvent) => {
+      return pointEvent.name
+    }).join(',')
+    const csvEventDates = scorebookDataToExport.events.flatMap((pointEvent) => {
+      return DateTime.fromISO(pointEvent.date).toFormat('LLL dd yyyy')
+    }).join(',')
+    const csvStudentData = scorebookData?.students.flatMap((student) => {
+      const data = student.id + ',' + student.lastName + ',' + student.firstName
+      const scores = scorebookDataToExport.events.flatMap((pointEvent) => {
+        return pointEvent.students.find((student2) => student2.id === student.id)?.inputScore
+      }).join(',')
+      return data + ',' + scores
+    }).join('\n')
+
+    const totalData = ',,,' + csvEventIds + '\n' + ',,,' + csvEventNames + '\n' + ',,,' + csvEventDates + '\n' + csvStudentData
+
+    const blob = new Blob([totalData], { type: "text/csv;charset=utf-8;" })
+
+    saveAs(blob, "data.csv")
   }
 
   const addNewPointEventModal = () => (
@@ -213,6 +262,13 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
       className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
     >
       Add new point event
+    </button>
+  )
+
+  const exportScorebookTemplateButton = () => (
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">
+      Export Scorebook Event Data
     </button>
   )
 
@@ -351,11 +407,27 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                       }}
                     >
                       {
-                        studentPoint?.pointData.input === 0 ? "0" : convertPointUsingRuleType(
-                          stringToRuleType(pointEvent.template.conversionRuleType ?? "direct"),
-                          pointEvent.template.conversionRuleValue ?? 0,
-                          studentPoint?.pointData.input ?? 0
-                        )
+                        pointEvent.template.conversionRuleType.toLowerCase() === "direct" ?
+                          studentPoint?.pointData.input === 0 ? "0" : convertPointUsingRuleType(
+                            stringToRuleType(pointEvent.template.conversionRuleType.toLowerCase() ?? "direct"),
+                            pointEvent.template.conversionRuleValue ?? 0,
+                            studentPoint?.pointData.input ?? 0
+                          )
+                          :
+                          (
+                            <div className="w-full grid grid-cols-3">
+                              <div className="flex justify-center text-gray-500 opacity-50">{studentPoint?.pointData.input}</div>
+                              <div className="flex justify-center text-gray-500 opacity-50">{"=>"}</div>
+                              <div className="flex justify-center">{
+                                studentPoint?.pointData.input === 0 ? "0" : convertPointUsingRuleType(
+                                  stringToRuleType(pointEvent.template.conversionRuleType.toLowerCase() ?? "direct"),
+                                  pointEvent.template.conversionRuleValue ?? 0,
+                                  studentPoint?.pointData.input ?? 0
+                                )
+                              }
+                              </div>
+                            </div>
+                          )
                       }
                     </div>
                   )
@@ -641,6 +713,99 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     )
   }
 
+  const exportScorebookTemplateModal = () => (
+
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
+      <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-3/4 grid grid-cols-1 gap-1">
+        <div className="grid grid-cols-2 gap-5 overflow-hidden">
+          <div className="border overflow-scroll p-1">
+            {
+              scorebookData?.pointEvents
+                .filter((pointEvent) => {
+                  return scorebookDataToExport.events.find((pointEvent2) => pointEvent.id === pointEvent2.id) === undefined
+                })
+                .map((pointEvent) => (
+                  <div className="my-1 px-1 hover:bg-slate-500 hover:text-white hover:cursor-pointer" style={{
+                    borderLeft: `solid ${Color(pointEvent.template.pointGroup.color).toString()}`
+                  }}
+                    onClick={(e) => {
+                      setScorebookDataToExport((oldData) => {
+                        return {
+                          events: [
+                            ...oldData.events,
+                            {
+                              id: pointEvent.id,
+                              name: pointEvent.name,
+                              date: pointEvent.date,
+                              pointGroupColor: pointEvent.template.pointGroup.color,
+                              students: pointEvent.studentPoints.map((student) => {
+                                return {
+                                  id: student.student.id,
+                                  inputScore: student.pointData.input
+                                }
+                              })
+                            }
+                          ],
+                          students: oldData.students
+                        }
+                      })
+                    }}
+                  >
+                    <div className="grid grid-cols-4 gap-1">
+                      <div className="col-span-3">
+                        {pointEvent.name}
+                      </div>
+                      <div>
+                        {DateTime.fromISO(pointEvent.date).toFormat('LLL dd')}
+                      </div>
+                    </div>
+                  </div>
+                ))
+            }
+          </div>
+          <div className="border">
+            {
+              scorebookDataToExport.events.map((pointEvent) => (
+                <div className="my-1 px-1 hover:bg-slate-500 hover:text-white hover:cursor-pointer" style={{
+                  borderLeft: `solid ${Color(pointEvent.pointGroupColor).toString()}`
+                }}
+                  onClick={(e) => {
+                    setScorebookDataToExport((oldData) => {
+                      return {
+                        events: [
+                          ...oldData.events.filter((pointEvent2) => {
+                            return pointEvent2.id !== pointEvent.id
+                          })
+                        ],
+                        students: oldData.students
+                      }
+                    })
+                  }}>
+
+                  <div className="grid grid-cols-4 gap-1">
+                    <div className="col-span-3">
+                      {pointEvent.name}
+                    </div>
+                    <div>
+                      {DateTime.fromISO(pointEvent.date).toFormat('LLL dd')}
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+        <div>
+          <div
+            className="hover:cursor-pointer"
+            onClick={(e) => {
+              createScorebookTemplateExportFile()
+            }}>Confirm</div>
+        </div>
+      </div>
+    </div>
+  )
+
   const loadingScreen = () => (
     <div className="h-full w-full flex justify-center items-center">
       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
@@ -653,6 +818,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
       {addNewPointEventModalOpen && addNewPointEventModal()}
       {editPointEventModalOpen && editPointEventModal()}
       {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
+      {/* {exportScorebookTemplateModal()} */}
       <div className="h-1/5 grid grid-cols-2 border-b">
         <div>
           <div className="text-xl">
@@ -660,6 +826,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
           </div>
           <div>
             {addNewPointEventButton()}
+            {exportScorebookTemplateButton()}
           </div>
         </div>
         <div>
