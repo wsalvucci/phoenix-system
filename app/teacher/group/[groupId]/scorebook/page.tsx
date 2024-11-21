@@ -267,8 +267,21 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
 
   const exportScorebookTemplateButton = () => (
     <button
-      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
+      onClick={(e) => {
+        setShowExportScorebookTempateModal(true)
+      }}>
       Export Scorebook Event Data
+    </button>
+  )
+
+  const importScorebookTemplateButton = () => (
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
+      onClick={(e) => {
+
+      }}>
+      Import Scorebook Event Data
     </button>
   )
 
@@ -417,7 +430,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                           (
                             <div className="w-full grid grid-cols-3">
                               <div className="flex justify-center text-gray-500 opacity-50">{studentPoint?.pointData.input}</div>
-                              <div className="flex justify-center text-gray-500 opacity-50">{"=>"}</div>
+                              <div className="flex justify-center text-gray-500 opacity-50">{"→"}</div>
                               <div className="flex justify-center">{
                                 studentPoint?.pointData.input === 0 ? "0" : convertPointUsingRuleType(
                                   stringToRuleType(pointEvent.template.conversionRuleType.toLowerCase() ?? "direct"),
@@ -713,17 +726,155 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     )
   }
 
+  type ImportedScorebook = {
+    id: number,
+    name: string,
+    date: string,
+    studentPoints: {
+      id: number,
+      lastName: string,
+      firstName: string,
+      input: number
+    }[]
+  }[]
+
+  const [currentImportedScorebook, setCurrentImportedScorebook] = useState<ImportedScorebook | null>(null)
+
+  const importScorebookTemplateModal = () => (
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
+      <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-full mx-20 h-3/4">
+        {
+          currentImportedScorebook === null && <CSVReader
+            cssClass="flex justify-center"
+            cssInputClass="dark:[color-scheme:dark]"
+            cssLabelClass="px-1"
+            label="Import Phoenix CSV"
+            parserOptions={{ header: false }}
+            onFileLoaded={(data: string[][]) => {
+              // console.log(data)
+              var eventData: ImportedScorebook = data[0].splice(3).map((eventId, index) => {
+                return {
+                  id: parseInt(eventId),
+                  name: data[1][index + 3],
+                  date: data[2][index + 3],
+                  studentPoints: []
+                }
+              })
+              // console.log(eventIds)
+              // Students start on row index 3
+              for (var i = 3; i < data.length; i++) {
+                const studentData = data[i]
+                const studentId = studentData[0]
+                const studentLastName = studentData[1]
+                const studentFirstName = studentData[2]
+                // Scores start on column index 3
+                for (var j = 3; j < studentData.length; j++) {
+                  const studentInput = parseInt(studentData[j])
+                  eventData[j - 3].studentPoints.push({
+                    id: parseInt(studentId),
+                    lastName: studentLastName,
+                    firstName: studentFirstName,
+                    input: !isNaN(studentInput) ? studentInput : 0
+                  })
+                }
+              }
+              console.log(eventData)
+              setCurrentImportedScorebook(eventData)
+            }}
+          />
+        }
+        {
+          currentImportedScorebook !== null && (
+            <div className="h-full">
+              <div className="h-1/6 flex justify-between">
+                <div className="flex justify-center bg-slate-400 dark:bg-slate-600 rounded-full h-fit p-3">Note: These are only input scores. The points the students earn will be calculated once you confirm the import.</div>
+                <div className="flex gap-5">
+                  <button className="bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600 rounded-full h-fit px-3">Confirm Import</button>
+                  <button className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-full h-fit px-3">Cancel</button>
+                </div>
+              </div>
+              <div className="grid h-5/6 overflow-scroll" style={{
+                gridTemplateColumns: `250px repeat(${currentImportedScorebook.length || 0}, 150px)`
+              }}>
+                {
+                  <div className="border-e sticky z-20 left-0 bg-slate-300 dark:bg-slate-700">
+                    <div className="border-b sticky top-0 bg-slate-300 dark:bg-slate-700">Students</div>
+                    {
+                      scorebookData?.students.map((student) => (
+                        <div className="border-b text-nowrap">
+                          {student.lastName}, {student.firstName}
+                        </div>
+                      ))
+                    }
+                  </div>
+                }
+                {
+                  currentImportedScorebook.map((pointEvent) => (
+                    <div className="border-e">
+                      <div className="border-b text-nowrap px-3 sticky z-10 top-0 bg-slate-300 dark:bg-slate-700">
+                        {pointEvent.name}
+                        {pointEvent.date}
+                      </div>
+                      {
+                        scorebookData?.students.map((student) => {
+                          const studentInput = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.input
+                          const currentInput = scorebookData.pointEvents
+                            .find((pointEvent2) => pointEvent.id === pointEvent2.id)?.studentPoints
+                            .find((student2) => student.id === student2.student.id)?.pointData.input
+                          const diff = currentInput !== studentInput
+                          return (<div className="border-b text-nowrap px-3" style={{
+                            backgroundColor: diff ? '#FFFF00AA' : undefined
+                          }}>
+                            {
+                              studentInput
+                            }
+                          </div>)
+                        })
+                      }
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          )
+        }
+      </div>
+    </div>
+  )
+
+  const [currentExportPointGroupFilter, setCurrentExportPointGroupFilter] = useState<number | null>(null)
+  const [showExportScorebookTemplateModal, setShowExportScorebookTempateModal] = useState<boolean>(false)
+
   const exportScorebookTemplateModal = () => (
 
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
-      <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-3/4 grid grid-cols-1 gap-1">
-        <div className="grid grid-cols-2 gap-5 overflow-hidden">
+      <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-full mx-20 h-3/4">
+        <div className="h-1/6">
+          <div className="flex">
+            <div>Point Group</div>
+            <select>
+              <option onClick={(e) => {
+                setCurrentExportPointGroupFilter(null)
+              }}>All</option>
+              {
+                [...new Set(scorebookData?.pointGroups)].map((pointGroup) => (
+                  <option
+                    onClick={(e) => {
+                      setCurrentExportPointGroupFilter(pointGroup.id)
+                    }}>{pointGroup.name}</option>
+                ))
+              }
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-5 h-2/3 overflow-hidden">
           <div className="border overflow-scroll p-1">
             {
               scorebookData?.pointEvents
                 .filter((pointEvent) => {
                   return scorebookDataToExport.events.find((pointEvent2) => pointEvent.id === pointEvent2.id) === undefined
                 })
+                .filter((pointEvent) => currentExportPointGroupFilter === null || pointEvent.template.pointGroup.id === currentExportPointGroupFilter)
                 .map((pointEvent) => (
                   <div className="my-1 px-1 hover:bg-slate-500 hover:text-white hover:cursor-pointer" style={{
                     borderLeft: `solid ${Color(pointEvent.template.pointGroup.color).toString()}`
@@ -795,12 +946,17 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
             }
           </div>
         </div>
-        <div>
+        <div className="h-1/6 flex justify-around pt-5">
           <div
-            className="hover:cursor-pointer"
+            className="bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600 rounded-lg w-fit h-fit px-3 py-1 hover:cursor-pointer"
             onClick={(e) => {
               createScorebookTemplateExportFile()
-            }}>Confirm</div>
+            }}>Export to CSV</div>
+          <div
+            className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-lg w-fit h-fit px-3 py-1 hover:cursor-pointer"
+            onClick={(e) => {
+              setShowExportScorebookTempateModal(false)
+            }}>Cancel</div>
         </div>
       </div>
     </div>
@@ -818,7 +974,8 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
       {addNewPointEventModalOpen && addNewPointEventModal()}
       {editPointEventModalOpen && editPointEventModal()}
       {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
-      {/* {exportScorebookTemplateModal()} */}
+      {showExportScorebookTemplateModal && exportScorebookTemplateModal()}
+      {importScorebookTemplateModal()}
       <div className="h-1/5 grid grid-cols-2 border-b">
         <div>
           <div className="text-xl">
@@ -827,6 +984,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
           <div>
             {addNewPointEventButton()}
             {exportScorebookTemplateButton()}
+            {importScorebookTemplateButton()}
           </div>
         </div>
         <div>
