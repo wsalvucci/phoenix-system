@@ -279,7 +279,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     <button
       className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full"
       onClick={(e) => {
-
+        setShowImportScorebookTempateModal(true)
       }}>
       Import Scorebook Event Data
     </button>
@@ -739,49 +739,59 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   }[]
 
   const [currentImportedScorebook, setCurrentImportedScorebook] = useState<ImportedScorebook | null>(null)
+  const [showImportScorebookTemplateModal, setShowImportScorebookTempateModal] = useState<boolean>(false)
 
   const importScorebookTemplateModal = () => (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
       <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-full mx-20 h-3/4">
         {
-          currentImportedScorebook === null && <CSVReader
-            cssClass="flex justify-center"
-            cssInputClass="dark:[color-scheme:dark]"
-            cssLabelClass="px-1"
-            label="Import Phoenix CSV"
-            parserOptions={{ header: false }}
-            onFileLoaded={(data: string[][]) => {
-              // console.log(data)
-              var eventData: ImportedScorebook = data[0].splice(3).map((eventId, index) => {
-                return {
-                  id: parseInt(eventId),
-                  name: data[1][index + 3],
-                  date: data[2][index + 3],
-                  studentPoints: []
+          currentImportedScorebook === null && <div className="flex">
+            <CSVReader
+              cssClass="flex justify-center"
+              cssInputClass="dark:[color-scheme:dark]"
+              cssLabelClass="px-1"
+              label="Import Phoenix CSV"
+              parserOptions={{ header: false }}
+              onFileLoaded={(data: string[][]) => {
+                // console.log(data)
+                var eventData: ImportedScorebook = data[0].splice(3).map((eventId, index) => {
+                  return {
+                    id: parseInt(eventId),
+                    name: data[1][index + 3],
+                    date: data[2][index + 3],
+                    studentPoints: []
+                  }
+                })
+                // console.log(eventIds)
+                // Students start on row index 3
+                for (var i = 3; i < data.length; i++) {
+                  const studentData = data[i]
+                  const studentId = studentData[0]
+                  const studentLastName = studentData[1]
+                  const studentFirstName = studentData[2]
+                  // Scores start on column index 3
+                  for (var j = 3; j < studentData.length; j++) {
+                    const studentInput = parseInt(studentData[j])
+                    eventData[j - 3].studentPoints.push({
+                      id: parseInt(studentId),
+                      lastName: studentLastName,
+                      firstName: studentFirstName,
+                      input: !isNaN(studentInput) ? studentInput : 0
+                    })
+                  }
                 }
-              })
-              // console.log(eventIds)
-              // Students start on row index 3
-              for (var i = 3; i < data.length; i++) {
-                const studentData = data[i]
-                const studentId = studentData[0]
-                const studentLastName = studentData[1]
-                const studentFirstName = studentData[2]
-                // Scores start on column index 3
-                for (var j = 3; j < studentData.length; j++) {
-                  const studentInput = parseInt(studentData[j])
-                  eventData[j - 3].studentPoints.push({
-                    id: parseInt(studentId),
-                    lastName: studentLastName,
-                    firstName: studentFirstName,
-                    input: !isNaN(studentInput) ? studentInput : 0
-                  })
-                }
-              }
-              console.log(eventData)
-              setCurrentImportedScorebook(eventData)
-            }}
-          />
+                console.log(eventData)
+                setCurrentImportedScorebook(eventData)
+              }}
+            />
+            <button
+              className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-lg px-3"
+              onClick={(e) => {
+                setShowImportScorebookTempateModal(false)
+              }}>
+              Cancel
+            </button>
+          </div>
         }
         {
           currentImportedScorebook !== null && (
@@ -789,16 +799,38 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
               <div className="h-1/6 flex justify-between">
                 <div className="flex justify-center bg-slate-400 dark:bg-slate-600 rounded-full h-fit p-3">Note: These are only input scores. The points the students earn will be calculated once you confirm the import.</div>
                 <div className="flex gap-5">
-                  <button className="bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600 rounded-full h-fit px-3">Confirm Import</button>
-                  <button className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-full h-fit px-3">Cancel</button>
+                  <button
+                    className="bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600 rounded-full h-fit px-3"
+                  >Confirm Import</button>
+                  <button
+                    className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-full h-fit px-3"
+                    onClick={(e) => {
+                      setCurrentImportedScorebook(null)
+                      setShowImportScorebookTempateModal(false)
+                    }}
+                  >Cancel</button>
                 </div>
               </div>
               <div className="grid h-5/6 overflow-scroll" style={{
                 gridTemplateColumns: `250px repeat(${currentImportedScorebook.length || 0}, 150px)`
               }}>
                 {
-                  <div className="border-e sticky z-20 left-0 bg-slate-300 dark:bg-slate-700">
-                    <div className="border-b sticky top-0 bg-slate-300 dark:bg-slate-700">Students</div>
+                  <>
+                    <div className="flex justify-center items-center border-e border-b sticky z-20 left-0 top-0 bg-slate-300 dark:bg-slate-700">Students</div>
+                    {
+                      currentImportedScorebook.map((pointEvent) =>
+                        <div className="flex justify-center items-center border-b border-e sticky top-0 px-3 bg-slate-300 dark:bg-slate-700">
+                          <div>
+                            <div className="flex justify-center">{pointEvent.name}</div>
+                            <div className="flex justify-center">{pointEvent.date}</div>
+                          </div>
+                        </div>
+                      )
+                    }
+                  </>
+                }
+                {
+                  <div className="border-e sticky z-10 left-0 bg-slate-300 dark:bg-slate-700">
                     {
                       scorebookData?.students.map((student) => (
                         <div className="border-b text-nowrap">
@@ -811,10 +843,6 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 {
                   currentImportedScorebook.map((pointEvent) => (
                     <div className="border-e">
-                      <div className="border-b text-nowrap px-3 sticky z-10 top-0 bg-slate-300 dark:bg-slate-700">
-                        {pointEvent.name}
-                        {pointEvent.date}
-                      </div>
                       {
                         scorebookData?.students.map((student) => {
                           const studentInput = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.input
@@ -975,7 +1003,7 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
       {editPointEventModalOpen && editPointEventModal()}
       {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
       {showExportScorebookTemplateModal && exportScorebookTemplateModal()}
-      {importScorebookTemplateModal()}
+      {showImportScorebookTemplateModal && importScorebookTemplateModal()}
       <div className="h-1/5 grid grid-cols-2 border-b">
         <div>
           <div className="text-xl">
