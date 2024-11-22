@@ -741,6 +741,13 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
   const [currentImportedScorebook, setCurrentImportedScorebook] = useState<ImportedScorebook | null>(null)
   const [showImportScorebookTemplateModal, setShowImportScorebookTempateModal] = useState<boolean>(false)
 
+  const importScorebookData = () => {
+    const scorebookData = currentImportedScorebook
+    if (scorebookData === null) return
+
+
+  }
+
   const importScorebookTemplateModal = () => (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
       <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-full mx-20 h-3/4">
