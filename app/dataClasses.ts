@@ -860,6 +860,23 @@ export type RankingGroupData = {
         }[];
 }
 
+export type ImportedScorebook = {
+        pointEventId: number,
+        name: string,
+        date: string,
+        template: {
+                type: string,
+                value: number
+        }
+        studentPoints: {
+                id: number,
+                lastName: string,
+                firstName: string,
+                input: number,
+                value: number
+        }[]
+}[]
+
 export const customMetalStyle = (colorOverlay: string) => ({
         backgroundImage: metalTextStyle(colorOverlay),
         backgroundSize: 'cover',

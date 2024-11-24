@@ -1,6 +1,6 @@
 "use server";
 
-import { ClassConfigurationData, NewScorebookData, NewScorebookPointEvent, RankingGroup, RankingGroupData, RankingGroupScorebookData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
+import { ClassConfigurationData, ImportedScorebook, NewScorebookData, NewScorebookPointEvent, RankingGroup, RankingGroupData, RankingGroupScorebookData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { Database } from "@/types/supabase";
@@ -684,4 +684,31 @@ export async function editRankingGroupPointEvent(
         }
 
         return true;
+}
+
+export default async function importPhoenixScorebookData(
+        studentGroupId: number,
+        data: ImportedScorebook
+): Promise<string | void> {
+        const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+        if (!teacherAccess) return "Teacher not assigned to group";
+
+        const supabase = await supabaseServiceClient();
+
+        data.map(async (pointEvent) => {
+                await supabase.from('student_point')
+                        .upsert(pointEvent.studentPoints.map((student) => {
+                                return {
+                                        created_at: DateTime.now().toISO(),
+                                        point_value: student.value,
+                                        student_id: student.id,
+                                        input_score: student.input,
+                                        notes: null,
+                                        point_event_id: pointEvent.pointEventId
+                                }
+                        }))
+        })
+
+        return
 }

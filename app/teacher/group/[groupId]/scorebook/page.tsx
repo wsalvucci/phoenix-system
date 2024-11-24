@@ -1,8 +1,8 @@
 "use client";
 
-import { convertPointUsingRuleType, NewScorebookData, NewScorebookPointEvent, ruleTypeAndValueToFormula, stringToRuleType } from "@/app/dataClasses";
+import { convertPointUsingRuleType, ImportedScorebook, NewScorebookData, NewScorebookPointEvent, ruleTypeAndValueToFormula, stringToRuleType } from "@/app/dataClasses";
 import { clientCreatePointEvent } from "@/app/supaApi/client/teacher/teacherApi";
-import { deletePointEvent, editPointEvent, newGetScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
+import importPhoenixScorebookData, { deletePointEvent, editPointEvent, newGetScorebookData } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { Fragment, useEffect, useState } from "react";
 import { DateTime } from "luxon";
 import CSVReader from "react-csv-reader";
@@ -726,26 +726,22 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
     )
   }
 
-  type ImportedScorebook = {
-    id: number,
-    name: string,
-    date: string,
-    studentPoints: {
-      id: number,
-      lastName: string,
-      firstName: string,
-      input: number
-    }[]
-  }[]
+
 
   const [currentImportedScorebook, setCurrentImportedScorebook] = useState<ImportedScorebook | null>(null)
   const [showImportScorebookTemplateModal, setShowImportScorebookTempateModal] = useState<boolean>(false)
 
-  const importScorebookData = () => {
-    const scorebookData = currentImportedScorebook
-    if (scorebookData === null) return
+  const importScorebookData = async () => {
+    const importedScorebook = currentImportedScorebook
+    if (importedScorebook === null) return
 
+    await importPhoenixScorebookData(
+      parseInt(groupId),
+      importedScorebook
+    )
 
+    fetchScorebookData()
+    console.log(importedScorebook)
   }
 
   const importScorebookTemplateModal = () => (
@@ -762,10 +758,15 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
               onFileLoaded={(data: string[][]) => {
                 // console.log(data)
                 var eventData: ImportedScorebook = data[0].splice(3).map((eventId, index) => {
+                  var existingEvent = scorebookData?.pointEvents.find((pointEvent) => pointEvent.id == parseInt(eventId))
                   return {
-                    id: parseInt(eventId),
+                    pointEventId: parseInt(eventId),
                     name: data[1][index + 3],
                     date: data[2][index + 3],
+                    template: {
+                      type: existingEvent?.template.conversionRuleType ?? "direct",
+                      value: existingEvent?.template.conversionRuleValue ?? 0
+                    },
                     studentPoints: []
                   }
                 })
@@ -779,11 +780,17 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                   // Scores start on column index 3
                   for (var j = 3; j < studentData.length; j++) {
                     const studentInput = parseInt(studentData[j])
+                    const templateData = eventData[j - 3].template
                     eventData[j - 3].studentPoints.push({
                       id: parseInt(studentId),
                       lastName: studentLastName,
                       firstName: studentFirstName,
-                      input: !isNaN(studentInput) ? studentInput : 0
+                      input: !isNaN(studentInput) ? studentInput : 0,
+                      value: convertPointUsingRuleType(
+                        stringToRuleType(templateData.type),
+                        templateData.value,
+                        !isNaN(studentInput) ? studentInput : 0
+                      )
                     })
                   }
                 }
@@ -808,6 +815,11 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                 <div className="flex gap-5">
                   <button
                     className="bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600 rounded-full h-fit px-3"
+                    onClick={(e) => {
+                      importScorebookData()
+                      setCurrentImportedScorebook(null)
+                      setShowImportScorebookTempateModal(false)
+                    }}
                   >Confirm Import</button>
                   <button
                     className="bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600 rounded-full h-fit px-3"
@@ -853,15 +865,22 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                       {
                         scorebookData?.students.map((student) => {
                           const studentInput = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.input
+                          const studentValue = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.value
                           const currentInput = scorebookData.pointEvents
-                            .find((pointEvent2) => pointEvent.id === pointEvent2.id)?.studentPoints
+                            .find((pointEvent2) => pointEvent.pointEventId === pointEvent2.id)?.studentPoints
                             .find((student2) => student.id === student2.student.id)?.pointData.input
                           const diff = currentInput !== studentInput
-                          return (<div className="border-b text-nowrap px-3" style={{
+                          return (<div className="border-b text-nowrap px-3 flex justify-center" style={{
                             backgroundColor: diff ? '#FFFF00AA' : undefined
                           }}>
                             {
                               studentInput
+                            }{
+                              studentInput !== studentValue && (
+                                <>
+                                  {' → '}{studentValue}
+                                </>
+                              )
                             }
                           </div>)
                         })
