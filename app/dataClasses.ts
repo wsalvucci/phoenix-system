@@ -909,6 +909,18 @@ export const metalStyleGradient = (colors: { color: string, percent: number }[])
         return gradient;
 }
 
+export const backgroundGradient = (colors: { color: string, percent: number }[]): string => {
+        let gradient = 'linear-gradient(90deg,';
+        for (let i = 0; i < colors.length; i++) {
+                gradient += `${Color(colors[i].color).rgb()} ${colors[i].percent}%`
+                if (i < colors.length - 1) {
+                        gradient += ','
+                }
+        }
+        gradient += `)`
+        return gradient;
+}
+
 export const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
 -1px -1px 2px rgba(255, 255, 255, 0.2),
 2px 2px 4px rgba(0, 0, 0, 1),
