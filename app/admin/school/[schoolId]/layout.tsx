@@ -72,6 +72,7 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
                         {sideBarButton("Teachers", "/teachers")}
                         {sideBarButton("Point Groups", "/pointGroups")}
                         {sideBarButton("Ranking Groups", "/rankingGroups")}
+                        {sideBarButton("Timeframes", "/timeframes")}
                     </div>
                     {/* Main Content */}
                     <div className="w-full h-full">

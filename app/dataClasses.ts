@@ -898,6 +898,15 @@ export type ImportedScorebook = {
         }[]
 }[]
 
+export type SchoolTimeframe = {
+        id: number,
+        createdAt: string,
+        startsAt: string,
+        endsAt: string,
+        name: string,
+        active: boolean
+}
+
 export const customMetalStyle = (colorOverlay: string) => ({
         backgroundImage: metalTextStyle(colorOverlay),
         backgroundSize: 'cover',

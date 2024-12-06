@@ -2,7 +2,7 @@
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
-import { AdminDashboardData } from "@/app/dataClasses";
+import { AdminDashboardData, SchoolTimeframe } from "@/app/dataClasses";
 
 export async function bulkAddStudentsToSchool(
     students: {
@@ -183,4 +183,158 @@ export async function getAdminDashboardData(
             }
         })
     }
+}
+
+export async function getSchoolTimeframes(
+    schoolId: number
+): Promise<SchoolTimeframe[]> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return []
+
+    const supabase = await supabaseServiceClient()
+
+    const { data: timeframeData, error: timeframeDataError } =
+        await supabase.from('school_timeframes')
+            .select('*')
+            .eq('school_id', schoolId)
+
+    if (timeframeDataError) {
+        console.error(timeframeDataError)
+        return []
+    }
+
+    if (timeframeData === null) {
+        console.error("Null school timeframe data")
+        return []
+    }
+
+    return timeframeData.map((timeframe) => {
+        return {
+            id: timeframe.id,
+            createdAt: timeframe.created_at,
+            startsAt: timeframe.starts_at,
+            endsAt: timeframe.ends_at,
+            name: timeframe.name,
+            active: timeframe.active
+        }
+    })
+}
+
+export async function addSchoolTimeframe(
+    schoolId: number,
+    startsAt: string,
+    endsAt: string,
+    name: string
+): Promise<boolean> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return false
+
+    const supabase = await supabaseServiceClient()
+
+    const { error } =
+        await supabase.from('school_timeframes')
+            .insert({
+                starts_at: startsAt,
+                ends_at: endsAt,
+                school_id: schoolId,
+                name: name
+            })
+
+    if (error) {
+        console.error(error)
+        return false
+    }
+
+    return true
+}
+
+export async function editSchoolTimeframe(
+    schoolId: number,
+    timeframeId: number,
+    startsAt: string,
+    endsAt: string,
+    name: string
+): Promise<boolean> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return false
+
+    const supabase = await supabaseServiceClient()
+
+    const { error } =
+        await supabase.from('school_timeframes')
+            .update({
+                starts_at: startsAt,
+                ends_at: endsAt,
+                name: name
+            })
+            .eq('id', timeframeId)
+            .eq('school_id', schoolId)
+
+    if (error) {
+        console.error(error)
+        return false
+    }
+
+    return true
+}
+
+export async function deleteSchoolTimeframe(
+    schoolId: number,
+    timeframeId: number
+): Promise<boolean> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return false
+
+    const supabase = await supabaseServiceClient()
+
+    const { error } =
+        await supabase.from('school_timeframes')
+            .delete()
+            .eq('school_id', schoolId)
+            .eq('id', timeframeId)
+
+    if (error) {
+        console.error(error)
+        return false
+    }
+
+    return true
+}
+
+export async function activateSchoolTimeframe(
+    schoolId: number,
+    timeframeId: number
+): Promise<boolean> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return false
+
+    const supabase = await supabaseServiceClient()
+
+    const { error: error1 } =
+        await supabase.from('school_timeframes')
+            .update({
+                active: true
+            })
+            .eq('school_id', schoolId)
+            .eq('id', timeframeId)
+
+    if (error1) {
+        console.error(error1)
+        return false
+    }
+
+    const { error: error2 } =
+        await supabase.from('school_timeframes')
+            .update({
+                active: false
+            })
+            .eq('school_id', schoolId)
+            .neq('id', timeframeId)
+
+    if (error2) {
+        console.error(error2)
+        return false
+    }
+
+    return true
 }

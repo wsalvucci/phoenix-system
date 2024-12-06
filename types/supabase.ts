@@ -465,32 +465,37 @@ export type Database = {
         }
         Relationships: []
       }
-      school_point_group_pair: {
+      school_timeframes: {
         Row: {
+          active: boolean
           created_at: string
-          point_group_id: number
+          ends_at: string
+          id: number
+          name: string
           school_id: number
+          starts_at: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
-          point_group_id: number
+          ends_at: string
+          id?: number
+          name: string
           school_id: number
+          starts_at: string
         }
         Update: {
+          active?: boolean
           created_at?: string
-          point_group_id?: number
+          ends_at?: string
+          id?: number
+          name?: string
           school_id?: number
+          starts_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "school_point_group_pair_pointGroupId_fkey"
-            columns: ["point_group_id"]
-            isOneToOne: false
-            referencedRelation: "point_group"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "school_point_group_pair_schoolId_fkey"
+            foreignKeyName: "school_timeframes_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "school"
@@ -720,7 +725,6 @@ export type Database = {
       student_point: {
         Row: {
           created_at: string
-          id: number
           input_score: number | null
           notes: string | null
           point_event_id: number
@@ -729,7 +733,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          id?: number
           input_score?: number | null
           notes?: string | null
           point_event_id: number
@@ -738,7 +741,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          id?: number
           input_score?: number | null
           notes?: string | null
           point_event_id?: number
