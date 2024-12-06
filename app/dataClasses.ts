@@ -633,6 +633,27 @@ export type FeaturedDashboardData =
                                         }[];
                                 }[];
                         }[];
+                }[];
+                studentGroups: {
+                        id: number;
+                        name: string;
+                        students: {
+                                id: number;
+                                firstName: string;
+                                lastName: string;
+                                totalPoints: number;
+                                grade: number;
+                                byPointGroup: {
+                                        id: number;
+                                        name: string;
+                                        color: string;
+                                        totalPoints: number;
+                                }[];
+                        }[];
+                        rankingGroups: {
+                                id: number,
+                                name: string
+                        }[];
                 }[]
         }
 

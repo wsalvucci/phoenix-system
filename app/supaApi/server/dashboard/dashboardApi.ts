@@ -46,7 +46,13 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
                                 studentGroups: cur.student_group.map((group) => {
                                         return {
                                                 id: group.id,
-                                                name: group.name
+                                                name: group.name,
+                                                rankingGroups: group.ranking_group.map((rankingGroup) => {
+                                                        return {
+                                                                id: rankingGroup.id,
+                                                                name: rankingGroup.name
+                                                        }
+                                                })
                                         }
                                 }),
                                 byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
@@ -85,7 +91,11 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
                         grade: number,
                         studentGroups: {
                                 id: number,
-                                name: string
+                                name: string,
+                                rankingGroups: {
+                                        id: number,
+                                        name: string
+                                }[]
                         }[],
                         byPointGroup: {
                                 groupId: number,
@@ -238,7 +248,62 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
                                         }
                                 })
                         }
-                })
+                }),
+                studentGroups: studentPointTotals.reduce((acc, cur) => {
+                        cur.studentGroups.forEach((studentGroup) => {
+                                const studentData = {
+                                        id: cur.id,
+                                        firstName: cur.firstName,
+                                        lastName: cur.lastName,
+                                        totalPoints: cur.totalPoints,
+                                        grade: cur.grade,
+                                        byPointGroup: cur.byPointGroup.map((pointGroup) => {
+                                                return {
+                                                        id: pointGroup.groupId,
+                                                        name: pointGroup.groupName,
+                                                        color: pointGroup.groupColor,
+                                                        totalPoints: pointGroup.totalPoints,
+                                                }
+                                        })
+                                }
+                                if (!acc[studentGroup.id]) {
+                                        acc[studentGroup.id] = {
+                                                id: studentGroup.id,
+                                                name: studentGroup.name,
+                                                students: [studentData],
+                                                rankingGroups: studentGroup.rankingGroups.map((rankingGroup) => {
+                                                        return {
+                                                                id: rankingGroup.id,
+                                                                name: rankingGroup.name
+                                                        }
+                                                })
+                                        }
+                                } else {
+                                        acc[studentGroup.id].students.push(studentData)
+                                }
+                        })
+                        return acc
+                }, [] as {
+                        id: number;
+                        name: string;
+                        students: {
+                                id: number;
+                                firstName: string;
+                                lastName: string;
+                                totalPoints: number;
+                                grade: number;
+                                byPointGroup: {
+                                        id: number;
+                                        name: string;
+                                        color: string;
+                                        totalPoints: number;
+                                }[];
+                        }[];
+                        rankingGroups: {
+                                id: number,
+                                name: string
+                        }[];
+                }[])
         }
 }
 

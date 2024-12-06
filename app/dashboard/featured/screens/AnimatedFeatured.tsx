@@ -33,10 +33,11 @@ type NavigationState = {
             title: string
         }[]
     },
-    studentGroups: {
+    rankingGroups: {
         currentGroupIdx: number,
         groups: {
-            title: string
+            id: number,
+            name: string
         }[]
     }
 }
@@ -68,19 +69,25 @@ export default function AnimatedFeatured(
                 }
             })
         },
-        studentGroups: {
+        rankingGroups: {
             currentGroupIdx: 0,
-            groups: featuredDashData.totalPointsByGroup.map((group) => {
-                return {
-                    title: group.name
-                }
-            })
+            groups: featuredDashData.studentGroups
+                .reduce((acc, cur) => {
+                    cur.rankingGroups.forEach((group) => {
+                        if (acc.find((accGroup) => accGroup.id === group.id) !== undefined) return
+                        acc.push({
+                            id: group.id,
+                            name: group.name
+                        })
+                    })
+                    return acc
+                }, [] as { id: number, name: string }[])
         }
     })
     const [curProgress, setCurProgress] = useState<{ [id: number]: { value: number } }>({})
 
     const [paused, setPaused] = useState<boolean>(false)
-    const TEMP_INTERVAL_LENGTH = 30000
+    const [intervalLength, setIntervalLength] = useState<number>(20000)
     const [passedTime, setPassedTime] = useState<number>(0)
 
     function decrementDav() {
@@ -89,7 +96,11 @@ export default function AnimatedFeatured(
             if (lastState.currentCategory === Category.OVERALL) {
                 return {
                     ...lastState,
-                    currentCategory: Category.GRADE
+                    currentCategory: Category.STUDENT_GROUP,
+                    rankingGroups: {
+                        ...lastState.rankingGroups,
+                        currentGroupIdx: lastState.rankingGroups.groups.length - 1
+                    }
                 }
             } else if (lastState.currentCategory === Category.POINT_GROUP) {
                 if (lastState.pointGroups.currentGroupIdx - 1 >= 0) {
@@ -126,6 +137,33 @@ export default function AnimatedFeatured(
                         grades: {
                             ...lastState.grades,
                             currentGradeIdx: 0
+                        },
+                        pointGroups: {
+                            ...lastState.pointGroups,
+                            currentGroupIdx: lastState.pointGroups.groups.length - 1
+                        }
+                    }
+                }
+            } else if (lastState.currentCategory === Category.STUDENT_GROUP) {
+                if (lastState.rankingGroups.currentGroupIdx - 1 >= 0) {
+                    return {
+                        ...lastState,
+                        rankingGroups: {
+                            ...lastState.rankingGroups,
+                            currentGroupIdx: lastState.rankingGroups.currentGroupIdx - 1
+                        }
+                    }
+                } else {
+                    return {
+                        ...lastState,
+                        currentCategory: Category.GRADE,
+                        rankingGroups: {
+                            ...lastState.rankingGroups,
+                            currentGroupIdx: 0
+                        },
+                        grades: {
+                            ...lastState.grades,
+                            currentGradeIdx: lastState.grades.grades.length - 1
                         }
                     }
                 }
@@ -174,10 +212,29 @@ export default function AnimatedFeatured(
                 } else {
                     return {
                         ...lastState,
-                        currentCategory: Category.OVERALL,
+                        currentCategory: Category.STUDENT_GROUP,
                         grades: {
                             ...lastState.grades,
                             currentGradeIdx: 0
+                        }
+                    }
+                }
+            } else if (lastState.currentCategory === Category.STUDENT_GROUP) {
+                if (lastState.rankingGroups.currentGroupIdx + 1 < lastState.rankingGroups.groups.length) {
+                    return {
+                        ...lastState,
+                        rankingGroups: {
+                            ...lastState.rankingGroups,
+                            currentGroupIdx: lastState.rankingGroups.currentGroupIdx + 1
+                        }
+                    }
+                } else {
+                    return {
+                        ...lastState,
+                        currentCategory: Category.OVERALL,
+                        rankingGroups: {
+                            ...lastState.rankingGroups,
+                            currentGroupIdx: 0
                         }
                     }
                 }
@@ -190,13 +247,13 @@ export default function AnimatedFeatured(
     useEffect(() => {
         const timePassedInterval = setInterval(() => {
             if (paused) return
-            if ((passedTime + 100) >= TEMP_INTERVAL_LENGTH) {
+            if ((passedTime + 1000) >= intervalLength) {
                 setPassedTime(0)
                 incrementNav()
             } else {
-                setPassedTime((prevTime) => prevTime + 100)
+                setPassedTime((prevTime) => prevTime + 1000)
             }
-        }, 100)
+        }, 1000)
 
         return () => clearInterval(timePassedInterval)
     }, [featuredDashData, paused, passedTime])
@@ -245,19 +302,15 @@ export default function AnimatedFeatured(
                 }}
                 key={student.id}
                 layout
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
                 transition={{
-                    duration: 1,
-                    delay: 1 - ((arrayLength - index) / arrayLength),
-                    layout: { duration: 3 }
+                    layout: { duration: 0.5 }
                 }}
             >
                 <motion.div
                     className="border-e border-white"
                     animate={{ backgroundColor: rankToColor(index + 1).darken(0.5).toString() }}
                     transition={{
-                        duration: 3
+                        duration: 1 * percentOfFirst
                     }}
                 >
                     <div
@@ -278,9 +331,6 @@ export default function AnimatedFeatured(
                                 </div>
                         }
                         <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 1, delay: 2 }}
                             className={`flex justify-start px-3 font-normal text-nowrap overflow-hidden`}>
                             {student.firstName} {student.lastName}
                         </motion.div>
@@ -307,7 +357,7 @@ export default function AnimatedFeatured(
                             [student.id]: { value },
                         }));
                     }}
-                    transition={{ duration: 2 * percentOfFirst }}
+                    transition={{ duration: 1 * percentOfFirst }}
                 >
                     <motion.div
                         className={`flex items-center ${monoFont.className}`}
@@ -408,24 +458,55 @@ export default function AnimatedFeatured(
         )
     }
 
+    function TopStudentGroups() {
+        return (
+            <AnimatePresence>
+                {
+                    featuredDashData
+                        .studentGroups
+                        .filter((group) => group.rankingGroups.find((rankingGroup) => rankingGroup.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id) !== undefined)
+                        .map((group) => {
+                            return {
+                                id: group.id,
+                                name: group.name,
+                                averagePoints: group.students.reduce((acc, cur) => {
+                                    acc += cur.totalPoints
+                                    return acc
+                                }, 0) / group.students.length
+                            }
+                        })
+                        .sort((a, b) => (b.averagePoints ?? 0) - (a.averagePoints ?? 0)).map((studentGroup, index, array) => {
+                            return (
+                                StudentBar(
+                                    {
+                                        student: {
+                                            id: studentGroup.id,
+                                            points: studentGroup.averagePoints ?? 0,
+                                            firstName: studentGroup.name,
+                                            lastName: ''
+                                        },
+                                        index: index,
+                                        arrayLength: array.length,
+                                        firstPlacePoints: array.at(0)?.averagePoints ?? 0 ?? Number.MAX_SAFE_INTEGER
+                                    },
+
+                                )
+                            )
+                        })
+                }
+            </AnimatePresence>
+        )
+    }
+
     return (
         <div
             className={`p-3 text-slate-100 font-bold`}
         >
             <div className="h-1 bg-green-500" style={{
-                width: `${(passedTime / TEMP_INTERVAL_LENGTH) * 100}%`
+                width: `${(passedTime / intervalLength) * 100}%`
             }}>
 
             </div>
-            <motion.div
-                className="flex justify-center text-5xl">
-                TOP {
-                    curNavigationState.currentCategory !== Category.OVERALL && (
-                        curNavigationState.currentCategory === Category.POINT_GROUP && curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.title ||
-                        curNavigationState.currentCategory === Category.GRADE && numberToOrdinal(parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? '')) + " grade"
-                    )?.toString().toUpperCase()
-                } STUDENTS
-            </motion.div>
             <div>
                 <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
                     onClick={(e) => { decrementDav() }}
@@ -444,11 +525,37 @@ export default function AnimatedFeatured(
                 >
                     Next
                 </button>
+                <select
+                    className="px-3 py-1 bg-transparent text-white"
+                    defaultValue={intervalLength}
+                    onChange={(e) => {
+                        setIntervalLength(parseInt(e.target.value))
+                    }}
+                >
+                    <option key={10} value={10000}>10s</option>
+                    <option key={20} value={20000}>20s</option>
+                    <option key={30} value={30000}>30s</option>
+                    <option key={45} value={45000}>45s</option>
+                    <option key={60} value={60000}>60s</option>
+                    <option key={90} value={90000}>90s</option>
+                    <option key={120} value={120000}>120s</option>
+                </select>
             </div>
+            <motion.div
+                className="flex justify-center text-5xl">
+                TOP {
+                    (curNavigationState.currentCategory === Category.OVERALL && "students" ||
+                        curNavigationState.currentCategory === Category.POINT_GROUP && curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.title + " students" ||
+                        curNavigationState.currentCategory === Category.GRADE && numberToOrdinal(parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? '')) + " grade students" ||
+                        curNavigationState.currentCategory === Category.STUDENT_GROUP && curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.name)
+                        ?.toString().toUpperCase()
+                }
+            </motion.div>
             {
                 curNavigationState.currentCategory === Category.OVERALL && OverallTop20() ||
                 curNavigationState.currentCategory === Category.POINT_GROUP && PointGroupTop20() ||
-                curNavigationState.currentCategory === Category.GRADE && GradeTop20()
+                curNavigationState.currentCategory === Category.GRADE && GradeTop20() ||
+                curNavigationState.currentCategory === Category.STUDENT_GROUP && TopStudentGroups()
             }
         </div>
     )
