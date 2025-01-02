@@ -9,7 +9,6 @@ export default function RecentPoints(
     }: {
         totalRank: number,
         recentPoints: {
-            id: number;
             value: number;
             date: string;
             pointEvent: {
@@ -57,7 +56,7 @@ export default function RecentPoints(
                     .map((point) => {
                         return (
                             <div
-                                key={point.id}
+                                key={point.pointEvent.id}
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
                                     borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
@@ -90,7 +89,7 @@ export default function RecentPoints(
                     .map((point) => {
                         return (
                             <div
-                                key={point.id}
+                                key={point.pointEvent.id}
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
                                     borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
