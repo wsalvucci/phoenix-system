@@ -345,7 +345,6 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
 
         const newStudentPoints = scorebookPointEvent.studentPoints?.map((studentPoint) => {
                 return {
-                        //id: studentPoint.pointData.id,
                         student_id: studentPoint.student.id,
                         point_value: studentPoint.pointData.value,
                         point_event_id: scorebookPointEvent.id,

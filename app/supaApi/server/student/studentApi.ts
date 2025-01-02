@@ -170,7 +170,6 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
         .at(0)
         ?.student_point.map((point) => {
             return {
-                id: point.id,
                 value: point.point_value,
                 date: point.point_event?.date ?? "",
                 pointEvent: {

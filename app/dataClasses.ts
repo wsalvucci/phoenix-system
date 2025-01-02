@@ -472,7 +472,6 @@ export function convertPointUsingRuleType(
 export type StudentRankData =
         {
                 points: {
-                        id: number;
                         value: number;
                         date: string;
                         pointEvent: {
