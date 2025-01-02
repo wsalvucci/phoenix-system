@@ -196,7 +196,7 @@ export async function newGetScorebookData(studentGroupId: number): Promise<NewSc
                                                         powerschoolId: studentPoint.student.powerschool_id
                                                 },
                                                 pointData: {
-                                                        id: studentPoint.id,
+                                                        //id: studentPoint.id,
                                                         input: studentPoint.input_score ?? 0,
                                                         value: studentPoint.point_value,
                                                         notes: studentPoint.notes ?? ""
@@ -345,7 +345,7 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
 
         const newStudentPoints = scorebookPointEvent.studentPoints?.map((studentPoint) => {
                 return {
-                        id: studentPoint.pointData.id,
+                        //id: studentPoint.pointData.id,
                         student_id: studentPoint.student.id,
                         point_value: studentPoint.pointData.value,
                         point_event_id: scorebookPointEvent.id,

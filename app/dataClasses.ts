@@ -319,7 +319,6 @@ export type NewScorebookPointEvent = {
                         powerschoolId: number,
                 },
                 pointData: {
-                        id: number,
                         input: number,
                         value: number,
                         notes: string
