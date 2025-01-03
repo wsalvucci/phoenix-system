@@ -9,7 +9,7 @@ const customFont = Quicksand({
 });
 
 export default async function FeaturedDashboard() {
-  const featuredDashData = await getFeaturedDashData(12);
+  const featuredDashData = await getFeaturedDashData(12, null);
 
 
   return (

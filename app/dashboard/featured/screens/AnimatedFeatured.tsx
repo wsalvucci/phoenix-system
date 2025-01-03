@@ -258,8 +258,8 @@ export default function AnimatedFeatured(
         return () => clearInterval(timePassedInterval)
     }, [featuredDashData, paused, passedTime])
 
-    const updateData = async () => {
-        getFeaturedDashData(12).then((data) => {
+    const updateData = async (timeframe: number | null = null) => {
+        getFeaturedDashData(12, timeframe).then((data) => {
             setFeaturedDashData(data)
         })
     }
@@ -504,9 +504,7 @@ export default function AnimatedFeatured(
         >
             <div className="h-1 bg-green-500" style={{
                 width: `${(passedTime / intervalLength) * 100}%`
-            }}>
-
-            </div>
+            }}/>
             <div>
                 <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
                     onClick={(e) => { decrementDav() }}
@@ -532,13 +530,30 @@ export default function AnimatedFeatured(
                         setIntervalLength(parseInt(e.target.value))
                     }}
                 >
-                    <option key={10} value={10000}>10s</option>
-                    <option key={20} value={20000}>20s</option>
-                    <option key={30} value={30000}>30s</option>
-                    <option key={45} value={45000}>45s</option>
-                    <option key={60} value={60000}>60s</option>
-                    <option key={90} value={90000}>90s</option>
-                    <option key={120} value={120000}>120s</option>
+                    <option className="text-black" key={10} value={10000}>10s</option>
+                    <option className="text-black" key={20} value={20000}>20s</option>
+                    <option className="text-black" key={30} value={30000}>30s</option>
+                    <option className="text-black" key={45} value={45000}>45s</option>
+                    <option className="text-black" key={60} value={60000}>60s</option>
+                    <option className="text-black" key={90} value={90000}>90s</option>
+                    <option className="text-black" key={120} value={120000}>120s</option>
+                </select>
+                <select
+                    className="px-3 py-1 bg-transparent text-white"
+                    defaultValue={featuredDashData.timeframes.find((timeframe) => timeframe.active)?.id}
+                    onChange={(e) => {
+                        updateData(parseInt(e.target.value))
+                    }}
+                    >
+                        {
+                            featuredDashData.timeframes.map((timeframe) => {
+                                return (
+                                    <option className="text-black" key={timeframe.id} value={timeframe.id}>
+                                        {timeframe.name}
+                                    </option>
+                                )
+                            })
+                        }
                 </select>
             </div>
             <motion.div

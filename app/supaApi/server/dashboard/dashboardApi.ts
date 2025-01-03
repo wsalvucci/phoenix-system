@@ -1,16 +1,16 @@
 "use server";
 
 import { DateTime } from "luxon";
-import { FeaturedDashboardData, GlobalDashboardData, MobileDashboardData, TimedTotalPointData } from "@/app/dataClasses";
+import { FeaturedDashboardData, GlobalDashboardData, TimedTotalPointData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { getOwnStudentData } from "../student/studentApi";
 
-export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDashboardData> {
+export async function getFeaturedDashData(schoolId: number, timeframeId: number | null): Promise<FeaturedDashboardData> {
         const supabase = await supabaseServiceClient();
 
         const { data: schoolData, error: schoolDataError } = await supabase
                 .from("school")
-                .select("*")
+                .select("*, school_timeframes (*)")
                 .eq("id", schoolId)
                 .single();
 
@@ -21,12 +21,27 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
 
         if (schoolData === null) throw new Error("School not found");
 
-        const fetchedStudent = await getOwnStudentData();
+        let timeframeStart: DateTime | null = DateTime.fromFormat("2000-01-01", "yyyy-MM-dd")
+        let timeframeEnd: DateTime | null = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
+        let currentTimeframe = undefined
+        if (timeframeId !== null) {
+                currentTimeframe = schoolData.school_timeframes.find((timeframe) => timeframe.id === timeframeId)
+        } else {
+                currentTimeframe = schoolData.school_timeframes.find((timeframe) => timeframe.active === true)
+        }
+        if (currentTimeframe !== undefined) {
+                timeframeStart = DateTime.fromISO(currentTimeframe.starts_at)
+                timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
+        }
+
+        console.log("Timeframes: ", schoolData.school_timeframes)
 
         const { data: allStudentPointsData, error: allStudentPointsError } =
                 await supabase
                         .from("student")
                         .select("*, student_point(*, point_event (*, point_template (*, point_group (*)))), student_group (*, ranking_group (*))")
+                        .gt("student_point.point_event.date", timeframeStart.toISO())
+                        .lt("student_point.point_event.date", timeframeEnd.toISO())
                         .eq("school_id", schoolId)
 
         if (allStudentPointsError !== null) {
@@ -130,6 +145,15 @@ export async function getFeaturedDashData(schoolId: number): Promise<FeaturedDas
         }, [] as number[]).sort((a, b) => a - b)
 
         return {
+                timeframes: schoolData.school_timeframes.map((timeframe) => {
+                        return {
+                                id: timeframe.id,
+                                name: timeframe.name,
+                                startsAt: timeframe.starts_at,
+                                endsAt: timeframe.ends_at,
+                                active: timeframe.active
+                        }
+                }),
                 totalPoints: studentPointTotals.reduce((acc, cur) => {
                         acc += cur.totalPoints
                         return acc

@@ -541,11 +541,22 @@ export type AdminDashboardData = {
                 id: number,
                 name: string,
                 grade: number,
+                totalPoints: number
         }[],
         studentGroups: {
                 id: number,
                 name: string,
-                parentId: number | null
+                parentId: number | null,
+                pointEvents: {
+                        id: number,
+                        name: string,
+                        date: string,
+                        studentPoints: {
+                                studentId: number,
+                                value: number,
+                                input: number
+                        }[]
+                }[]
         }[],
         pointGroups: {
                 id: number,
@@ -558,8 +569,48 @@ export type AdminDashboardData = {
         }[]
 }
 
+export type AdminStudentDashboardData = {
+        student: {
+                id: number,
+                name: string,
+                grade: number,
+                totalPoints: number
+        },
+        pointEvents: {
+                id: number,
+                name: string,
+                date: string,
+                pointGroup: {
+                        id: number,
+                        name: string,
+                        color: string
+                },
+                pointTemplate: {
+                        id: number,
+                        name: string,
+                        conversionRuleType: {
+                                id: number,
+                                name: string
+                        },
+                        conversionRuleValue: number
+                },
+                maxInput: number,
+                pointsEarned: {
+                        input: number,
+                        value: number
+                }
+        }[],
+}
+
 export type FeaturedDashboardData =
         {
+                timeframes: {
+                       id: number,
+                       name: string,
+                       startsAt: string,
+                       endsAt: string,
+                       active: boolean
+                }[],
                 totalPoints: number,
                 totalPointsByGroup: {
                         id: number,

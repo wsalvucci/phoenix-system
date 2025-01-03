@@ -2,7 +2,7 @@
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
-import { AdminDashboardData, SchoolTimeframe } from "@/app/dataClasses";
+import { AdminDashboardData, AdminStudentDashboardData, SchoolTimeframe } from "@/app/dataClasses";
 
 export async function bulkAddStudentsToSchool(
     students: {
@@ -133,9 +133,42 @@ export async function getAdminDashboardData(
 
     const supabase = await supabaseServiceClient()
 
+    const { data: timeframeData, error: timeframeDataError } = await supabase
+        .from('school_timeframes')
+        .select('*')
+        .eq('school_id', schoolId)
+
+    if (timeframeDataError) {
+        console.error(timeframeDataError)
+        return null
+    }
+
+    if (timeframeData === null) {
+        console.error("Null school timeframe data")
+        return null
+    }
+
+    let currentTimeframe = undefined
+    let timeframeStart = DateTime.fromFormat("1970-01-01", "yyyy-MM-dd")
+    let timeframeEnd = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
+    for (let timeframe of timeframeData) {
+        if (timeframe.active) {
+            currentTimeframe = timeframe
+            break
+        }
+    }
+
+    if (currentTimeframe) {
+        timeframeStart = DateTime.fromISO(currentTimeframe.starts_at)
+        timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
+    }
+
+
     const { data: schoolData, error: schoolDataError } = await supabase
         .from("school")
-        .select("*, teacher (*), student_group (*), student(*), point_group (*), ranking_group (*)")
+        .select("*, teacher (*), student_group (*, point_event (*, student_point (*))), student(*), point_group (*), ranking_group (*)")
+        .gt("student_group.point_event.date", timeframeStart.toISODate())
+        .lt("student_group.point_event.date", timeframeEnd.toISODate())
         .eq("id", schoolId)
         .single()
 
@@ -159,14 +192,39 @@ export async function getAdminDashboardData(
             return {
                 id: student.id,
                 name: student.last_name + ", " + student.first_name,
-                grade: student.grade
+                grade: student.grade,
+                totalPoints: schoolData.student_group.reduce((totalPoints, studentGroup) => {
+                    return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
+                        return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
+                            if (studentPoint.student_id === student.id) {
+                                return totalPoints + studentPoint.point_value
+                            } else {
+                                return totalPoints
+                            }
+                        }, 0)
+                    }, 0)
+                }, 0)
             }
         }),
         studentGroups: schoolData.student_group.map((studentGroup) => {
             return {
                 id: studentGroup.id,
                 name: studentGroup.name,
-                parentId: studentGroup.parent_id
+                parentId: studentGroup.parent_id,
+                pointEvents: studentGroup.point_event.map((pointEvent) => {
+                    return {
+                        id: pointEvent.id,
+                        name: pointEvent.name || "",
+                        date: pointEvent.date || "",
+                        studentPoints: pointEvent.student_point.map((studentPoint) => {
+                            return {
+                                studentId: studentPoint.student_id,
+                                value: studentPoint.point_value,
+                                input: studentPoint.input_score || 0
+                            }
+                        })
+                    }
+                })
             }
         }),
         pointGroups: schoolData.point_group.map((pointGroup) => {
@@ -182,6 +240,132 @@ export async function getAdminDashboardData(
                 name: rankingGroup.name
             }
         })
+    }
+}
+
+export async function getAdminStudentDashboardData(
+    schoolId: number,
+    studentId: number
+): Promise<AdminStudentDashboardData | null> {
+    const schoolAccess = await checkAdminSchoolAccess(schoolId);
+    if (!schoolAccess) return null
+
+    const supabase = await supabaseServiceClient()
+
+    const { data: timeframeData, error: timeframeDataError } = await supabase
+        .from('school_timeframes')
+        .select('*')
+        .eq('school_id', schoolId)
+
+    if (timeframeDataError) {
+        console.error(timeframeDataError)
+        return null
+    }
+
+    if (timeframeData === null) {
+        console.error("Null school timeframe data")
+        return null
+    }
+
+    let currentTimeframe = undefined
+    let timeframeStart = DateTime.fromFormat("1970-01-01", "yyyy-MM-dd")
+    let timeframeEnd = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
+    for (let timeframe of timeframeData) {
+        if (timeframe.active) {
+            currentTimeframe = timeframe
+            break
+        }
+    }
+
+    if (currentTimeframe) {
+        timeframeStart = DateTime.fromISO(currentTimeframe.starts_at)
+        timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
+    }
+
+    const { data: studentData, error: studentDataError } = await supabase
+        .from("student")
+        .select("*, student_group (*, point_event (*, student_point (*), point_template (*, point_group (*), point_conversion_rule_type (*))))")
+        // TODO: Maybe just remove this eq to get context for rankings?
+        .eq("student_group.point_event.student_point.student_id", studentId)
+        .eq("id", studentId)
+        .eq("school_id", schoolId)
+        .gt("student_group.point_event.date", timeframeStart.toISODate())
+        .lt("student_group.point_event.date", timeframeEnd.toISODate())
+        .single()
+
+    if (studentDataError) {
+        console.error(studentDataError)
+        return null
+    }
+
+    return {
+        student: {
+            id: studentData.id,
+            name: studentData.last_name + ", " + studentData.first_name,
+            grade: studentData.grade,
+            totalPoints: studentData.student_group.reduce((totalPoints, studentGroup) => {
+                return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
+                    return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
+                        return totalPoints + studentPoint.point_value
+                    }, 0)
+                }, 0)
+            }, 0)
+        },
+        pointEvents: studentData.student_group.reduce((pointEvents, studentGroup) => {
+            studentGroup.point_event.forEach((pointEvent) => {
+                let studentPoint = pointEvent.student_point.find((studentPoint) => studentPoint.student_id === studentId)
+                if (studentPoint) {
+                    pointEvents.push({
+                        id: pointEvent.id,
+                        name: pointEvent.name || "",
+                        date: pointEvent.date || "",
+                        pointGroup: {
+                            id: pointEvent.point_template?.point_group?.id || 0,
+                            name: pointEvent.point_template?.point_group?.name || "",
+                            color: pointEvent.point_template?.point_group?.color || ""
+                        },
+                        pointTemplate: {
+                            id: pointEvent.point_template?.id || 0,
+                            name: pointEvent.point_template?.name || "",
+                            conversionRuleType: {
+                                id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
+                                name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
+                            },
+                            conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0
+                        },
+                        maxInput: pointEvent.max_input || 0,
+                        pointsEarned: {
+                            input: studentPoint.input_score || 0,
+                            value: studentPoint.point_value
+                        }
+                    })
+                }
+            })
+            return pointEvents
+        }, [] as {
+            id: number,
+            name: string,
+            date: string,
+            pointGroup: {
+                id: number,
+                name: string,
+                color: string
+            },
+            pointTemplate: {
+                id: number,
+                name: string,
+                conversionRuleType: {
+                    id: number,
+                    name: string
+                },
+                conversionRuleValue: number
+            },
+            maxInput: number,
+            pointsEarned: {
+                input: number,
+                value: number
+            }
+        }[]),
     }
 }
 

@@ -38,7 +38,7 @@ export default function TopStudents(
   })
 
   const updateData = async () => {
-    getFeaturedDashData(12).then((data) => {
+    getFeaturedDashData(12, null).then((data) => {
       setFeaturedDashData(data)
     })
   }
