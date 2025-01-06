@@ -1,5 +1,5 @@
 "use client";
-import { AdminStudentDashboardData } from "@/app/dataClasses"
+import { AdminStudentDashboardData, numberToOrdinal } from "@/app/dataClasses"
 import { getAdminStudentDashboardData } from "@/app/supaApi/server/admin/adminApi"
 import Color from "color";
 import { DateTime } from "luxon";
@@ -16,25 +16,14 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
         console.log(newStudentData)
     }
 
-    const pointBreakdown = studentData?.pointEvents.reduce((pointGroups, pointEvent) => {
-        const pointGroup = pointGroups.find(pointGroup => pointEvent.pointGroup.id === pointGroup.id)
-        if (pointGroup) {
-            pointGroup.points += pointEvent.pointsEarned.value
-        } else {
-            pointGroups.push({
-                id: pointEvent.pointGroup.id,
-                name: pointEvent.pointGroup.name,
-                points: pointEvent.pointsEarned.value,
-                color: pointEvent.pointGroup.color
-            })
+    const pointBreakdown = studentData?.student.rankByPointGroup?.map((pointGroup) => {
+        return {
+            id: pointGroup.groupId,
+            name: pointGroup.name,
+            points: pointGroup.points,
+            color: pointGroup.color,
         }
-        return pointGroups
-    }, [] as {
-        id: number,
-        name: string,
-        points: number,
-        color: string
-    }[])
+    })
 
     useEffect(() => {
         getStudentData();
@@ -44,20 +33,40 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
         <div className="animate-in h-full w-full">
             <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.name}</div>
             <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.totalPoints.toLocaleString()}pts</div>
+            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(studentData?.student.rank ?? -1)}</div>
             <div className="grid grid-cols-2 gap-1" style={{ height: '45%' }}>
-                <div className="h-full text-center text-xl">
-                    {pointBreakdown?.map(pointGroup => {
-                        return (
-                            <div key={pointGroup.id} className="grid grid-cols-3 border-2 rounded-lg my-1" style={{
-                                borderColor: pointGroup.color,
-                            }}>
-                                <div>{pointGroup.name}</div>
-                                <div>{pointGroup.points.toLocaleString()}</div>
-                                <div>{Math.round(pointGroup.points / (studentData?.student.totalPoints ?? 1) * 100)}%</div>
-                            </div>
-                        )
-                    })
-                    }
+                <div>
+                    <div className="h-1/2 text-center text-xl">
+                        {studentData?.student.rankByPointGroup?.map(pointGroup => {
+                            return (
+                                <div key={pointGroup.groupId} className="grid grid-cols-4 border-2 rounded-lg my-1" style={{
+                                    borderColor: pointGroup.color,
+                                }}>
+                                    <div>{pointGroup.name}</div>
+                                    <div>{numberToOrdinal(pointGroup.rank ?? -1)}</div>
+                                    <div>{pointGroup.points.toLocaleString()}</div>
+                                    <div>{Math.round(pointGroup.points / (studentData?.student.totalPoints ?? 1) * 100)}%</div>
+                                </div>
+                            )
+                        })
+                        }
+                    </div>
+                    <div className="h-1/2 text-center text-xl">
+                        <div className="grid grid-cols-2 border-2 rounded-lg my-1">
+                            <div>{numberToOrdinal(studentData?.student.grade ?? 0)} Grade</div>
+                            <div>{numberToOrdinal(studentData?.student.rankByGrade.rank ?? -1)}</div>
+                        </div>
+                        {studentData?.student.rankByStudentGroup?.map(studentGroup => {
+                            return (
+                                <div key={studentGroup.groupId} className="grid grid-cols-2 border-2 rounded-lg my-1">
+                                    <div>{studentGroup.name}</div>
+                                    <div>{numberToOrdinal(studentGroup.rank ?? -1)}</div>
+                                    {/* <div>{studentGroup.points.toLocaleString()}</div> */}
+                                </div>
+                            )
+                        })
+                        }
+                    </div>
                 </div>
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>

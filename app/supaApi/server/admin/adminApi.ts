@@ -2,7 +2,7 @@
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
-import { AdminDashboardData, AdminStudentDashboardData, SchoolTimeframe } from "@/app/dataClasses";
+import { AdminDashboardData, AdminStudentDashboardData, convertPointUsingRuleType, SchoolTimeframe, stringToRuleType } from "@/app/dataClasses";
 
 export async function bulkAddStudentsToSchool(
     students: {
@@ -166,7 +166,7 @@ export async function getAdminDashboardData(
 
     const { data: schoolData, error: schoolDataError } = await supabase
         .from("school")
-        .select("*, teacher (*), student_group (*, point_event (*, student_point (*))), student(*), point_group (*), ranking_group (*)")
+        .select("*, teacher (*), student_group (*, point_event (*, student_point (*), point_template(*, point_conversion_rule_type (*)))), student(*), point_group (*), ranking_group (*)")
         .gt("student_group.point_event.date", timeframeStart.toISODate())
         .lt("student_group.point_event.date", timeframeEnd.toISODate())
         .eq("id", schoolId)
@@ -196,8 +196,9 @@ export async function getAdminDashboardData(
                 totalPoints: schoolData.student_group.reduce((totalPoints, studentGroup) => {
                     return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
                         return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
+                            let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
                             if (studentPoint.student_id === student.id) {
-                                return totalPoints + studentPoint.point_value
+                                return totalPoints + pointValue
                             } else {
                                 return totalPoints
                             }
@@ -214,12 +215,14 @@ export async function getAdminDashboardData(
                 pointEvents: studentGroup.point_event.map((pointEvent) => {
                     return {
                         id: pointEvent.id,
+                        pointGroupId: pointEvent.point_template?.point_group_id || 0,
                         name: pointEvent.name || "",
                         date: pointEvent.date || "",
                         studentPoints: pointEvent.student_point.map((studentPoint) => {
+                            let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
                             return {
                                 studentId: studentPoint.student_id,
-                                value: studentPoint.point_value,
+                                value: pointValue,
                                 input: studentPoint.input_score || 0
                             }
                         })
@@ -282,45 +285,69 @@ export async function getAdminStudentDashboardData(
         timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
     }
 
-    const { data: studentData, error: studentDataError } = await supabase
-        .from("student")
-        .select("*, student_group (*, point_event (*, student_point (*), point_template (*, point_group (*), point_conversion_rule_type (*))))")
-        // TODO: Maybe just remove this eq to get context for rankings?
-        .eq("student_group.point_event.student_point.student_id", studentId)
-        .eq("id", studentId)
+    const { data: pointData, error: pointDataError } = await supabase
+        .from("student_group")
+        .select("*, ranking_group (*), point_event (*, student_point (*, student (*)), point_template (*, point_group (*), point_conversion_rule_type (*)))")
         .eq("school_id", schoolId)
-        .gt("student_group.point_event.date", timeframeStart.toISODate())
-        .lt("student_group.point_event.date", timeframeEnd.toISODate())
-        .single()
+    // .gt("point_event.date", timeframeStart.toISODate())
+    // .lt("point_event.date", timeframeEnd.toISODate())
 
-    if (studentDataError) {
-        console.error(studentDataError)
+    console.log(pointData)
+
+    if (pointDataError) {
+        console.error(pointDataError)
         return null
     }
 
-    return {
-        student: {
-            id: studentData.id,
-            name: studentData.last_name + ", " + studentData.first_name,
-            grade: studentData.grade,
-            totalPoints: studentData.student_group.reduce((totalPoints, studentGroup) => {
-                return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
-                    return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
-                        return totalPoints + studentPoint.point_value
-                    }, 0)
-                }, 0)
-            }, 0)
-        },
-        pointEvents: studentData.student_group.reduce((pointEvents, studentGroup) => {
-            studentGroup.point_event.forEach((pointEvent) => {
-                let studentPoint = pointEvent.student_point.find((studentPoint) => studentPoint.student_id === studentId)
-                if (studentPoint) {
-                    pointEvents.push({
+    let formattedStudentData = pointData?.reduce((formattedData, studentGroup) => {
+        studentGroup.point_event.forEach((pointEvent) => {
+            pointEvent.student_point.forEach((studentPoint) => {
+                let curStudentData = formattedData.find((studentData) => studentData.studentId === studentPoint.student_id)
+                let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                if (curStudentData) {
+                    curStudentData.studentTotalPoints += pointValue
+                    let curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
+                    if (curStudentGroupData) {
+                        curStudentGroupData.points += pointValue
+                    } else {
+                        curStudentData.studentPointsByStudentGroup.push({
+                            groupId: studentGroup.id,
+                            groupName: studentGroup.name,
+                            points: pointValue,
+                            rank: -1
+                        })
+                    }
+                    let curPointGroupData = curStudentData.studentPointsByPointGroup.find((pointGroupData) => pointGroupData.groupId === pointEvent.point_template?.point_group_id)
+                    if (curPointGroupData) {
+                        curPointGroupData.points += pointValue
+                    } else {
+                        curStudentData.studentPointsByPointGroup.push({
+                            groupId: pointEvent.point_template?.point_group_id || 0,
+                            groupName: pointEvent.point_template?.point_group?.name || "",
+                            color: pointEvent.point_template?.point_group?.color || "",
+                            points: pointValue,
+                            rank: -1
+                        })
+                    }
+                    studentGroup.ranking_group.map((rankingGroup) => {
+                        return {
+                            groupId: rankingGroup.id,
+                            groupName: rankingGroup.name
+                        }
+                    }).forEach((rankingGroup) => {
+                        if (curStudentData.studentRanksByRankingGroup.findIndex((foundGroup) => foundGroup.groupId === rankingGroup.groupId) === -1) {
+                            curStudentData.studentRanksByRankingGroup.push({
+                                ...rankingGroup,
+                                rank: -1
+                            })
+                        }
+                    })
+                    curStudentData.pointEvents.push({
                         id: pointEvent.id,
                         name: pointEvent.name || "",
                         date: pointEvent.date || "",
                         pointGroup: {
-                            id: pointEvent.point_template?.point_group?.id || 0,
+                            id: pointEvent.point_template?.point_group_id || 0,
                             name: pointEvent.point_template?.point_group?.name || "",
                             color: pointEvent.point_template?.point_group?.color || ""
                         },
@@ -336,13 +363,54 @@ export async function getAdminStudentDashboardData(
                         maxInput: pointEvent.max_input || 0,
                         pointsEarned: {
                             input: studentPoint.input_score || 0,
-                            value: studentPoint.point_value
+                            value: pointValue
                         }
+                    })
+                } else {
+                    formattedData.push({
+                        studentId: studentPoint.student_id,
+                        studentName: studentPoint.student?.last_name + ", " + studentPoint.student?.first_name,
+                        studentTotalPoints: 0,
+                        studentRankByGrade: {
+                            grade: studentPoint.student?.grade || 0,
+                            rank: -1
+                        },
+                        studentPointsByStudentGroup: [],
+                        studentRanksByRankingGroup: [],
+                        studentPointsByPointGroup: [],
+                        pointEvents: []
                     })
                 }
             })
-            return pointEvents
-        }, [] as {
+        })
+        return formattedData
+    }, [] as {
+        studentId: number,
+        studentName: string,
+        studentTotalPoints: number,
+        studentRankByGrade: {
+            grade: number,
+            rank: number
+        },
+        studentPointsByStudentGroup: {
+            groupId: number,
+            groupName: string,
+            points: number,
+            rank: number
+        }[],
+        studentRanksByRankingGroup: {
+            groupId: number,
+            groupName: string,
+            rank: number
+        }[],
+        studentPointsByPointGroup: {
+            groupId: number,
+            groupName: string,
+            color: string,
+            points: number,
+            rank: number
+        }[],
+        pointEvents: {
             id: number,
             name: string,
             date: string,
@@ -365,7 +433,63 @@ export async function getAdminStudentDashboardData(
                 input: number,
                 value: number
             }
-        }[]),
+        }[]
+    }[])
+
+    console.log(formattedStudentData)
+
+    formattedStudentData?.forEach((student) => {
+        student.studentRankByGrade.rank = formattedStudentData
+            .copyWithin(0, 0)
+            .filter((otherStudent) => otherStudent.studentRankByGrade.grade === student.studentRankByGrade.grade && otherStudent.studentTotalPoints > student.studentTotalPoints).length + 1
+        student.studentPointsByStudentGroup.forEach((studentGroup) => {
+            studentGroup.rank = formattedStudentData
+                .sort((a, b) => (b.studentPointsByStudentGroup.find((group) => group.groupId === studentGroup.groupId)?.points ?? 0) - (a.studentPointsByStudentGroup.find((group) => group.groupId === studentGroup.groupId)?.points ?? 0)).findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
+        })
+        student.studentPointsByPointGroup.forEach((pointGroup) => {
+            pointGroup.rank = formattedStudentData
+                .sort((a, b) => (b.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0) - (a.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0)).findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
+        })
+        student.studentRanksByRankingGroup.forEach((rankingGroup) => {
+            rankingGroup.rank = formattedStudentData.copyWithin(0, 0)
+                .filter((student) => student.studentRanksByRankingGroup.findIndex((foundRankGroup) => foundRankGroup.groupId === rankingGroup.groupId) !== -1)
+                .sort((a, b) => b.studentTotalPoints - a.studentTotalPoints)
+                .findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
+        })
+    })
+
+    const thisStudent = formattedStudentData?.find((student) => student.studentId === studentId)
+
+    return {
+        student: {
+            id: thisStudent?.studentId || 0,
+            name: thisStudent?.studentName || "",
+            grade: thisStudent?.studentRankByGrade.grade || 0,
+            totalPoints: thisStudent?.studentTotalPoints || 0,
+            rank: thisStudent?.studentRankByGrade.rank || 0,
+            rankByStudentGroup: thisStudent?.studentPointsByStudentGroup.map((studentGroup) => {
+                return {
+                    groupId: studentGroup.groupId,
+                    name: studentGroup.groupName,
+                    points: studentGroup.points,
+                    rank: studentGroup.rank,
+                }
+            }) || [],
+            rankByPointGroup: thisStudent?.studentPointsByPointGroup.map((pointGroup) => {
+                return {
+                    groupId: pointGroup.groupId,
+                    name: pointGroup.groupName,
+                    color: pointGroup.color,
+                    points: pointGroup.points,
+                    rank: pointGroup.rank
+                }
+            }) || [],
+            rankByGrade: {
+                grade: thisStudent?.studentRankByGrade.grade || 0,
+                rank: thisStudent?.studentRankByGrade.rank || 0
+            }
+        },
+        pointEvents: formattedStudentData?.find((student) => student.studentId === studentId)?.pointEvents || []
     }
 }
 

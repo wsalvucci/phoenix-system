@@ -549,6 +549,7 @@ export type AdminDashboardData = {
                 parentId: number | null,
                 pointEvents: {
                         id: number,
+                        pointGroupId: number,
                         name: string,
                         date: string,
                         studentPoints: {
@@ -574,7 +575,25 @@ export type AdminStudentDashboardData = {
                 id: number,
                 name: string,
                 grade: number,
-                totalPoints: number
+                totalPoints: number,
+                rank: number,
+                rankByStudentGroup: {
+                        groupId: number,
+                        name: string,
+                        points: number,
+                        rank: number
+                }[],
+                rankByPointGroup: {
+                        groupId: number,
+                        name: string,
+                        color: string,
+                        points: number,
+                        rank: number
+                }[],
+                rankByGrade: {
+                        grade: number,
+                        rank: number
+                }
         },
         pointEvents: {
                 id: number,
@@ -605,11 +624,11 @@ export type AdminStudentDashboardData = {
 export type FeaturedDashboardData =
         {
                 timeframes: {
-                       id: number,
-                       name: string,
-                       startsAt: string,
-                       endsAt: string,
-                       active: boolean
+                        id: number,
+                        name: string,
+                        startsAt: string,
+                        endsAt: string,
+                        active: boolean
                 }[],
                 totalPoints: number,
                 totalPointsByGroup: {

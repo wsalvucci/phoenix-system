@@ -1,9 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AdminDashboardData, School } from "@/app/dataClasses";
+import { AdminDashboardData } from "@/app/dataClasses";
 import { getAdminDashboardData } from "@/app/supaApi/server/admin/adminApi";
-import { CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
+import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis } from "recharts";
 import Link from "next/link";
+import Color from "color";
+import { Space_Mono } from "next/font/google"
+
+const customFont = Space_Mono({
+    weight: "400",
+    subsets: ["latin"]
+});
 
 enum SortType {
     Name,
@@ -58,6 +65,30 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                     } />
                 </ScatterChart>
             </ResponsiveContainer>
+            <div>
+                <div className="text-xl text-center w-full">Avg Points Per Point Group Per Student</div>
+                {
+                    // Average points by point group per student
+                    adminDashData?.pointGroups.map(pointGroup => {
+                        let totalPoints = adminDashData.studentGroups.reduce((total, group) => {
+                            return total + group.pointEvents.reduce((groupTotal, event) => {
+                                return groupTotal + (event.pointGroupId === pointGroup.id ? event.studentPoints.reduce((eventTotal, studentPoint) => {
+                                    return eventTotal + studentPoint.value
+                                }, 0) : 0)
+                            }, 0)
+                        }, 0)
+
+                        return (
+                            <div key={pointGroup.id} className="grid grid-cols-2 text-center" style={{
+                                color: Color(pointGroup.color).darken(0.25).toString()
+                            }}>
+                                <div>{pointGroup.name}</div>
+                                <div>{Math.round(totalPoints / adminDashData.students.length)}</div>
+                            </div>
+                        )
+                    })
+                }
+            </div>
             <div className="grid grid-cols-3 gap-1">
                 <div>
                     <div className="text-xl">Students</div>
@@ -82,12 +113,12 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                 <option value={SortDirection.Descending}>DESC</option>
                             </select>
                         </div>
-                        <div className="grid grid-cols-3 border-b-2">
-                            <div>Name</div>
+                        <div className="grid grid-cols-4 border-b-2">
+                            <div className="col-span-2">Name</div>
                             <div>Grade</div>
                             <div>Points</div>
                         </div>
-                        <div className="overflow-y-scroll max-h-96">
+                        <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}>
                             {adminDashData?.students
                                 .filter(student => student.name.toLowerCase().includes(studentSearch.toLowerCase()))
                                 .sort((a, b) => {
@@ -103,8 +134,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                 .map(student => {
                                     return (
                                         <Link href={`/admin/school/${schoolId}/student/${student.id}`}>
-                                            <div key={student.id} className="grid grid-cols-3">
-                                                <div>{student.name}</div>
+                                            <div key={student.id} className="grid grid-cols-4 hover:bg-slate-300 dark:hover:bg-slate-700">
+                                                <div className="col-span-2">{student.name}</div>
                                                 <div>{student.grade}</div>
                                                 <div>{student.totalPoints}</div>
                                             </div>
@@ -120,11 +151,11 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <div className="grid grid-cols-1 border-b-2">
                             <div>Name</div>
                         </div>
-                        <div className="overflow-y-scroll max-h-96">
+                        <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}>
                             {adminDashData?.studentGroups.sort((a, b) => a.name.localeCompare(b.name)).map(group => {
                                 return (
                                     <Link href={`/admin/school/${schoolId}/editGroup/${group.id}`}>
-                                        <div key={group.id} className="grid grid-cols-1">
+                                        <div key={group.id} className="grid grid-cols-1 hover:bg-slate-300 dark:hover:bg-slate-700">
                                             {group.name}
                                         </div>
                                     </Link>
