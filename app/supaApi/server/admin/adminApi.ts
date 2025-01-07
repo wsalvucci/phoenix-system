@@ -285,14 +285,22 @@ export async function getAdminStudentDashboardData(
         timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
     }
 
+    const { data: rankingGroupData, error: rankingGroupDataError } = await supabase
+        .from("ranking_group")
+        .select("*, student_group (id, name, student (id))")
+        .eq("school_id", schoolId)
+    
+    if (rankingGroupDataError) {
+        console.error(rankingGroupDataError)
+        return null
+    }
+
     const { data: pointData, error: pointDataError } = await supabase
         .from("student_group")
-        .select("*, ranking_group (*), point_event (*, student_point (*, student (*)), point_template (*, point_group (*), point_conversion_rule_type (*)))")
+        .select("*, point_event (*, student_point (*, student (*)), point_template (*, point_group (*), point_conversion_rule_type (*)))")
         .eq("school_id", schoolId)
     // .gt("point_event.date", timeframeStart.toISODate())
     // .lt("point_event.date", timeframeEnd.toISODate())
-
-    console.log(pointData)
 
     if (pointDataError) {
         console.error(pointDataError)
@@ -309,39 +317,30 @@ export async function getAdminStudentDashboardData(
                     let curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
                     if (curStudentGroupData) {
                         curStudentGroupData.points += pointValue
+                        curStudentGroupData.outOf++
                     } else {
                         curStudentData.studentPointsByStudentGroup.push({
                             groupId: studentGroup.id,
                             groupName: studentGroup.name,
                             points: pointValue,
-                            rank: -1
+                            rank: -1,
+                            outOf: 1
                         })
                     }
                     let curPointGroupData = curStudentData.studentPointsByPointGroup.find((pointGroupData) => pointGroupData.groupId === pointEvent.point_template?.point_group_id)
                     if (curPointGroupData) {
                         curPointGroupData.points += pointValue
+                        curPointGroupData.outOf++
                     } else {
                         curStudentData.studentPointsByPointGroup.push({
                             groupId: pointEvent.point_template?.point_group_id || 0,
                             groupName: pointEvent.point_template?.point_group?.name || "",
                             color: pointEvent.point_template?.point_group?.color || "",
                             points: pointValue,
-                            rank: -1
+                            rank: -1,
+                            outOf: 1
                         })
                     }
-                    studentGroup.ranking_group.map((rankingGroup) => {
-                        return {
-                            groupId: rankingGroup.id,
-                            groupName: rankingGroup.name
-                        }
-                    }).forEach((rankingGroup) => {
-                        if (curStudentData.studentRanksByRankingGroup.findIndex((foundGroup) => foundGroup.groupId === rankingGroup.groupId) === -1) {
-                            curStudentData.studentRanksByRankingGroup.push({
-                                ...rankingGroup,
-                                rank: -1
-                            })
-                        }
-                    })
                     curStudentData.pointEvents.push({
                         id: pointEvent.id,
                         name: pointEvent.name || "",
@@ -371,14 +370,59 @@ export async function getAdminStudentDashboardData(
                         studentId: studentPoint.student_id,
                         studentName: studentPoint.student?.last_name + ", " + studentPoint.student?.first_name,
                         studentTotalPoints: 0,
+                        studentRank: -1,
+                        studentRankOutOf: 1,
                         studentRankByGrade: {
                             grade: studentPoint.student?.grade || 0,
-                            rank: -1
+                            rank: -1,
+                            outOf: 1
                         },
-                        studentPointsByStudentGroup: [],
+                        studentPointsByStudentGroup: [
+                            {
+                                groupId: studentGroup.id,
+                                groupName: studentGroup.name,
+                                points: pointValue,
+                                rank: -1,
+                                outOf: 1
+                            }
+                        ],
                         studentRanksByRankingGroup: [],
-                        studentPointsByPointGroup: [],
-                        pointEvents: []
+                        studentPointsByPointGroup: [
+                            {
+                                groupId: pointEvent.point_template?.point_group_id || 0,
+                                groupName: pointEvent.point_template?.point_group?.name || "",
+                                color: pointEvent.point_template?.point_group?.color || "",
+                                points: pointValue,
+                                rank: -1,
+                                outOf: 1
+                            }
+                        ],
+                        pointEvents: [
+                            {
+                                id: pointEvent.id,
+                                name: pointEvent.name || "",
+                                date: pointEvent.date || "",
+                                pointGroup: {
+                                    id: pointEvent.point_template?.point_group_id || 0,
+                                    name: pointEvent.point_template?.point_group?.name || "",
+                                    color: pointEvent.point_template?.point_group?.color || ""
+                                },
+                                pointTemplate: {
+                                    id: pointEvent.point_template?.id || 0,
+                                    name: pointEvent.point_template?.name || "",
+                                    conversionRuleType: {
+                                        id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
+                                        name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
+                                    },
+                                    conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0
+                                },
+                                maxInput: pointEvent.max_input || 0,
+                                pointsEarned: {
+                                    input: studentPoint.input_score || 0,
+                                    value: pointValue
+                                }
+                            }
+                        ]
                     })
                 }
             })
@@ -388,27 +432,33 @@ export async function getAdminStudentDashboardData(
         studentId: number,
         studentName: string,
         studentTotalPoints: number,
+        studentRank: number,
+        studentRankOutOf: number,
         studentRankByGrade: {
             grade: number,
-            rank: number
+            rank: number,
+            outOf: number
         },
         studentPointsByStudentGroup: {
             groupId: number,
             groupName: string,
             points: number,
-            rank: number
+            rank: number,
+            outOf: number
         }[],
         studentRanksByRankingGroup: {
             groupId: number,
             groupName: string,
-            rank: number
+            rank: number,
+            outOf: number
         }[],
         studentPointsByPointGroup: {
             groupId: number,
             groupName: string,
             color: string,
             points: number,
-            rank: number
+            rank: number,
+            outOf: number
         }[],
         pointEvents: {
             id: number,
@@ -436,25 +486,31 @@ export async function getAdminStudentDashboardData(
         }[]
     }[])
 
-    console.log(formattedStudentData)
-
     formattedStudentData?.forEach((student) => {
+        student.studentRank = formattedStudentData
+            .sort((a, b) => b.studentTotalPoints - a.studentTotalPoints)
+            .findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
         student.studentRankByGrade.rank = formattedStudentData
             .copyWithin(0, 0)
             .filter((otherStudent) => otherStudent.studentRankByGrade.grade === student.studentRankByGrade.grade && otherStudent.studentTotalPoints > student.studentTotalPoints).length + 1
-        student.studentPointsByStudentGroup.forEach((studentGroup) => {
-            studentGroup.rank = formattedStudentData
-                .sort((a, b) => (b.studentPointsByStudentGroup.find((group) => group.groupId === studentGroup.groupId)?.points ?? 0) - (a.studentPointsByStudentGroup.find((group) => group.groupId === studentGroup.groupId)?.points ?? 0)).findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
-        })
+        student.studentRankByGrade.outOf = formattedStudentData
+            .filter((otherStudent) => otherStudent.studentRankByGrade.grade === student.studentRankByGrade.grade).length
         student.studentPointsByPointGroup.forEach((pointGroup) => {
             pointGroup.rank = formattedStudentData
                 .sort((a, b) => (b.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0) - (a.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0)).findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
         })
-        student.studentRanksByRankingGroup.forEach((rankingGroup) => {
-            rankingGroup.rank = formattedStudentData.copyWithin(0, 0)
-                .filter((student) => student.studentRanksByRankingGroup.findIndex((foundRankGroup) => foundRankGroup.groupId === rankingGroup.groupId) !== -1)
-                .sort((a, b) => b.studentTotalPoints - a.studentTotalPoints)
-                .findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
+        rankingGroupData?.forEach((rankingGroup) => {
+            let studentGroup = rankingGroup.student_group.find((group) => group.student.find((searchedStudent) => searchedStudent.id === student.studentId) !== undefined)
+            if (studentGroup) {
+                student.studentRanksByRankingGroup.push({
+                    groupId: studentGroup.id,
+                    groupName: studentGroup.name,
+                    rank: studentGroup.student
+                    .sort((a, b) => (formattedStudentData.find((student) => student.studentId === b.id)?.studentTotalPoints || 0) - (formattedStudentData.find((student) => student.studentId === a.id)?.studentTotalPoints || 0))
+                    .findIndex((searchedStudent) => searchedStudent.id === student.studentId) + 1,
+                    outOf: studentGroup.student.length
+                })
+            }            
         })
     })
 
@@ -466,28 +522,31 @@ export async function getAdminStudentDashboardData(
             name: thisStudent?.studentName || "",
             grade: thisStudent?.studentRankByGrade.grade || 0,
             totalPoints: thisStudent?.studentTotalPoints || 0,
-            rank: thisStudent?.studentRankByGrade.rank || 0,
-            rankByStudentGroup: thisStudent?.studentPointsByStudentGroup.map((studentGroup) => {
-                return {
-                    groupId: studentGroup.groupId,
-                    name: studentGroup.groupName,
-                    points: studentGroup.points,
-                    rank: studentGroup.rank,
-                }
-            }) || [],
+            rank: thisStudent?.studentRank || 0,
+            outOf: formattedStudentData?.length || 0,
             rankByPointGroup: thisStudent?.studentPointsByPointGroup.map((pointGroup) => {
                 return {
                     groupId: pointGroup.groupId,
                     name: pointGroup.groupName,
                     color: pointGroup.color,
                     points: pointGroup.points,
-                    rank: pointGroup.rank
+                    rank: pointGroup.rank,
+                    outOf: formattedStudentData?.length || 0
                 }
             }) || [],
             rankByGrade: {
                 grade: thisStudent?.studentRankByGrade.grade || 0,
-                rank: thisStudent?.studentRankByGrade.rank || 0
-            }
+                rank: thisStudent?.studentRankByGrade.rank || 0,
+                outOf: thisStudent?.studentRankByGrade.outOf || 0
+            },
+            rankByRankingGroup: thisStudent?.studentRanksByRankingGroup.map((rankingGroup) => {
+                return {
+                    groupId: rankingGroup.groupId,
+                    name: rankingGroup.groupName,
+                    rank: rankingGroup.rank,
+                    outOf: rankingGroup.outOf
+                }
+            }) || []
         },
         pointEvents: formattedStudentData?.find((student) => student.studentId === studentId)?.pointEvents || []
     }

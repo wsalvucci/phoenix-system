@@ -33,17 +33,25 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
         <div className="animate-in h-full w-full">
             <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.name}</div>
             <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.totalPoints.toLocaleString()}pts</div>
-            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(studentData?.student.rank ?? -1)}</div>
+            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(studentData?.student.rank ?? -1)} / {studentData?.student.outOf}</div>
             <div className="grid grid-cols-2 gap-1" style={{ height: '45%' }}>
                 <div>
                     <div className="h-1/2 text-center text-xl">
+                    <div className="grid grid-cols-5 border-b-2 my-1">
+                        <div>Point Group</div>
+                        <div>Rank</div>
+                        <div>Percentile</div>
+                        <div>Points</div>
+                        <div>% of Total</div>
+                    </div>
                         {studentData?.student.rankByPointGroup?.map(pointGroup => {
                             return (
-                                <div key={pointGroup.groupId} className="grid grid-cols-4 border-2 rounded-lg my-1" style={{
+                                <div key={pointGroup.groupId} className="grid grid-cols-5 border-2 rounded-lg my-1" style={{
                                     borderColor: pointGroup.color,
                                 }}>
                                     <div>{pointGroup.name}</div>
                                     <div>{numberToOrdinal(pointGroup.rank ?? -1)}</div>
+                                    <div>{numberToOrdinal(Math.round(pointGroup.rank / pointGroup.outOf * 100))}</div>
                                     <div>{pointGroup.points.toLocaleString()}</div>
                                     <div>{Math.round(pointGroup.points / (studentData?.student.totalPoints ?? 1) * 100)}%</div>
                                 </div>
@@ -52,19 +60,26 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         }
                     </div>
                     <div className="h-1/2 text-center text-xl">
-                        <div className="grid grid-cols-2 border-2 rounded-lg my-1">
-                            <div>{numberToOrdinal(studentData?.student.grade ?? 0)} Grade</div>
-                            <div>{numberToOrdinal(studentData?.student.rankByGrade.rank ?? -1)}</div>
+                        <div className="grid grid-cols-3 border-b-2 my-1">
+                            <div>Student Group</div>
+                            <div>Rank</div>
+                            <div>Percentile</div>
                         </div>
-                        {studentData?.student.rankByStudentGroup?.map(studentGroup => {
-                            return (
-                                <div key={studentGroup.groupId} className="grid grid-cols-2 border-2 rounded-lg my-1">
-                                    <div>{studentGroup.name}</div>
-                                    <div>{numberToOrdinal(studentGroup.rank ?? -1)}</div>
-                                    {/* <div>{studentGroup.points.toLocaleString()}</div> */}
-                                </div>
-                            )
-                        })
+                        <div className="grid grid-cols-3 border-2 rounded-lg my-1">
+                            <div>{numberToOrdinal(studentData?.student.grade ?? 0)} Grade</div>
+                            <div>{numberToOrdinal(studentData?.student.rankByGrade.rank ?? -1)} / {studentData?.student.rankByGrade.outOf}</div>
+                            <div>{numberToOrdinal(Math.round((studentData?.student.rankByGrade.rank ?? 0)/ (studentData?.student.rankByGrade.outOf ?? 0) * 100))}</div>
+                        </div>
+                        {
+                            studentData?.student.rankByRankingGroup?.map(rankingGroup => {
+                                return (
+                                    <div key={rankingGroup.groupId} className="grid grid-cols-3 border-2 rounded-lg my-1">
+                                        <div>{rankingGroup.name}</div>
+                                        <div>{numberToOrdinal(rankingGroup.rank ?? -1)} / {rankingGroup.outOf}</div>
+                                        <div>{numberToOrdinal(Math.round((rankingGroup.rank ?? 0) / (rankingGroup.outOf ?? 0) * 100))}</div>
+                                    </div>
+                                )
+                            })
                         }
                     </div>
                 </div>

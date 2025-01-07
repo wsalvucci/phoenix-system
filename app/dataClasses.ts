@@ -577,23 +577,26 @@ export type AdminStudentDashboardData = {
                 grade: number,
                 totalPoints: number,
                 rank: number,
-                rankByStudentGroup: {
-                        groupId: number,
-                        name: string,
-                        points: number,
-                        rank: number
-                }[],
+                outOf: number,
                 rankByPointGroup: {
                         groupId: number,
                         name: string,
                         color: string,
                         points: number,
-                        rank: number
+                        rank: number,
+                        outOf: number
                 }[],
                 rankByGrade: {
                         grade: number,
-                        rank: number
-                }
+                        rank: number,
+                        outOf: number
+                },
+                rankByRankingGroup: {
+                        groupId: number,
+                        name: string,
+                        rank: number,
+                        outOf: number
+                }[]
         },
         pointEvents: {
                 id: number,
