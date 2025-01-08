@@ -209,6 +209,18 @@ export default function GlobalDashboard() {
                                                         ))
                                         }
                                 </div>
+                                <div>
+                                        <div className="text-2xl flex justify-center">
+                                                {
+                                                        Quote.getQuote().text
+                                                }
+                                        </div>
+                                        <div className="text-xl flex justify-center align-middle">
+                                                {
+                                                        "- " + Quote.getQuote().author
+                                                }
+                                        </div>
+                                </div>
                         </div>
                         <div className="border rounded-xl p-5">
                                 <div>
@@ -356,10 +368,10 @@ export default function GlobalDashboard() {
                                 </div>
                         </div>
                         <div className="border rounded-xl p-5 grid" style={{
-                                gridTemplateRows: "3fr 1fr",
+                                gridTemplateRows: "1fr 1fr",
                         }}>
                                 <div>
-                                        <div className="text-2xl border-b mb-1 flex justify-center">Weekly Trends</div>
+                                        <div className="text-2xl border-b mb-1 flex justify-center">Top Students This Month</div>
                                         {
                                                 globalDashData?.topStudents.topTrending.map(student => (
                                                         <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
@@ -382,16 +394,27 @@ export default function GlobalDashboard() {
                                         }
                                 </div>
                                 <div>
-                                        <div className="text-2xl flex justify-center">
-                                                {
-                                                        Quote.getQuote().text
-                                                }
-                                        </div>
-                                        <div className="text-xl flex justify-center align-middle">
-                                                {
-                                                        "- " + Quote.getQuote().author
-                                                }
-                                        </div>
+                                        <div className="text-2xl border-b mb-1 flex justify-center">Most Improved This Month</div>
+                                        {
+                                                globalDashData?.topStudents.topImproved.map(student => (
+                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
+                                                                background: metalStyle('#000'),
+                                                                backgroundSize: "cover",
+                                                                backgroundPosition: "center",
+                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                gridTemplateColumns: "3fr 1fr",
+                                                                textShadow: metalTextShadow,
+                                                                textWrap: "nowrap"
+                                                        }}>
+                                                                <div className="flex justify-start">
+                                                                        {student.firstName + " " + student.lastName}
+                                                                </div>
+                                                                <div className="flex justify-end text-green-500">
+                                                                        +{(Math.round(student.percentAboveAverage * 100)).toLocaleString()}%
+                                                                </div>
+                                                        </div>
+                                                ))
+                                        }
                                 </div>
                         </div>
                 </div>

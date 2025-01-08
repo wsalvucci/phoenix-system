@@ -34,8 +34,6 @@ export async function getFeaturedDashData(schoolId: number, timeframeId: number 
                 timeframeEnd = DateTime.fromISO(currentTimeframe.ends_at)
         }
 
-        console.log("Timeframes: ", schoolData.school_timeframes)
-
         const { data: allStudentPointsData, error: allStudentPointsError } =
                 await supabase
                         .from("student")
@@ -339,7 +337,7 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
 
         const { data: schoolData, error: schoolDataError } = await supabase
                 .from("school")
-                .select("*")
+                .select("*, school_timeframes (*)")
                 .eq("id", schoolId)
                 .single();
 
@@ -350,6 +348,14 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
 
         if (schoolData === null) throw new Error("School not found");
 
+        let activeTimeframe = schoolData.school_timeframes.find((timeframe) => timeframe.active === true)
+        let timeframeStart: DateTime | null = DateTime.fromFormat("2000-01-01", "yyyy-MM-dd")
+        let timeframeEnd: DateTime | null = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
+        if (activeTimeframe !== undefined) {
+                timeframeStart = DateTime.fromISO(activeTimeframe.starts_at)
+                timeframeEnd = DateTime.fromISO(activeTimeframe.ends_at)
+        }
+
         const fetchedStudent = await getOwnStudentData();
 
         const { data: allStudentPointsData, error: allStudentPointsError } =
@@ -357,6 +363,8 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                         .from("student")
                         .select("*, student_point(*, point_event (*, point_template (*, point_group (*), point_conversion_rule_type (*)))), student_group (*, ranking_group (*))")
                         .eq("school_id", schoolId)
+                        .gt("student_point.point_event.date", timeframeStart.toISO())
+                        .lt("student_point.point_event.date", timeframeEnd.toISO())
 
         if (allStudentPointsError !== null) {
                 console.error(allStudentPointsError);
@@ -364,6 +372,15 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
         }
 
         if (allStudentPointsData === null) throw new Error("All student points not found");
+        
+        let earliestPointEventDate = timeframeEnd
+        allStudentPointsData.forEach((student) => {
+                student.student_point.forEach((point) => {
+                        const pointDate = DateTime.fromISO(point.point_event?.date ?? "")
+                        if (!pointDate.isValid) return
+                        if (pointDate < earliestPointEventDate) earliestPointEventDate = pointDate
+                })
+        })
 
         const { data: rankingGroupsData, error: rankingGroupsError } =
                 await supabase
@@ -391,11 +408,23 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
 
         if (futurePointData === null) throw new Error("Future point data not found")
 
-        const rankingPeriodStart = 1725148800
-        const weeksPassed = (DateTime.now().toSeconds() - DateTime.fromSeconds(rankingPeriodStart).toSeconds()) / 604800
+        let monthsPassed = DateTime.now().diff(earliestPointEventDate, 'months').months
 
         const studentPointTotals = Object.values(allStudentPointsData.reduce((acc, cur) => {
                 if (!acc[cur.id]) {
+
+                        console.log("Points last week: " + cur.student_point.reduce((acc, cur) => {
+                                let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
+                                        acc += pointValue
+                                }
+                                return acc
+                        }, 0))
+                        console.log("Points now: " + cur.student_point.reduce((acc, cur) => {
+                                let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                acc += pointValue
+                                return acc
+                        }, 0))
                         acc[cur.id] = {
                                 id: cur.id,
                                 firstName: cur.first_name,
@@ -425,18 +454,18 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                 }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
                                 lastWeekTotal: cur.student_point.reduce((acc, cur) => {
                                         let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
-                                        if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
+                                        if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
                                                 acc += pointValue
                                         }
                                         return acc
                                 }, 0),
                                 lastWeekPerWeekAvg: cur.student_point.reduce((acc, cur) => {
                                         let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
-                                        if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
+                                        if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
                                                 acc += pointValue
                                         }
                                         return acc
-                                }, 0) / (weeksPassed - 1),
+                                }, 0) / (monthsPassed - 1),
                                 totalPoints: cur.student_point.reduce((acc, cur) => {
                                         let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
                                         acc += pointValue
@@ -446,7 +475,7 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
                                         acc += pointValue
                                         return acc
-                                }, 0) / weeksPassed,
+                                }, 0) / monthsPassed,
                         }
                 }
                 return acc
@@ -472,6 +501,8 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                         currentPerWeekAvg: number
                 }
         }))
+
+
 
         const allPointGroups = studentPointTotals.reduce((acc, cur) => {
                 cur.byPointGroup.forEach((pointGroup) => {
@@ -555,7 +586,7 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         totalPoints: student.totalPoints,
                                         lastWeekTotalPoints: student.lastWeekTotal
                                 }
-                        }).sort((a, b) => (b.totalPoints - b.lastWeekTotalPoints) - (a.totalPoints - a.lastWeekTotalPoints)).slice(0, 20),
+                        }).sort((a, b) => (b.totalPoints - b.lastWeekTotalPoints) - (a.totalPoints - a.lastWeekTotalPoints)).slice(0, 10),
                         topImproved: studentPointTotals.map((student) => {
                                 return {
                                         id: student.id,
@@ -565,7 +596,7 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         lastWeekTotalPoints: student.lastWeekTotal,
                                         percentAboveAverage: (student.currentPerWeekAvg - student.lastWeekPerWeekAvg) / student.lastWeekPerWeekAvg
                                 }
-                        }).sort((a, b) => b.percentAboveAverage - a.percentAboveAverage),
+                        }).filter((student) => student.percentAboveAverage > 0).sort((a, b) => b.percentAboveAverage - a.percentAboveAverage).slice(0, 10),
                         topByPointGroup: allPointGroups.reduce((acc, cur) => {
                                 acc.push(
                                         {
