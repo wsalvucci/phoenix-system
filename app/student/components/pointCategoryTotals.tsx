@@ -84,7 +84,7 @@ export default function PointCategoryTotals(
 
                             // Hard 0% stop between each color
                             backgroundImage: metalStyleGradient(categories.reduce((acc, category, index) => {
-                                const color = Color(category.pointGroup.color);
+                                const color = Color(category.pointGroup.color).lighten(0.95);
                                 const percent = category.totalPoints / totalPoints;
                                 acc.push({
                                     color: color.hex(),

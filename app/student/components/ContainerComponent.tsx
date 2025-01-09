@@ -33,7 +33,7 @@ export default function ContainerComponent(
 ) {
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
     const [liveStudentData, setLiveStudentData] = useState<StudentRankData>(studentRankData)
-    const [totalRank, setTotalRank] = useState<number>(studentRankData.ranks.totalRank)
+    const [totalRank, setTotalRank] = useState<number>(1)
 
     const updateData = async () => {
         const newData = await getStudentDashboardData();

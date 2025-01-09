@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react"
 import { Roboto_Mono } from "next/font/google";
 import { FaMedal } from "react-icons/fa"
+import Color from "color";
 
 const monoFont = Roboto_Mono({
     subsets: ["latin"]
@@ -280,7 +281,8 @@ export default function AnimatedFeatured(
         student,
         index,
         arrayLength,
-        firstPlacePoints
+        firstPlacePoints,
+        breakdownPoints
     }: {
         student: {
             id: number,
@@ -290,9 +292,23 @@ export default function AnimatedFeatured(
         },
         index: number,
         arrayLength: number,
-        firstPlacePoints: number
+        firstPlacePoints: number,
+        breakdownPoints: {
+            pointGroupColor: string,
+            pointGroupId: number,
+            points: number
+        }[] | null
     }) {
         const percentOfFirst = student.points / firstPlacePoints
+        let breakdownGradient : String | null = null
+        if (breakdownPoints !== null) {
+            breakdownGradient = backgroundGradient(breakdownPoints.map((pointGroup) => {
+                return {
+                    color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
+                    percent: (pointGroup.points / student.points) * 100
+                }
+            }))
+        }
         return (
             <motion.div
                 className={`grid py-2 text-2xl`}
@@ -338,14 +354,34 @@ export default function AnimatedFeatured(
                 </motion.div>
                 <motion.div
                     className="px-3 flex justify-start align-middle"
-                    initial={{ width: '0%' }}
-                    animate={{
-                        width: `${percentOfFirst * 100}%`,
-                        background: backgroundGradient([
+                    style={{
+                        background: breakdownPoints !== null ? backgroundGradient(breakdownPoints.reduce((acc, pointGroup) => {
+                            let curPct = 0
+                            if (acc.length > 0) {
+                                curPct = acc[acc.length - 1].percent
+                                acc.push({
+                                    color: Color(acc[acc.length - 1].color).darken(0.5).toString(),
+                                    percent: curPct
+                                })
+                            }
+                            acc.push({
+                                color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
+                                percent: curPct
+                            })
+                            acc.push({
+                                color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
+                                percent: (pointGroup.points / student.points) * 100 + curPct
+                            })
+                            return acc
+                        }, [] as { color: string, percent: number }[])) : backgroundGradient([
                             { color: rankToColor(index + 1).darken(0.5).toString(), percent: 0 },
                             { color: rankToColor(index + 1).darken(0.5).toString(), percent: 75 },
                             { color: rankToColor(index + 1).lighten(0.75).toString(), percent: 100 }
                         ])
+                    }}
+                    initial={{ width: '0%' }}
+                    animate={{
+                        width: `${percentOfFirst * 100}%`,
                     }}
                     onUpdate={(latest) => {
                         // Funny trick. Mulitiplying by the current width means that the max width is <100% for everyone
@@ -385,7 +421,14 @@ export default function AnimatedFeatured(
                                     },
                                     index: index,
                                     arrayLength: array.length,
-                                    firstPlacePoints: array.at(0)?.totalPoints ?? Number.MAX_SAFE_INTEGER
+                                    firstPlacePoints: array.at(0)?.totalPoints ?? Number.MAX_SAFE_INTEGER,
+                                    breakdownPoints: student.byPointGroup.map((pointGroup) => {
+                                        return {
+                                            pointGroupColor: pointGroup.color,
+                                            pointGroupId: pointGroup.id,
+                                            points: pointGroup.totalPoints
+                                        }
+                                    })
                                 },
 
                             )
@@ -416,7 +459,8 @@ export default function AnimatedFeatured(
                                         },
                                         index: index,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER
+                                        firstPlacePoints: array.at(0)?.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        breakdownPoints: null
                                     },
 
                                 )
@@ -447,7 +491,8 @@ export default function AnimatedFeatured(
                                         },
                                         index: index,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER
+                                        firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        breakdownPoints: null
                                     },
 
                                 )
@@ -487,7 +532,8 @@ export default function AnimatedFeatured(
                                         },
                                         index: index,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.averagePoints ?? 0 ?? Number.MAX_SAFE_INTEGER
+                                        firstPlacePoints: array.at(0)?.averagePoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        breakdownPoints: null
                                     },
 
                                 )

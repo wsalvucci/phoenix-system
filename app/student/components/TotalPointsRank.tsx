@@ -27,7 +27,7 @@ export default function TotalPointsRank(
                     backgroundSize: 'cover',
                     WebkitBackgroundClip: 'text',
                     color: 'transparent',
-                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
                 }}>
                 {fullName.toLocaleUpperCase()}
             </div>
@@ -36,7 +36,7 @@ export default function TotalPointsRank(
                     backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
                     WebkitBackgroundClip: 'text',
                     color: 'transparent',
-                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
                 }}>
                     {totalPoints.toLocaleString()} PTS
                 </div>
@@ -44,7 +44,7 @@ export default function TotalPointsRank(
                     backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
                     WebkitBackgroundClip: 'text',
                     color: 'transparent',
-                    WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
+                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
                 }}>
                     {numberToOrdinal(totalRank || 0)}
                 </div>

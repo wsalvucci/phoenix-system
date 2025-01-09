@@ -983,13 +983,13 @@ export const customMetalStyle = (colorOverlay: string) => ({
         backgroundSize: 'cover',
         WebkitBackgroundClip: 'text',
         color: 'transparent',
-        WebkitTextStroke: 'thin ' + Color(colorOverlay).lighten(0.5).toString()
+        //WebkitTextStroke: 'thin ' + Color(colorOverlay).lighten(0.75).alpha(0.5).toString()
 })
 
 export const metalTextStyle = (colorOverlay: string): string => `
                     linear-gradient(180deg,
-                    ${Color(colorOverlay).lighten(0.5).alpha(0.5).rgb()},
-                    ${Color(colorOverlay).lighten(0.5).alpha(0.5).rgb()}),
+                    ${Color(colorOverlay).lighten(0.75).alpha(0.75).rgb()},
+                    ${Color(colorOverlay).lighten(0.75).alpha(0.75).rgb()}),
                     url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
 
 export const metalStyle = (colorOverlay: string): string => `
