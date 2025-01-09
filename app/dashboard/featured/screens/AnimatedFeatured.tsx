@@ -492,7 +492,13 @@ export default function AnimatedFeatured(
                                         index: index,
                                         arrayLength: array.length,
                                         firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
-                                        breakdownPoints: null
+                                        breakdownPoints: student.byPointGroup.map((pointGroup) => {
+                                            return {
+                                                pointGroupColor: pointGroup.color,
+                                                pointGroupId: pointGroup.id,
+                                                points: pointGroup.totalPoints
+                                            }
+                                        })
                                     },
 
                                 )
