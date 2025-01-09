@@ -1,5 +1,5 @@
 "use server";
-import { Student, StudentRankData } from "@/app/dataClasses";
+import { convertPointUsingRuleType, stringToRuleType, Student, StudentRankData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import getOwnUserData from "../getOwnUserData";
 import { DateTime } from "luxon";
@@ -72,6 +72,7 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
                 byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
                     const pointGroup = cur.point_event?.point_template?.point_group
                     const pointGroupId = pointGroup?.id
+                    let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name || ""), cur.point_event?.point_template?.conversion_rule_value || 0, cur.input_score || 0)
                     if (typeof pointGroupId !== 'number') return acc
                     if (!acc[pointGroupId]) {
                         acc[pointGroupId] = {
@@ -81,17 +82,19 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
                             totalPoints: 0
                         }
                     }
-                    acc[pointGroupId].totalPoints += cur.point_value
+                    acc[pointGroupId].totalPoints += pointValue
                     return acc
                 }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
                 lastWeekTotal: cur.student_point.reduce((acc, cur) => {
+                    let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name || ""), cur.point_event?.point_template?.conversion_rule_value || 0, cur.input_score || 0)
                     if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
-                        acc += cur.point_value
+                        acc += pointValue
                     }
                     return acc
                 }, 0),
                 totalPoints: cur.student_point.reduce((acc, cur) => {
-                    acc += cur.point_value
+                    let pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name || ""), cur.point_event?.point_template?.conversion_rule_value || 0, cur.input_score || 0)
+                    acc += pointValue
                     return acc
                 }, 0)
             }
@@ -169,8 +172,9 @@ export async function getStudentDashboardData(): Promise<StudentRankData> {
         .filter((student) => student.id == thisStudent.id)
         .at(0)
         ?.student_point.map((point) => {
+            let pointValue = convertPointUsingRuleType(stringToRuleType(point.point_event?.point_template?.point_conversion_rule_type?.name || ""), point.point_event?.point_template?.conversion_rule_value || 0, point.input_score || 0)
             return {
-                value: point.point_value,
+                value: pointValue,
                 date: point.point_event?.date ?? "",
                 pointEvent: {
                     id: point.point_event_id,
