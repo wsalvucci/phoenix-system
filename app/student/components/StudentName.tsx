@@ -20,22 +20,24 @@ export default function StudentName(
     }
 ) {
     return (
-        <div className="px-8 grid grid-cols-2 py-2 mb-10">
+        <div className="px-8 grid grid-cols-2 py-2 mb-10" style={{
+            gridTemplateColumns: "3fr 1fr"
+        }}>
             <div>
-                <div className="text-2xl flex justify-start">
+                <div className="text-xxl flex justify-start">
                     {firstName} {lastName}
                 </div>
-                <div className="text-xl flex justify-start">
+                <div className="text-lg flex justify-start">
                     {numberToOrdinal(grade)} Grade
                 </div>
             </div>
             <div style={{
                 opacity: opacity
             }}>
-                <div className="text-2xl flex justify-end">
-                    {totalPoints}pts
-                </div>
                 <div className="text-xl flex justify-end">
+                    {totalPoints.toLocaleString()}pts
+                </div>
+                <div className="text-lg flex justify-end">
                     {numberToOrdinal(totalRank)}
                 </div>
             </div>

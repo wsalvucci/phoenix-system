@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AdminDashboardData } from "@/app/dataClasses";
-import { getAdminDashboardData } from "@/app/supaApi/server/admin/adminApi";
 import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis } from "recharts";
 import Link from "next/link";
 import Color from "color";
 import { Space_Mono } from "next/font/google"
+import { adminGetGlobalPointStats, getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 
 const customFont = Space_Mono({
     weight: "400",
@@ -13,7 +13,8 @@ const customFont = Space_Mono({
 });
 
 enum SortType {
-    Name,
+    FirstName,
+    LastName,
     Grade,
     Points
 }
@@ -25,19 +26,21 @@ enum SortDirection {
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
 
-    const [adminDashData, setAdminDashData] = useState<AdminDashboardData | null>(null)
+    const [adminDashData, setAdminDashData] = useState<GlobalPoints | null>(null)
 
     const [studentSearch, setStudentSearch] = useState<string>("")
-    const [studentSort, setStudentSort] = useState<SortType>(SortType.Name)
+    const [studentSort, setStudentSort] = useState<SortType>(SortType.LastName)
     const [studentSortDirection, setStudentSortDirection] = useState<SortDirection>(SortDirection.Ascending)
 
     const [groupSearch, setGroupSearch] = useState<string>("")
-    const [groupSort, setGroupSort] = useState<SortType>(SortType.Name)
+    const [groupSort, setGroupSort] = useState<SortType>(SortType.LastName)
 
     const getAdminDashData = async () => {
-        const adminDashData = await getAdminDashboardData(parseInt(schoolId))
-        setAdminDashData(adminDashData)
-        console.log(adminDashData)
+        const testData = await adminGetGlobalPointStats(
+            parseInt(schoolId),
+            null,
+        )
+        setAdminDashData(testData)
     }
 
     useEffect(() => {
@@ -46,10 +49,6 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
 
     return (
         <div className="animate-in w-full">
-            {/* <div className="text-xl">{adminDashData?.school.name}</div>
-                <div>Teachers: {adminDashData?.teachers.length}</div>
-                <div>Students: {adminDashData?.students.length}</div> */}
-
             <ResponsiveContainer width="100%" height={200}>
                 <ScatterChart className="w-full h-full">
                     <YAxis hide dataKey="y" type="number" name="score" unit="pts" />
@@ -58,7 +57,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                     <Scatter data={
                         adminDashData?.students.sort((a, b) => a.totalPoints - b.totalPoints).map(student => {
                             return {
-                                name: student.name,
+                                name: student.lastName + ", " + student.firstName,
                                 y: student.totalPoints
                             }
                         })
@@ -70,12 +69,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                 {
                     // Average points by point group per student
                     adminDashData?.pointGroups.map(pointGroup => {
-                        let totalPoints = adminDashData.studentGroups.reduce((total, group) => {
-                            return total + group.pointEvents.reduce((groupTotal, event) => {
-                                return groupTotal + (event.pointGroupId === pointGroup.id ? event.studentPoints.reduce((eventTotal, studentPoint) => {
-                                    return eventTotal + studentPoint.value
-                                }, 0) : 0)
-                            }, 0)
+                        let totalPoints = adminDashData.students.reduce((acc, student) => {
+                            return acc + (student.pointGroups.find(pg => pg.id === pointGroup.id)?.points ?? 0)
                         }, 0)
 
                         return (
@@ -102,7 +97,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             <select className="rounded-lg px-3" onChange={(e) => {
                                 setStudentSort(parseInt(e.target.value))
                             }}>
-                                <option value={SortType.Name}>Name</option>
+                                <option value={SortType.LastName}>Last Name</option>
+                                <option value={SortType.FirstName}>First Name</option>
                                 <option value={SortType.Grade}>Grade</option>
                                 <option value={SortType.Points}>Points</option>
                             </select>
@@ -114,17 +110,20 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             </select>
                         </div>
                         <div className="grid grid-cols-4 border-b-2">
-                            <div className="col-span-2">Name</div>
+                            <div>Last Name</div>
+                            <div>First Name</div>
                             <div>Grade</div>
                             <div>Points</div>
                         </div>
                         <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}>
                             {adminDashData?.students
-                                .filter(student => student.name.toLowerCase().includes(studentSearch.toLowerCase()))
+                                .filter(student => student.firstName.toLowerCase().includes(studentSearch.toLowerCase()) || student.lastName.toLowerCase().includes(studentSearch.toLowerCase()))
                                 .sort((a, b) => {
                                     switch (studentSort) {
-                                        case SortType.Name:
-                                            return studentSortDirection === SortDirection.Ascending ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+                                        case SortType.LastName:
+                                            return studentSortDirection === SortDirection.Ascending ? a.lastName.localeCompare(b.lastName) : b.lastName.localeCompare(a.lastName)
+                                        case SortType.FirstName:
+                                            return studentSortDirection === SortDirection.Ascending ? a.firstName.localeCompare(b.firstName) : b.firstName.localeCompare(a.firstName)
                                         case SortType.Grade:
                                             return studentSortDirection === SortDirection.Ascending ? a.grade - b.grade : b.grade - a.grade
                                         case SortType.Points:
@@ -135,7 +134,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     return (
                                         <Link href={`/admin/school/${schoolId}/student/${student.id}`}>
                                             <div key={student.id} className="grid grid-cols-4 hover:bg-slate-300 dark:hover:bg-slate-700">
-                                                <div className="col-span-2">{student.name}</div>
+                                                <div>{student.lastName}</div>
+                                                <div>{student.firstName}</div>
                                                 <div>{student.grade}</div>
                                                 <div>{student.totalPoints}</div>
                                             </div>

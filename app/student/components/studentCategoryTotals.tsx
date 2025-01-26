@@ -11,10 +11,12 @@ const numberToOrdinal = (n: number) => {
 
 export default function StudentCategoryTotals(
     {
+        studentId,
         totalRank,
         categories,
         grade
     }: {
+        studentId: number,
         totalRank: number,
         categories: {
             studentGroup: {
@@ -23,10 +25,24 @@ export default function StudentCategoryTotals(
             };
             totalPoints: number;
             rank: number;
+            nearbyStudents: {
+                studentId: number;
+                firstName: string;
+                lastName: string;
+                points: number;
+                rank: number;
+            }[];
         }[],
         grade: {
             grade: number;
             rank: number;
+            nearbyStudents: {
+                studentId: number;
+                firstName: string;
+                lastName: string;
+                points: number;
+                rank: number;
+            }[];
         }
     }
 ) {
@@ -56,17 +72,46 @@ export default function StudentCategoryTotals(
                     {numberToOrdinal(grade.rank)}
                 </div>
             </div>
+            <div>
+                {
+                    grade.nearbyStudents.map((student) => {
+                        return (
+                            <div
+                                key={student.studentId}
+                                className={`text-sm grid justify-center py-1 ps-3`}
+                                style={{
+                                    backgroundColor: student.studentId === studentId ? "#444444" : "transparent",
+                                    borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
+                                    gridTemplateColumns: `2fr 1fr 1fr`
+                                }}
+                            >
+                                <div style={
+                                    customMetalStyle(rankToColor(totalRank).toString())
+                                }>{student.firstName} {student.lastName}</div>
+                                <div className="flex justify-end" style={
+                                    customMetalStyle(rankToColor(totalRank).toString())
+                                }>{student.points}pts</div>
+                                <div className="flex justify-end" style={
+                                    customMetalStyle(rankToColor(totalRank).toString())
+                                }>{numberToOrdinal(student.rank)}</div>
+                            </div>
+                        )
+                    })
+                }
+            </div>
             {
                 categories.map((category) => {
                     return (
                         <div
+                        className="py-3"
                             key={category.studentGroup.id}
+                        >
+                        <div
                             className={`text-xl grid justify-center my-1 ps-3`}
                             style={{
                                 borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
                                 gridTemplateColumns: `3fr 1fr`
-                            }}
-                        >
+                            }}>
                             <div className="flex justify-start" style={
                                 customMetalStyle(rankToColor(totalRank).toString())
                             }>{category.studentGroup.name}</div>
@@ -74,6 +119,35 @@ export default function StudentCategoryTotals(
                                 customMetalStyle(rankToColor(totalRank).toString())
                             }>{numberToOrdinal(category.rank)}</div>
                         </div>
+                        <div>
+                            {
+                                category.nearbyStudents.map((student) => {
+                                    return (
+                                        <div
+                                            key={student.studentId}
+                                            className={`text-sm grid justify-center py-1 ps-3`}
+                                            style={{
+                                                backgroundColor: student.studentId === studentId ? "#444444" : "transparent",
+                                                borderBottom: `1px solid ${rankToColor(totalRank).toString()}`,
+                                                gridTemplateColumns: `2fr 1fr 1fr`
+                                            }}
+                                        >
+                                            <div style={
+                                                customMetalStyle(rankToColor(totalRank).toString())
+                                            }>{student.firstName} {student.lastName}</div>
+                                            <div className="flex justify-end" style={
+                                                customMetalStyle(rankToColor(totalRank).toString())
+                                            }>{student.points}pts</div>
+                                            <div className="flex justify-end" style={
+                                                customMetalStyle(rankToColor(totalRank).toString())
+                                            }>{numberToOrdinal(student.rank)}</div>
+                                        </div>
+                                    )
+                                })
+                            }
+                        </div>
+                        </div>
+
                     )
                 })
             }

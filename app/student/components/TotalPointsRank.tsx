@@ -1,6 +1,6 @@
 "use client";
 
-import { metalStyle, metalTextShadow, metalTextStyle, rankToColor } from "@/app/dataClasses";
+import { customMetalStyle, metalTextStyle, rankToColor } from "@/app/dataClasses";
 import Color from "color";
 
 const numberToOrdinal = (n: number) => {
@@ -12,42 +12,53 @@ const numberToOrdinal = (n: number) => {
 
 export default function TotalPointsRank(
     {
-        fullName, totalPoints, totalRank
+        studentId, totalPoints, totalRank, nearbyStudents
     }: {
-        fullName: string,
+        studentId: number,
         totalPoints: number,
-        totalRank: number
+        totalRank: number,
+        nearbyStudents: {
+            studentId: number,
+            firstName: string,
+            lastName: string,
+            totalPoints: number,
+            rank: number,
+        }[]
     }) {
     return (
-        <div className="pt-10 pb-20">
-            <div
-                className={`text-5xl`}
-                style={{
-                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
-                    backgroundSize: 'cover',
-                    WebkitBackgroundClip: 'text',
-                    color: 'transparent',
-                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
-                }}>
-                {fullName.toLocaleUpperCase()}
-            </div>
-            <div className="text-4xl flex justify-between">
-                <div style={{
-                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
-                    WebkitBackgroundClip: 'text',
-                    color: 'transparent',
-                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
-                }}>
+        <div className="pb-20">
+            <div className="text-4xl flex justify-between" style={{
+                borderBottom: `1px solid ${rankToColor(totalRank).darken(0.5).rgb().string()}`
+            }}>
+                <div style={customMetalStyle(rankToColor(totalRank).toString())}>
                     {totalPoints.toLocaleString()} PTS
                 </div>
-                <div style={{
-                    backgroundImage: metalTextStyle(rankToColor(totalRank).toString()),
-                    WebkitBackgroundClip: 'text',
-                    color: 'transparent',
-                    //WebkitTextStroke: 'thin ' + rankToColor(totalRank).darken(0.5).toString()
-                }}>
+                <div style={customMetalStyle(rankToColor(totalRank).toString())}>
                     {numberToOrdinal(totalRank || 0)}
                 </div>
+            </div>
+            <div>
+                {
+                    nearbyStudents.map((student, index) => {
+                        return (
+                            <div key={student.studentId} className="grid grid-cols-3 text-sm" style={{
+                                gridTemplateColumns: "3fr 2fr 1fr",
+                                color: rankToColor(student.rank).lighten(0.5).toString(),
+                                backgroundColor: student.studentId === studentId ? "#444444" : "transparent",
+                            }}>
+                                <div className="flex justify-start px-2">
+                                    {student.firstName} {student.lastName}
+                                </div>
+                                <div className="flex justify-end px-2">
+                                    {student.totalPoints.toLocaleString()} pts
+                                </div>
+                                <div className="flex justify-end px-2">
+                                    {numberToOrdinal(student.rank)}
+                                </div>
+                            </div>
+                        )
+                    })
+                }
             </div>
         </div>
     )

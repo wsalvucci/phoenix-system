@@ -907,7 +907,15 @@ export const rankToColor = (rank: number) => {
         } else if (rank <= 20) {
                 return Color("#40D13B")
         } else {
-                return Color("#000000");
+                return Color("#FFFFFF");
+        }
+}
+
+export const rankToBackgroundColor = (rank: number) => {
+        if (rank > 20) {
+                return Color("#000000")
+        } else {
+                return rankToColor(rank)
         }
 }
 

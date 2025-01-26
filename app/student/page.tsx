@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getOwnStudentData, getStudentDashboardData } from "../supaApi/server/student/studentApi";
 import ContainerComponent from "./components/ContainerComponent";
+import { getStudentPointStats } from "../supaApi/universal/universalApi";
 
 export default async function StudentDashboard() {
 
-    const studentData = await getOwnStudentData();
+    const studentData = await getStudentPointStats(null, null);
 
     if (studentData === null) {
         return (
@@ -17,9 +18,8 @@ export default async function StudentDashboard() {
             </div>
         )
     } else {
-        const studentRankData = await getStudentDashboardData();
         return (
-            <ContainerComponent studentData={studentData} studentRankData={studentRankData} />
+            <ContainerComponent studentRankData={studentData} />
         )
     }
 }

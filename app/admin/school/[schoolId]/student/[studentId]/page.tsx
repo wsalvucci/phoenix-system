@@ -1,6 +1,8 @@
 "use client";
 import { AdminStudentDashboardData, numberToOrdinal } from "@/app/dataClasses"
 import { getAdminStudentDashboardData } from "@/app/supaApi/server/admin/adminApi"
+import { getStudentPointStats } from "@/app/supaApi/universal/universalApi";
+import { StudentPointsData } from "@/app/supaApi/universal/utils/types";
 import Color from "color";
 import { DateTime } from "luxon";
 import { useEffect, useState } from "react"
@@ -8,17 +10,18 @@ import { Cell, Legend, Pie, PieChart, PolarAngleAxis, PolarGrid, Radar, RadarCha
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
 
-    const [studentData, setStudentData] = useState<AdminStudentDashboardData | null>(null)
+    const [newStudentData, setNewStudentData] = useState<StudentPointsData | null>(null)
 
     const getStudentData = async () => {
-        const newStudentData = await getAdminStudentDashboardData(parseInt(schoolId), parseInt(studentId))
-        setStudentData(newStudentData)
-        console.log(newStudentData)
+
+        const newerStudentData = await getStudentPointStats(parseInt(studentId), null)
+        console.log(newerStudentData)
+        setNewStudentData(newerStudentData)
     }
 
-    const pointBreakdown = studentData?.student.rankByPointGroup?.map((pointGroup) => {
+    const pointBreakdown = newStudentData?.pointGroups?.map((pointGroup) => {
         return {
-            id: pointGroup.groupId,
+            id: pointGroup.id,
             name: pointGroup.name,
             points: pointGroup.points,
             color: pointGroup.color,
@@ -31,9 +34,9 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
 
     return (
         <div className="animate-in h-full w-full">
-            <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.name}</div>
-            <div className="text-4xl" style={{ height: '5%' }}>{studentData?.student.totalPoints.toLocaleString()}pts</div>
-            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(studentData?.student.rank ?? -1)} / {studentData?.student.outOf}</div>
+            <div className="text-4xl" style={{ height: '5%' }}>{newStudentData?.lastName + ", " + newStudentData?.firstName}</div>
+            <div className="text-4xl" style={{ height: '5%' }}>{newStudentData?.totalPoints.toLocaleString()}pts</div>
+            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(newStudentData?.totalRank ?? -1)} / {newStudentData?.totalOutOf}</div>
             <div className="grid grid-cols-2 gap-1" style={{ height: '45%' }}>
                 <div>
                     <div className="h-1/2 text-center text-xl">
@@ -44,16 +47,16 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         <div>Points</div>
                         <div>% of Total</div>
                     </div>
-                        {studentData?.student.rankByPointGroup?.map(pointGroup => {
+                        {newStudentData?.pointGroups?.map(pointGroup => {
                             return (
-                                <div key={pointGroup.groupId} className="grid grid-cols-5 border-2 rounded-lg my-1" style={{
+                                <div key={pointGroup.id} className="grid grid-cols-5 border-2 rounded-lg my-1" style={{
                                     borderColor: pointGroup.color,
                                 }}>
                                     <div>{pointGroup.name}</div>
                                     <div>{numberToOrdinal(pointGroup.rank ?? -1)}</div>
-                                    <div>{numberToOrdinal(Math.round(pointGroup.rank / pointGroup.outOf * 100))}</div>
+                                    <div>{numberToOrdinal(Math.round((1 - pointGroup.rank / pointGroup.outOf) * 100))}</div>
                                     <div>{pointGroup.points.toLocaleString()}</div>
-                                    <div>{Math.round(pointGroup.points / (studentData?.student.totalPoints ?? 1) * 100)}%</div>
+                                    <div>{Math.round(pointGroup.points / (newStudentData.totalPoints ?? 1) * 100)}%</div>
                                 </div>
                             )
                         })
@@ -66,17 +69,17 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                             <div>Percentile</div>
                         </div>
                         <div className="grid grid-cols-3 border-2 rounded-lg my-1">
-                            <div>{numberToOrdinal(studentData?.student.grade ?? 0)} Grade</div>
-                            <div>{numberToOrdinal(studentData?.student.rankByGrade.rank ?? -1)} / {studentData?.student.rankByGrade.outOf}</div>
-                            <div>{numberToOrdinal(Math.round((studentData?.student.rankByGrade.rank ?? 0)/ (studentData?.student.rankByGrade.outOf ?? 0) * 100))}</div>
+                            <div>{numberToOrdinal(newStudentData?.grade ?? 0)} Grade</div>
+                            <div>{numberToOrdinal(newStudentData?.gradeRank ?? -1)} / {newStudentData?.gradeOutOf}</div>
+                            <div>{numberToOrdinal(Math.round((1 - (newStudentData?.gradeRank ?? 0)/ (newStudentData?.gradeOutOf ?? 0)) * 100))}</div>
                         </div>
                         {
-                            studentData?.student.rankByRankingGroup?.map(rankingGroup => {
+                            newStudentData?.studentGroups.map(rankingGroup => {
                                 return (
-                                    <div key={rankingGroup.groupId} className="grid grid-cols-3 border-2 rounded-lg my-1">
+                                    <div key={rankingGroup.id} className="grid grid-cols-3 border-2 rounded-lg my-1">
                                         <div>{rankingGroup.name}</div>
                                         <div>{numberToOrdinal(rankingGroup.rank ?? -1)} / {rankingGroup.outOf}</div>
-                                        <div>{numberToOrdinal(Math.round((rankingGroup.rank ?? 0) / (rankingGroup.outOf ?? 0) * 100))}</div>
+                                        <div>{numberToOrdinal(Math.round((1 - (rankingGroup.rank ?? 0) / (rankingGroup.outOf ?? 0)) * 100))}</div>
                                     </div>
                                 )
                             })
@@ -96,7 +99,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                     </PieChart>
                 </ResponsiveContainer>
             </div>
-            <div className="overflow-y-scroll" style={{ height: '45%' }}>
+            <div className="overflow-y-scroll" style={{ height: '40%' }}>
                 <div className="sticky top-0 left-0 w-full bg-slate-100">
                     <div className="text-2xl">Recent Points</div>
                     <div className="grid grid-cols-3 text-lg">
@@ -107,7 +110,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                 </div>
                 <div>
                     {
-                        studentData?.pointEvents
+                        newStudentData?.pointEvents
                             .sort((a, b) => DateTime.fromISO(b.date).toUnixInteger() - DateTime.fromISO(a.date).toUnixInteger())
                             .map((pointEvent, index) => {
                                 return (
@@ -115,7 +118,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                                         borderColor: pointEvent.pointGroup.color,
                                     }}>
                                         <div>{pointEvent.name}</div>
-                                        <div>{pointEvent.pointsEarned.value.toLocaleString()}</div>
+                                        <div>{pointEvent.points} <span className="text-gray-400"> / {pointEvent.maxPoints}</span></div>
                                         <div>{DateTime.fromISO(pointEvent.date).toFormat('LLL dd')}</div>
                                     </div>
                                 )

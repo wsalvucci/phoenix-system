@@ -9,13 +9,15 @@ import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
 import { DateTime } from "luxon";
-import { Quicksand, Roboto } from "next/font/google";
+import { Quicksand, Roboto, Anta } from "next/font/google";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getStudentDashboardData } from "@/app/supaApi/server/student/studentApi";
+import { StudentPointsData } from "@/app/supaApi/universal/utils/types";
+import { getStudentPointStats } from "@/app/supaApi/universal/universalApi";
 
-const roboto = Roboto({
-    weight: "700",
+const roboto = Anta({
+    weight: "400",
     subsets: ["latin"]
 });
 
@@ -25,20 +27,20 @@ function isBirthday(birthdate: DateTime) {
 
 export default function ContainerComponent(
     {
-        studentData, studentRankData
+        studentRankData
     }: {
-        studentData: Student,
-        studentRankData: StudentRankData
+        studentRankData: StudentPointsData
     }
 ) {
     const [pointHeaderOpacity, setPointHeaderOpacity] = useState(0);
-    const [liveStudentData, setLiveStudentData] = useState<StudentRankData>(studentRankData)
-    const [totalRank, setTotalRank] = useState<number>(1)
+    const [liveStudentData, setLiveStudentData] = useState<StudentPointsData>(studentRankData)
+    const [totalRank, setTotalRank] = useState<number>(studentRankData.totalRank)
 
     const updateData = async () => {
-        const newData = await getStudentDashboardData();
+        const newData = await getStudentPointStats(studentRankData.studentId, null);
+        if (newData === null) return;
         setLiveStudentData(newData)
-        setTotalRank(newData.ranks.totalRank)
+        setTotalRank(newData.totalRank)
     }
 
 
@@ -56,7 +58,7 @@ export default function ContainerComponent(
 
     return (
         <div
-            className={`animate-in w-full overflow-auto overscroll-y-none border ${Color(rankToColor(totalRank)).darken(0.4).alpha(0.5).isLight() ? 'text-black' : 'text-white'} ${roboto.className}`}
+            className={`animate-in w-full overflow-auto overscroll-y-none border text-white} ${roboto.className}`}
             style={{
                 height: '100svh',
                 maxHeight: '100svh',
@@ -73,7 +75,7 @@ export default function ContainerComponent(
                 boxShadow: `inset 0 0 10px #000000`
             }}
         >
-            <div className="bg-black overscroll-y-none"
+            <div className="bg-zinc-900 overscroll-y-none text-white"
                 onScroll={(e) => {
                     const opacity = e.currentTarget.scrollTop / 150;
                     setPointHeaderOpacity(opacity);
@@ -82,31 +84,22 @@ export default function ContainerComponent(
                     minHeight: '100svh',
                     maxHeight: '100svh',
                     overflow: 'auto',
-                    background: totalRank > 20 ? '#EEE' : '#111',
                     boxShadow: `
                     inset 0 0 10px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     `
                 }}>
-                <div className={`sticky top-0  ${Color(rankToColor(totalRank)).darken(0.5).alpha(0.75).isLight() ? 'text-black' : 'text-white'}`} style={{
-                    backgroundImage: `
-                    linear-gradient(180deg,
-                    ${rankToColor(totalRank).darken(0.5).alpha(0.5).rgb()} 90%,
-                    ${rankToColor(totalRank).darken(0.5).alpha(1).rgb()} 100%),
-                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                }}>
+                <div className={`sticky top-0 text-white bg-black`}>
                     <StudentName
-                        firstName={studentData?.firstName || ""}
-                        lastName={studentData?.lastName || ""}
-                        grade={studentData?.grade || 0}
-                        totalPoints={liveStudentData?.ranks.totalPoints || 0}
+                        firstName={liveStudentData?.firstName || ""}
+                        lastName={liveStudentData?.lastName || ""}
+                        grade={liveStudentData?.grade || 0}
+                        totalPoints={liveStudentData?.totalPoints || 0}
                         totalRank={totalRank}
                         opacity={pointHeaderOpacity}
                     />
                 </div>
-                {
+                {/* {
                     studentData.birthdate && isBirthday(DateTime.fromJSDate(studentData.birthdate, { zone: 'utc' })) && (
                         <div className="flex justify-center items-center p-2" style={{
                             color: totalRank > 20 ? '#000' : '#FFF'
@@ -114,27 +107,58 @@ export default function ContainerComponent(
                             <div className="text-3xl">Happy Birthday {studentData.firstName}!</div>
                         </div>
                     )
-                }
+                } */}
                 <div className="px-6 pb-6">
                     <TotalPointsRank
-                        fullName={studentData?.firstName + " " + studentData?.lastName}
-                        totalPoints={liveStudentData?.ranks.totalPoints || 0}
+                        studentId={liveStudentData.studentId}
+                        totalPoints={liveStudentData?.totalPoints || 0}
                         totalRank={totalRank}
+                        nearbyStudents={liveStudentData.nearbyStudents}
                     />
-                    <PointCategoryTotals totalRank={totalRank} categories={liveStudentData.ranks.pointGroupRanks} />
+                    <PointCategoryTotals
+                    studentId={liveStudentData.studentId}
+                    totalRank={totalRank}
+                    categories={
+                        liveStudentData.pointGroups.map((pointGroup) => ({
+                            pointGroup: {
+                                id: pointGroup.id,
+                                name: pointGroup.name,
+                                color: pointGroup.color,
+                            },
+                            totalPoints: pointGroup.points,
+                            rank: pointGroup.rank,
+                            nearbyStudents: pointGroup.nearbyStudents
+                        }))
+                    }
+                     />
                     <StudentCategoryTotals
+                        studentId={liveStudentData.studentId}
                         totalRank={totalRank}
-                        categories={liveStudentData.ranks.studentGroupRanks}
-                        grade={liveStudentData.ranks.gradeRank}
+                        categories={liveStudentData.studentGroups.map((studentGroup) => ({
+                            studentGroup: {
+                                id: studentGroup.id,
+                                name: studentGroup.name,
+                            },
+                            totalPoints: liveStudentData.totalPoints,
+                            rank: studentGroup.rank,
+                            nearbyStudents: studentGroup.nearbyStudents
+                        }))}
+                        grade={{
+                            grade: liveStudentData.grade,
+                            rank: liveStudentData.gradeRank,
+                            nearbyStudents: liveStudentData.nearbyGradeStudents
+                        }}
                     />
                     <div className="flex justify-center">
                         <Link
                             href="/dashboard/mobile"
                             className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
                     </div>
-                    <RecentPoints
+                    {/* <RecentPoints
                         totalRank={totalRank}
-                        recentPoints={liveStudentData.points} />
+                        recentPoints={liveStudentData.pointEvents.map((pointEvent) => ({
+
+                        }))} /> */}
                 </div>
             </div>
         </div>
