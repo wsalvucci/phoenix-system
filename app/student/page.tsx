@@ -5,8 +5,8 @@ import { getStudentPointStats } from "../supaApi/universal/universalApi";
 
 export default async function StudentDashboard() {
 
-    // const studentData = await getStudentPointStats(null, null);
-    const studentData = await getStudentPointStats(339, null);
+    const studentData = await getStudentPointStats(null, null);
+    // const studentData = await getStudentPointStats(339, null);
     // const studentData = await getStudentPointStats(301, null);
     // const studentData = await getStudentPointStats(359, null);
     // const studentData = await getStudentPointStats(327, null);
