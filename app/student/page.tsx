@@ -5,7 +5,15 @@ import { getStudentPointStats } from "../supaApi/universal/universalApi";
 
 export default async function StudentDashboard() {
 
-    const studentData = await getStudentPointStats(null, null);
+    // const studentData = await getStudentPointStats(null, null);
+    const studentData = await getStudentPointStats(339, null);
+    // const studentData = await getStudentPointStats(301, null);
+    // const studentData = await getStudentPointStats(359, null);
+    // const studentData = await getStudentPointStats(327, null);
+    // const studentData = await getStudentPointStats(343, null);
+    // const studentData = await getStudentPointStats(333, null);
+    // const studentData = await getStudentPointStats(355, null);
+    // const studentData = await getStudentPointStats(341, null);
 
     if (studentData === null) {
         return (

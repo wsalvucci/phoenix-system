@@ -1,6 +1,12 @@
 import { convertPointUsingRuleType, customMetalStyle, rankToColor, stringToRuleType } from "@/app/dataClasses";
 import Color from "color";
 import { DateTime } from "luxon";
+import { Azeret_Mono } from "next/font/google";
+
+const azeret = Azeret_Mono({
+    weight: "500",
+    subsets: ["latin"]
+});
 
 export default function RecentPoints(
     {
@@ -9,33 +15,17 @@ export default function RecentPoints(
     }: {
         totalRank: number,
         recentPoints: {
-            value: number;
+            id: number;
+            name: string;
             date: string;
-            pointEvent: {
+            maxPoints: number;
+            points: number;
+            rank: number;
+            outOf: number;
+            pointGroup: {
                 id: number;
                 name: string;
-                date: string;
-                maxInput: number;
-                studentGroup: {
-                    id: number;
-                    name: string;
-                };
-                pointTemplate: {
-                    id: number;
-                    name: string;
-                    pointGroup: {
-                        id: number;
-                        name: string;
-                        color: string;
-                    };
-                    pointConversionRule: {
-                        pointConversionRuleType: {
-                            id: number;
-                            name: string;
-                        };
-                        ruleValue: number;
-                    };
-                };
+                color: string;
             };
         }[]
     }
@@ -56,21 +46,17 @@ export default function RecentPoints(
                     .map((point) => {
                         return (
                             <div
-                                key={point.pointEvent.id}
+                                key={point.id}
                                 className={`grid grid-cols-3 justify-center my-1 ps-3`}
                                 style={{
-                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
+                                    borderLeft: `3px solid ${point.pointGroup.color}`,
                                     borderBottom: `1px solid #333`
                                 }}
                             >
-                                <div style={customMetalStyle(rankToColor(totalRank).toString())}>{point.pointEvent.name}</div>
+                                <div style={customMetalStyle(rankToColor(totalRank).toString())}>{point.name}</div>
                                 <div className="grid col-span-2 grid-cols-2 gap-2 items-center" style={customMetalStyle(rankToColor(totalRank).toString())}>
-                                    <div className="flex justify-end">{convertPointUsingRuleType(
-                                        stringToRuleType(point.pointEvent.pointTemplate.pointConversionRule.pointConversionRuleType.name),
-                                        point.pointEvent.pointTemplate.pointConversionRule.ruleValue,
-                                        point.pointEvent.maxInput
-                                    )}pts</div>
-                                    <div className="flex justify-end">{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
+                                    <div className={`flex justify-end ${azeret.className}`}>{point.points.toLocaleString()} / {point.maxPoints.toLocaleString()}</div>
+                                    <div className={`flex justify-end`}>{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
                                 </div>
                             </div>
                         )
@@ -79,27 +65,31 @@ export default function RecentPoints(
             <div className="text-xl border-b flex justify-start" style={
                 customMetalStyle(rankToColor(totalRank).toString())
             }>
-                RECENT
+                PREVIOUS
             </div>
             {
                 recentPoints
                     .sort((a, b) => DateTime.fromISO(b.date).toMillis() - DateTime.fromISO(a.date).toMillis())
                     .filter((point) => DateTime.fromISO(point.date) < DateTime.now())
-                    .slice(0, 7)
                     .map((point) => {
                         return (
                             <div
-                                key={point.pointEvent.id}
-                                className={`grid grid-cols-3 justify-center my-1 ps-3`}
+                                key={point.id}
+                                className={`justify-center my-2 ps-3`}
                                 style={{
-                                    borderLeft: `3px solid ${point.pointEvent.pointTemplate.pointGroup.color}`,
+                                    borderLeft: `3px solid ${point.pointGroup.color}`,
                                     borderBottom: `1px solid #333`
                                 }}
                             >
-                                <div style={customMetalStyle(rankToColor(totalRank).toString())}>{point.pointEvent.name}</div>
-                                <div className="grid col-span-2 grid-cols-2 gap-2 items-center" style={customMetalStyle(rankToColor(totalRank).toString())}>
-                                    <div className="flex justify-end">{point.value}pts</div>
-                                    <div className="flex justify-end">{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
+                                <div className="flex justify-between" style={customMetalStyle(rankToColor(totalRank).toString())}>
+                                    <div className={`flex justify-end`}>{point.name}</div>
+                                    <div className={`flex ${azeret.className}`}>
+                                        <div>{point.points.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between" style={customMetalStyle(rankToColor(totalRank).toString())}>
+                                    <div className={`flex justify-end`}>{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
+                                    <div className={`flex ${azeret.className}`} style={customMetalStyle('#222')}>/{point.maxPoints.toLocaleString()}</div>
                                 </div>
                             </div>
                         )

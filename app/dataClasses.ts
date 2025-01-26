@@ -1006,6 +1006,13 @@ export const metalStyle = (colorOverlay: string): string => `
                     ${Color(colorOverlay).darken(0.75).alpha(0.75).rgb()}),
                     url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
 
+
+export const brightMetalStyle = (colorOverlay: string): string => `
+                    linear-gradient(180deg,
+                    ${Color(colorOverlay).lighten(0.25).alpha(0.33).rgb()},
+                    ${Color(colorOverlay).lighten(0.25).alpha(0.33).rgb()}),
+                    url('https://cdn.midjourney.com/4e5b065b-2f7d-4141-a869-b14aebbc3b5b/0_0.png')`
+
 export const metalStyleGradient = (colors: { color: string, percent: number }[]): string => {
         let gradient = 'linear-gradient(90deg,';
         for (let i = 0; i < colors.length; i++) {

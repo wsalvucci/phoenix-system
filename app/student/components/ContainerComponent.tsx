@@ -9,14 +9,14 @@ import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
 import { DateTime } from "luxon";
-import { Quicksand, Roboto, Anta } from "next/font/google";
+import { Quicksand, Roboto, Anta, Azeret_Mono, Zain } from "next/font/google";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getStudentDashboardData } from "@/app/supaApi/server/student/studentApi";
 import { StudentPointsData } from "@/app/supaApi/universal/utils/types";
 import { getStudentPointStats } from "@/app/supaApi/universal/universalApi";
 
-const roboto = Anta({
+const anta = Anta({
     weight: "400",
     subsets: ["latin"]
 });
@@ -58,7 +58,7 @@ export default function ContainerComponent(
 
     return (
         <div
-            className={`animate-in w-full overflow-auto overscroll-y-none border text-white} ${roboto.className}`}
+            className={`animate-in w-full overflow-auto overscroll-y-none border text-white} ${anta.className}`}
             style={{
                 height: '100svh',
                 maxHeight: '100svh',
@@ -87,7 +87,8 @@ export default function ContainerComponent(
                     boxShadow: `
                     inset 0 0 10px ${rankToColor(totalRank).darken(0.5).rgb().string()},
                     inset 0 0 20px ${rankToColor(totalRank).darken(0.5).rgb().string()},
-                    `
+                    `,
+                    
                 }}>
                 <div className={`sticky top-0 text-white bg-black`}>
                     <StudentName
@@ -111,8 +112,10 @@ export default function ContainerComponent(
                 <div className="px-6 pb-6">
                     <TotalPointsRank
                         studentId={liveStudentData.studentId}
+                        studentName={`${liveStudentData.firstName} ${liveStudentData.lastName}`}
                         totalPoints={liveStudentData?.totalPoints || 0}
                         totalRank={totalRank}
+                        byPointGroup={liveStudentData.pointGroups}
                         nearbyStudents={liveStudentData.nearbyStudents}
                     />
                     <PointCategoryTotals
@@ -154,11 +157,9 @@ export default function ContainerComponent(
                             href="/dashboard/mobile"
                             className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
                     </div>
-                    {/* <RecentPoints
+                    <RecentPoints
                         totalRank={totalRank}
-                        recentPoints={liveStudentData.pointEvents.map((pointEvent) => ({
-
-                        }))} /> */}
+                        recentPoints={liveStudentData.pointEvents} />
                 </div>
             </div>
         </div>
