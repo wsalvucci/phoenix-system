@@ -84,6 +84,7 @@ export type RankingGroupData = {
 export type GlobalPoints = {
     schoolId: number,
     totalStudents: number,
+    timeframes: TimeframeData[],
     students: {
         id: number,
         firstName: string,

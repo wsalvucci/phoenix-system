@@ -7,6 +7,8 @@ import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/re
 import { Roboto_Mono } from "next/font/google";
 import { FaMedal } from "react-icons/fa"
 import Color from "color";
+import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
+import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
 
 const monoFont = Roboto_Mono({
     subsets: ["latin"]
@@ -25,6 +27,7 @@ type NavigationState = {
     pointGroups: {
         currentGroupIdx: number,
         groups: {
+            id: number,
             title: string
         }[]
     },
@@ -48,41 +51,37 @@ export default function AnimatedFeatured(
     {
         initGlobalDashData: initFeaturedDashData,
     }: {
-        initGlobalDashData: FeaturedDashboardData,
+        initGlobalDashData: GlobalPoints,
     }
 ) {
-    const [featuredDashData, setFeaturedDashData] = useState<FeaturedDashboardData>(initFeaturedDashData)
+    const [featuredDashData, setFeaturedDashData] = useState<GlobalPoints>(initFeaturedDashData)
     const [curNavigationState, setCurNavigationState] = useState<NavigationState>({
         currentCategory: 1,
         pointGroups: {
             currentGroupIdx: 0,
-            groups: featuredDashData.topByPointGroup.map((pointGroup) => {
+            groups: featuredDashData.pointGroups.map((pointGroup) => {
                 return {
+                    id: pointGroup.id,
                     title: pointGroup.name
                 }
             })
         },
         grades: {
             currentGradeIdx: 0,
-            grades: featuredDashData.topByGrade.map((grade) => {
+            grades: [9, 10, 11, 12].map((grade) => {
                 return {
-                    title: grade.grade.toString()
+                    title: grade.toString()
                 }
             })
         },
         rankingGroups: {
             currentGroupIdx: 0,
-            groups: featuredDashData.studentGroups
-                .reduce((acc, cur) => {
-                    cur.rankingGroups.forEach((group) => {
-                        if (acc.find((accGroup) => accGroup.id === group.id) !== undefined) return
-                        acc.push({
-                            id: group.id,
-                            name: group.name
-                        })
-                    })
-                    return acc
-                }, [] as { id: number, name: string }[])
+            groups: featuredDashData.rankingGroups.map((rankingGroup) => {
+                return {
+                    id: rankingGroup.id,
+                    name: rankingGroup.name
+                }
+            })
         }
     })
     const [curProgress, setCurProgress] = useState<{ [id: number]: { value: number } }>({})
@@ -260,7 +259,8 @@ export default function AnimatedFeatured(
     }, [featuredDashData, paused, passedTime])
 
     const updateData = async (timeframe: number | null = null) => {
-        getFeaturedDashData(12, timeframe).then((data) => {
+        getGlobalPointStats(12, timeframe, null, null, null, null).then((data) => {
+            if (data === null) return
             setFeaturedDashData(data)
         })
     }
@@ -409,7 +409,10 @@ export default function AnimatedFeatured(
         return (
             <AnimatePresence>
                 {
-                    featuredDashData.topOverall.sort((a, b) => b.totalPoints - a.totalPoints).map((student, index, array) => {
+                    featuredDashData.students
+                    .sort((a, b) => b.totalPoints - a.totalPoints)
+                    .slice(0, 20)
+                    .map((student, index, array) => {
                         return (
                             StudentBar(
                                 {
@@ -422,11 +425,11 @@ export default function AnimatedFeatured(
                                     index: index,
                                     arrayLength: array.length,
                                     firstPlacePoints: array.at(0)?.totalPoints ?? Number.MAX_SAFE_INTEGER,
-                                    breakdownPoints: student.byPointGroup.map((pointGroup) => {
+                                    breakdownPoints: student.pointGroups.map((pointGroup) => {
                                         return {
-                                            pointGroupColor: pointGroup.color,
+                                            pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
                                             pointGroupId: pointGroup.id,
-                                            points: pointGroup.totalPoints
+                                            points: pointGroup.points
                                         }
                                     })
                                 },
@@ -444,22 +447,25 @@ export default function AnimatedFeatured(
             <AnimatePresence>
                 {
                     featuredDashData
-                        .topByPointGroup
-                        .at(curNavigationState.pointGroups.currentGroupIdx)
-                        ?.students
-                        .sort((a, b) => (b.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0) - (a.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0)).map((student, index, array) => {
+                        .students
+                        .sort((a, b) =>
+                            (b.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0) -
+                            (a.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0)
+                        )
+                        .slice(0, 20)
+                        .map((student, index, array) => {
                             return (
                                 StudentBar(
                                     {
                                         student: {
                                             id: student.id,
-                                            points: student.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0,
+                                            points: student.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0,
                                             firstName: student.firstName,
                                             lastName: student.lastName
                                         },
                                         index: index,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.byPointGroup.at(curNavigationState.pointGroups.currentGroupIdx)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        firstPlacePoints: array.at(0)?.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0 ?? Number.MAX_SAFE_INTEGER,
                                         breakdownPoints: null
                                     },
 
@@ -476,10 +482,11 @@ export default function AnimatedFeatured(
             <AnimatePresence>
                 {
                     featuredDashData
-                        .topByGrade
-                        .at(curNavigationState.grades.currentGradeIdx)
-                        ?.students
-                        .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0)).map((student, index, array) => {
+                        .students
+                        .filter((student) => student.grade === parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? ''))
+                        .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
+                        .slice(0, 20)
+                        .map((student, index, array) => {
                             return (
                                 StudentBar(
                                     {
@@ -492,11 +499,11 @@ export default function AnimatedFeatured(
                                         index: index,
                                         arrayLength: array.length,
                                         firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
-                                        breakdownPoints: student.byPointGroup.map((pointGroup) => {
+                                        breakdownPoints: student.pointGroups.map((pointGroup) => {
                                             return {
-                                                pointGroupColor: pointGroup.color,
+                                                pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
                                                 pointGroupId: pointGroup.id,
-                                                points: pointGroup.totalPoints
+                                                points: pointGroup.points
                                             }
                                         })
                                     },
@@ -515,15 +522,12 @@ export default function AnimatedFeatured(
                 {
                     featuredDashData
                         .studentGroups
-                        .filter((group) => group.rankingGroups.find((rankingGroup) => rankingGroup.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id) !== undefined)
+                        .filter((group) => featuredDashData.rankingGroups.find((rg) => rg.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id)?.studentGroups.includes(group.id))
                         .map((group) => {
                             return {
                                 id: group.id,
                                 name: group.name,
-                                averagePoints: group.students.reduce((acc, cur) => {
-                                    acc += cur.totalPoints
-                                    return acc
-                                }, 0) / group.students.length
+                                averagePoints: group.averagePoints + group.rawPoints
                             }
                         })
                         .sort((a, b) => (b.averagePoints ?? 0) - (a.averagePoints ?? 0)).map((studentGroup, index, array) => {
@@ -592,7 +596,7 @@ export default function AnimatedFeatured(
                 </select>
                 <select
                     className="px-3 py-1 bg-transparent text-white"
-                    defaultValue={featuredDashData.timeframes.find((timeframe) => timeframe.active)?.id}
+                    defaultValue={featuredDashData.timeframes.find((timeframe) => timeframe.isActive)?.id}
                     onChange={(e) => {
                         updateData(parseInt(e.target.value))
                     }}
