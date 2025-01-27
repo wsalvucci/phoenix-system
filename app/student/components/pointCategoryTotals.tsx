@@ -53,7 +53,6 @@ export default function PointCategoryTotals(
                     const organizedCategories = categories.sort((a, b) => b.totalPoints - a.totalPoints);
                     const totalPoints = organizedCategories.reduce((acc, category) => acc + category.totalPoints, 0);
                     const percentages = organizedCategories.map(category => category.totalPoints / totalPoints);
-                    const colors = organizedCategories.map(category => category.pointGroup.color);
                     return (
                         <div className="grid rounded-full text-xl my-1 px-3" style={{
 

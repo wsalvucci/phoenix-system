@@ -90,7 +90,7 @@ export default function StudentCategoryTotals(
                                 }>{student.firstName} {student.lastName}</div>
                                 <div className={`flex justify-end ${azeret.className}`} style={
                                     customMetalStyle(rankToColor(totalRank).toString())
-                                }>{student.points}</div>
+                                }>{student.points.toLocaleString()}</div>
                                 <div className={`flex justify-end ${azeret.className}`} style={
                                     customMetalStyle(rankToColor(totalRank).toString())
                                 }>{numberToOrdinal(student.rank)}</div>
