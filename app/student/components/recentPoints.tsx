@@ -1,4 +1,4 @@
-import { convertPointUsingRuleType, customMetalStyle, rankToColor, stringToRuleType } from "@/app/dataClasses";
+import { convertPointUsingRuleType, customMetalStyle, numberToOrdinal, rankToColor, stringToRuleType } from "@/app/dataClasses";
 import Color from "color";
 import { DateTime } from "luxon";
 import { Azeret_Mono } from "next/font/google";
@@ -84,12 +84,14 @@ export default function RecentPoints(
                                 <div className="flex justify-between" style={customMetalStyle(rankToColor(totalRank).toString())}>
                                     <div className={`flex justify-end`}>{point.name}</div>
                                     <div className={`flex ${azeret.className}`}>
-                                        <div>{point.points.toLocaleString()}</div>
+                                        {point.points.toLocaleString()}<span style={customMetalStyle('#222')}>/{point.maxPoints.toLocaleString()}</span>
                                     </div>
                                 </div>
                                 <div className="flex justify-between" style={customMetalStyle(rankToColor(totalRank).toString())}>
                                     <div className={`flex justify-end`}>{DateTime.fromISO(point.date).toFormat("EEE MMM d")}</div>
-                                    <div className={`flex ${azeret.className}`} style={customMetalStyle('#222')}>/{point.maxPoints.toLocaleString()}</div>
+                                    <div className={`flex ${azeret.className}`}>
+                                        <div>{point.points !== 0 ? numberToOrdinal(point.rank) : "-"}<span style={customMetalStyle('#222')}>/{point.outOf}</span></div>
+                                    </div>
                                 </div>
                             </div>
                         )

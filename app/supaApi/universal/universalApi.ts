@@ -844,11 +844,12 @@ export async function getStudentPointStats(
     const pointEventsData = globalStats.pointEvents.filter((pointEvent) => {
         return studentData.studentGroups.find((group) => group === pointEvent.studentGroupId) !== undefined;
     }).map((pointEvent) => {
-        const sortedStudents = pointEvent.students
+        const studentListCopy = pointEvent.students.map((student) => ({ ...student }));
+        const sortedStudents = studentListCopy
             .sort((a, b) => b.points - a.points)
         const idx = sortedStudents.findIndex((student) => student.id === verifiedStudentId);
         const rank = sortedStudents
-            .filter((student) => student.points === pointEvent.students[idx].points)
+            .filter((student) => student.points !== studentListCopy[idx].points || student.id === verifiedStudentId)
             .findIndex((student) => student.id === verifiedStudentId) + 1;
         return {
             id: pointEvent.id,
@@ -857,7 +858,7 @@ export async function getStudentPointStats(
             date: pointEvent.date,
             rank: rank === 0 ? pointEvent.students.length : rank,
             outOf: pointEvent.students.length,
-            points: pointEvent.students[rank - 1].points,
+            points: studentListCopy[idx].points,
             pointGroup: {
                 id: pointEvent.pointGroup,
                 name: globalStats.pointGroups.find((group) => group.id === pointEvent.pointGroup)?.name ?? "",
