@@ -57,29 +57,41 @@ export default function GlobalDashboard() {
         const StudentPointTile = ({
                 fullName,
                 points,
-                rank
+                rank,
+                rankChange
         }: {
                 fullName: string,
                 points: number | null,
-                rank: number
+                rank: number,
+                rankChange: number | null
         }) => (
                 <div className="text-lg border grid py-1 px-2 mx-2" style={{
                         background: metalStyle(rankToColor(rank + 1).toString()),
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                         //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                        gridTemplateColumns: "2fr 1fr",
+                        gridTemplateColumns: "50px 2fr 1fr",
                         textShadow: metalTextShadow
                 }}>
+                        {
+                                rankChange !== null && rankChange !== 0 ?
+                                <div className="flex justify-center place-items-center text-xl" style={{
+                                        color: rankChange > 0 ? "green" : "red"
+                                }}>
+                                        {rankChange > 0 ? "+" : ""}{rankChange}
+                                </div> : <div />
+                        }
                         <div className="flex justify-start place-items-center" style={{
                                 textWrap: "nowrap"
                         }}>
                                 {fullName}
                         </div>
-                        { points !== null &&
-                        <div className="flex justify-end place-items-center">
-                                {points.toLocaleString()}pts
-                        </div>}
+                        {
+                                points !== null &&
+                                <div className="flex justify-end place-items-center">
+                                        {points.toLocaleString()}pts
+                                </div>
+                        }
                 </div>
         )
 
@@ -252,31 +264,38 @@ export default function GlobalDashboard() {
                                         <StudentPointTile
                                                 fullName="1st Place"
                                                 points={null}
-                                                rank={0} />
+                                                rank={0}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="2nd Place"
                                                 points={null}
-                                                rank={1} />
+                                                rank={1}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="3rd Place"
                                                 points={null}
-                                                rank={2} />
+                                                rank={2}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="4th Place"
                                                 points={null}
-                                                rank={3} />
+                                                rank={3}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="5th Place"
                                                 points={null}
-                                                rank={4} />
+                                                rank={4}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="6th - 10th Place"
                                                 points={null}
-                                                rank={5} />
+                                                rank={5}
+                                                rankChange={null} />
                                         <StudentPointTile
                                                 fullName="11th - 20th Place"
                                                 points={null}
-                                                rank={10} />
+                                                rank={10}
+                                                rankChange={null} />
                                 </div>
                         </div>
                         <div className="border rounded-xl p-5">
@@ -367,34 +386,40 @@ export default function GlobalDashboard() {
                                                         ))
                                                 }
                                                 {
-                                                        [...Array(10)].map((_, index) => (
-                                                                <>
-                                                                        <StudentPointTile
-                                                                                key={index}
-                                                                                fullName={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.firstName + " " + globalDashData?.students[index]?.lastName}
-                                                                                points={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.totalPoints || 0}
-                                                                                rank={index}
-                                                                        />
-                                                                        {
-                                                                                globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => {
-                                                                                        const student = globalDashData.students.sort((a, b) => {
-                                                                                                const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
-                                                                                                const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
-                                                                                                return bPoints - aPoints
-                                                                                        }).at(index)
-                                                                                        //const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
-                                                                                        return (
-                                                                                                <StudentPointTile
-                                                                                                        key={pointGroup.id + ":" + index}
-                                                                                                        fullName={student?.firstName + " " + student?.lastName}
-                                                                                                        points={student?.pointGroups.find(group => group.id === pointGroup.id)?.points || 0}
-                                                                                                        rank={index}
-                                                                                                />
-                                                                                        )
-                                                                                })
-                                                                        }
-                                                                </>
-                                                        ))
+                                                        [...Array(10)].map((_, index) => {
+                                                                const ovrStudent = globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]
+                                                                const ovrStudentRankChange = (ovrStudent?.lastMonthRank ?? 0) - (ovrStudent?.rank ?? 0)
+                                                                return (
+                                                                        <>
+                                                                                <StudentPointTile
+                                                                                        key={index}
+                                                                                        fullName={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.firstName + " " + globalDashData?.students[index]?.lastName}
+                                                                                        points={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.totalPoints || 0}
+                                                                                        rank={index}
+                                                                                        rankChange={ovrStudentRankChange}
+                                                                                />
+                                                                                {
+                                                                                        globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => {
+                                                                                                const student = globalDashData.students.sort((a, b) => {
+                                                                                                        const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
+                                                                                                        const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
+                                                                                                        return bPoints - aPoints
+                                                                                                }).at(index)
+                                                                                                //const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
+                                                                                                return (
+                                                                                                        <StudentPointTile
+                                                                                                                key={pointGroup.id + ":" + index}
+                                                                                                                fullName={student?.firstName + " " + student?.lastName}
+                                                                                                                points={student?.pointGroups.find(group => group.id === pointGroup.id)?.points || 0}
+                                                                                                                rank={index}
+                                                                                                                rankChange={null}
+                                                                                                        />
+                                                                                                )
+                                                                                        })
+                                                                                }
+                                                                        </>
+                                                                )
+                                                        })
                                                 }
                                         </div>
                                 </div>
@@ -424,6 +449,7 @@ export default function GlobalDashboard() {
                                                                                                         fullName={student.firstName + " " + student.lastName}
                                                                                                         points={student.totalPoints || 0}
                                                                                                         rank={index}
+                                                                                                        rankChange={null}
                                                                                                 /> : <EmptyStudentPointTile />
                                                                                         )
                                                                         })}
@@ -434,7 +460,7 @@ export default function GlobalDashboard() {
                                 </div>
                         </div>
                         <div className="grid">
-                                <div className="text-2xl border-b mb-1 flex justify-center items-center pt-5">Monthly Trends</div>
+                                <div className="text-4xl border-b mb-1 flex justify-center items-center pt-5">Monthly Trends</div>
                                 <div className="border rounded-xl p-5 grid">
                                         <div>
                                                 <div className="text-xl border-b mb-1 flex justify-center">Most Points</div>

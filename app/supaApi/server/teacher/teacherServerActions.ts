@@ -210,8 +210,8 @@ export async function newGetScorebookData(studentGroupId: number): Promise<NewSc
                 students: studentGroupData.student.map((student) => {
                         return {
                                 id: student.id,
-                                firstName: student.first_name,
-                                lastName: student.last_name
+                                firstName: student.first_name.trim(),
+                                lastName: student.last_name.trim()
                         }
                 }),
                 studentGroup: {
