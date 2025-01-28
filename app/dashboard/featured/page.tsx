@@ -10,7 +10,7 @@ const customFont = Quicksand({
 });
 
 export default async function FeaturedDashboard() {
-  const featuredDashData = await getGlobalPointStats(12, null, null, null, null, null);
+  const featuredDashData = await getGlobalPointStats(12, null, null, null, null, null, null, null);
 
   if (!featuredDashData) {
     return (

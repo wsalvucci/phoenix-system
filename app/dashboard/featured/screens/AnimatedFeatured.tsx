@@ -1,14 +1,15 @@
 "use client";
 import { backgroundGradient, FeaturedDashboardData, metalStyle, metalStyleGradient, numberToOrdinal, rankToColor } from "@/app/dataClasses";
-import { getFeaturedDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react"
 import { Roboto_Mono } from "next/font/google";
-import { FaMedal } from "react-icons/fa"
+import { FaArrowAltCircleUp, FaMedal } from "react-icons/fa"
 import Color from "color";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowDown, faArrowUp, faCircleArrowDown, faCircleArrowUp } from "@fortawesome/free-solid-svg-icons";
 
 const monoFont = Roboto_Mono({
     subsets: ["latin"]
@@ -89,6 +90,8 @@ export default function AnimatedFeatured(
     const [paused, setPaused] = useState<boolean>(false)
     const [intervalLength, setIntervalLength] = useState<number>(20000)
     const [passedTime, setPassedTime] = useState<number>(0)
+
+    console.log(initFeaturedDashData)
 
     function decrementDav() {
         setPassedTime(0)
@@ -259,7 +262,7 @@ export default function AnimatedFeatured(
     }, [featuredDashData, paused, passedTime])
 
     const updateData = async (timeframe: number | null = null) => {
-        getGlobalPointStats(12, timeframe, null, null, null, null).then((data) => {
+        getGlobalPointStats(12, timeframe, null, null, null, null, null, null).then((data) => {
             if (data === null) return
             setFeaturedDashData(data)
         })
@@ -280,6 +283,7 @@ export default function AnimatedFeatured(
     function StudentBar({
         student,
         index,
+        rankChange,
         arrayLength,
         firstPlacePoints,
         breakdownPoints
@@ -291,6 +295,7 @@ export default function AnimatedFeatured(
             lastName: string
         },
         index: number,
+        rankChange: number | null,
         arrayLength: number,
         firstPlacePoints: number,
         breakdownPoints: {
@@ -323,8 +328,11 @@ export default function AnimatedFeatured(
                 }}
             >
                 <motion.div
-                    className="border-e border-white"
-                    animate={{ backgroundColor: rankToColor(index + 1).darken(0.5).toString() }}
+                    className="border-b border-e"
+                    animate={{
+                        borderRightColor: 'white',
+                        borderBottomColor: rankToColor(index + 1).darken(0.5).toString(),
+                    }}
                     transition={{
                         duration: 1 * percentOfFirst
                     }}
@@ -332,7 +340,7 @@ export default function AnimatedFeatured(
                     <div
                         className="grid"
                         style={{
-                            gridTemplateColumns: '1fr 5fr',
+                            gridTemplateColumns: '75px 75px 5fr',
                         }}
                     >
 
@@ -346,8 +354,19 @@ export default function AnimatedFeatured(
                                     {numberToOrdinal(index + 1)}
                                 </div>
                         }
+                        {
+                            rankChange !== null  && rankChange !== 0 ?
+                            <div className="px-3 flex justify-start items-center" style={{
+                                color: rankChange > 0 ? 'green' : 'red',
+                            }}>
+                                {rankChange > 0 ? <FontAwesomeIcon icon={faArrowUp} /> : <FontAwesomeIcon icon={faArrowDown} />} {Math.abs(rankChange)}
+                            </div> : <div className="px-3 flex justify-start items-center"/>
+                        }
                         <motion.div
-                            className={`flex justify-start px-3 font-normal text-nowrap overflow-hidden`}>
+                            className={`flex justify-start px-3 font-normal text-nowrap overflow-hidden`}
+                            animate={{
+                                backgroundColor: rankToColor(index + 1).darken(0.5).toString()
+                            }}>
                             {student.firstName} {student.lastName}
                         </motion.div>
                     </div>
@@ -423,6 +442,7 @@ export default function AnimatedFeatured(
                                         lastName: student.lastName
                                     },
                                     index: index,
+                                    rankChange: student.lastMonthRank - student.rank,
                                     arrayLength: array.length,
                                     firstPlacePoints: array.at(0)?.totalPoints ?? Number.MAX_SAFE_INTEGER,
                                     breakdownPoints: student.pointGroups.map((pointGroup) => {
@@ -464,6 +484,7 @@ export default function AnimatedFeatured(
                                             lastName: student.lastName
                                         },
                                         index: index,
+                                        rankChange: null,
                                         arrayLength: array.length,
                                         firstPlacePoints: array.at(0)?.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0 ?? Number.MAX_SAFE_INTEGER,
                                         breakdownPoints: null
@@ -497,6 +518,7 @@ export default function AnimatedFeatured(
                                             lastName: student.lastName
                                         },
                                         index: index,
+                                        rankChange: null,
                                         arrayLength: array.length,
                                         firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
                                         breakdownPoints: student.pointGroups.map((pointGroup) => {
@@ -541,9 +563,16 @@ export default function AnimatedFeatured(
                                             lastName: ''
                                         },
                                         index: index,
+                                        rankChange: null,
                                         arrayLength: array.length,
                                         firstPlacePoints: array.at(0)?.averagePoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
-                                        breakdownPoints: null
+                                        breakdownPoints: featuredDashData.studentGroups.find((sg) => sg.id === studentGroup.id)?.pointGroups.map((pointGroup) => {
+                                            return {
+                                                pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
+                                                pointGroupId: pointGroup.id,
+                                                points: pointGroup.points / (featuredDashData.studentGroups.find((sg) => sg.id === studentGroup.id)?.totalStudents ?? 0)
+                                            }
+                                        }) ?? null
                                     },
 
                                 )

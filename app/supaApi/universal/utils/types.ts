@@ -85,11 +85,13 @@ export type GlobalPoints = {
     schoolId: number,
     totalStudents: number,
     timeframes: TimeframeData[],
+    grades: number[],
     students: {
         id: number,
         firstName: string,
         lastName: string,
         rank: number,
+        lastMonthRank: number,
         totalPoints: number,
         grade: number,
         gradeRank: number,
@@ -97,6 +99,15 @@ export type GlobalPoints = {
             id: number,
             points: number,
         }[],
+        totalPointsByDay: {
+            date: string,
+            points: number
+        }[],
+        pointsEarnedEachDay: {
+            date: string,
+            points: number
+        }[],
+        monthToMonthChange: number,
         studentGroups: number[]
     }[],
     pointGroups: {

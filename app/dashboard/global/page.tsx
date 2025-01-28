@@ -1,6 +1,8 @@
 "use client";
 import { convertPointUsingRuleType, GlobalDashboardData, metalStyle, metalStyleGradient, rankToColor, stringToRuleType } from "@/app/dataClasses";
 import { newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import { createClient } from "@/utils/supabase/client";
 import Color from "color";
 import { DateTime } from "luxon";
@@ -20,11 +22,12 @@ const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
 
 export default function GlobalDashboard() {
 
-        const [globalDashData, setGlobalDashData] = useState<GlobalDashboardData | null>(null);
+        const [globalDashData, setGlobalDashData] = useState<GlobalPoints | null>(null);
+        const [timeframe, setTimeframe] = useState<number | null>(null);
 
-        const updateData = async () => {
+        const updateData = async (timeframeId: number | null) => {
                 console.log("Updating data");
-                newGetGlobalDashData(12).then((data) => {
+                getGlobalPointStats(12, timeframeId, null, null, null, null, null, null).then((data) => {
                         console.log(data)
                         setGlobalDashData(data);
                 })
@@ -38,13 +41,18 @@ export default function GlobalDashboard() {
                 { event: 'sync' },
                 (payload) => {
                         console.log('Received broadcast:', payload);
-                        updateData();
+                        updateData(timeframe);
                 }
         ).subscribe();
 
         useEffect(() => {
-                updateData();
+                updateData(timeframe);
         }, [])
+
+        const changeTimeframe = (timeframeId: number) => {
+                setTimeframe(timeframeId);
+                updateData(timeframeId);
+        }
 
         const StudentPointTile = ({
                 fullName,
@@ -52,7 +60,7 @@ export default function GlobalDashboard() {
                 rank
         }: {
                 fullName: string,
-                points: number,
+                points: number | null,
                 rank: number
         }) => (
                 <div className="text-lg border grid py-1 px-2 mx-2" style={{
@@ -68,9 +76,10 @@ export default function GlobalDashboard() {
                         }}>
                                 {fullName}
                         </div>
+                        { points !== null &&
                         <div className="flex justify-end place-items-center">
-                                {points?.toLocaleString()}pts
-                        </div>
+                                {points.toLocaleString()}pts
+                        </div>}
                 </div>
         )
 
@@ -160,6 +169,36 @@ export default function GlobalDashboard() {
                         color: "#eee"
                 }}>
                         <div className="border rounded-xl p-5 overflow-auto">
+                                <div style={{height: "3%"}}>
+                                        <select className="text-lg bg-transparent" defaultValue={
+                                                globalDashData?.timeframes.find(timeframe => timeframe.isActive)?.id
+                                        }
+                                        onChange={(event) => {
+                                                changeTimeframe(parseInt(event.target.value))
+                                        }}
+                                        >
+                                                {
+                                                        globalDashData?.timeframes.map(timeframe => (
+                                                                <option className="text-black" key={timeframe.id} value={timeframe.id}>
+                                                                        {timeframe.name}
+                                                                </option>
+                                                        ))
+                                                }
+                                        </select>
+                                </div>
+                                <div style={{height: "17%"}}>
+                                        <div className="text-2xl flex justify-center">
+                                                {
+                                                        Quote.getQuote().text
+                                                }
+                                        </div>
+                                        <div className="text-xl flex justify-center align-middle">
+                                                {
+                                                        "- " + Quote.getQuote().author
+                                                }
+                                        </div>
+                                </div>
+                                <div style={{height: "55%"}}>
                                 <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
                                 <div className="grid grid-cols-1 gap-5">
                                         {
@@ -168,7 +207,7 @@ export default function GlobalDashboard() {
                                                         .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
                                                         .map(event => (
                                                                 <div key={event.id} className="p-2" style={{
-                                                                        background: metalStyle(event.pointGroup.color),
+                                                                        background: metalStyle(globalDashData?.pointGroups.find(pointGroup => pointGroup.id === event.pointGroup)?.color || '#000'),
                                                                         backgroundSize: "cover",
                                                                         backgroundPosition: "center",
                                                                         //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
@@ -180,11 +219,7 @@ export default function GlobalDashboard() {
                                                                                 <div>
                                                                                         <div className="text-2xl">{event.name}</div>
                                                                                         <div className="text-lg">{
-                                                                                                convertPointUsingRuleType(
-                                                                                                        stringToRuleType(event.pointTemplate.conversionRuleType.name),
-                                                                                                        event.pointTemplate.conversionRuleValue,
-                                                                                                        event.maxInput
-                                                                                                )
+                                                                                                event.maxPoints
                                                                                         }pts</div>
                                                                                 </div>
                                                                                 <div className="text-lg flex justify-end place-items-center">
@@ -209,17 +244,39 @@ export default function GlobalDashboard() {
                                                         ))
                                         }
                                 </div>
-                                <div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1" style={{height: "25%"}}>
                                         <div className="text-2xl flex justify-center">
-                                                {
-                                                        Quote.getQuote().text
-                                                }
+                                                Color Guide
                                         </div>
-                                        <div className="text-xl flex justify-center align-middle">
-                                                {
-                                                        "- " + Quote.getQuote().author
-                                                }
-                                        </div>
+                                        <StudentPointTile
+                                                fullName="1st Place"
+                                                points={null}
+                                                rank={0} />
+                                        <StudentPointTile
+                                                fullName="2nd Place"
+                                                points={null}
+                                                rank={1} />
+                                        <StudentPointTile
+                                                fullName="3rd Place"
+                                                points={null}
+                                                rank={2} />
+                                        <StudentPointTile
+                                                fullName="4th Place"
+                                                points={null}
+                                                rank={3} />
+                                        <StudentPointTile
+                                                fullName="5th Place"
+                                                points={null}
+                                                rank={4} />
+                                        <StudentPointTile
+                                                fullName="6th - 10th Place"
+                                                points={null}
+                                                rank={5} />
+                                        <StudentPointTile
+                                                fullName="11th - 20th Place"
+                                                points={null}
+                                                rank={10} />
                                 </div>
                         </div>
                         <div className="border rounded-xl p-5">
@@ -239,37 +296,43 @@ export default function GlobalDashboard() {
                                                                 </div>
                                                                 {
                                                                         rankingGroup.studentGroups.sort((a, b) => {
-                                                                                var aPoints = a.averagePoints + a.groupPoints
-                                                                                var bPoints = b.averagePoints + b.groupPoints
+                                                                                var aGroup = globalDashData?.studentGroups.find(studentGroup => studentGroup.id === a)
+                                                                                var bGroup = globalDashData?.studentGroups.find(studentGroup => studentGroup.id === b)
+                                                                                var aPoints = (aGroup?.averagePoints ?? 0) + (aGroup?.rawPoints ?? 0)
+                                                                                var bPoints = (bGroup?.averagePoints ?? 0) + (bGroup?.rawPoints ?? 0)
                                                                                 return bPoints - aPoints
                                                                         })
                                                                                 .slice(0, 5)
-                                                                                .map((studentGroup, rankIndex) => (
-                                                                                        <div key={studentGroup.id} className="text-lg grid grid-cols-1 place-items-center" style={{
-                                                                                                background: metalStyle(rankToColor(rankIndex + 1).toString()),
-                                                                                                backgroundSize: "cover",
-                                                                                                backgroundPosition: "center",
-                                                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                                                textShadow: metalTextShadow
-                                                                                        }}>
-                                                                                                <div>
-                                                                                                        <div className="flex justify-center">
-                                                                                                                {studentGroup.name}
-                                                                                                        </div>
-                                                                                                        <div className="flex justify-center">
-                                                                                                                {Math.round(studentGroup.averagePoints + studentGroup.groupPoints).toLocaleString()}pts
-                                                                                                        </div>
-                                                                                                        <div className="flex justify-center">
-                                                                                                                {
-                                                                                                                        (() => {
-                                                                                                                                const topStudent = studentGroup.students.sort((a, b) => b.totalPoints - a.totalPoints)[0]
-                                                                                                                                return topStudent ? topStudent.firstName + " " + topStudent.lastName : ""
-                                                                                                                        })()
-                                                                                                                }
+                                                                                .map((studentGroup, rankIndex) => {
+                                                                                        var group = globalDashData?.studentGroups.find(group => group.id === studentGroup)
+                                                                                        if (!group) return <></>
+                                                                                        return (
+                                                                                                <div key={group.id} className="text-lg grid grid-cols-1 place-items-center" style={{
+                                                                                                        background: metalStyle(rankToColor(rankIndex + 1).toString()),
+                                                                                                        backgroundSize: "cover",
+                                                                                                        backgroundPosition: "center",
+                                                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                                                        textShadow: metalTextShadow
+                                                                                                }}>
+                                                                                                        <div>
+                                                                                                                <div className="flex justify-center">
+                                                                                                                        {group.name}
+                                                                                                                </div>
+                                                                                                                <div className="flex justify-center">
+                                                                                                                        {Math.round(group.averagePoints + group.rawPoints).toLocaleString()}pts
+                                                                                                                </div>
+                                                                                                                <div className="flex justify-center">
+                                                                                                                        {
+                                                                                                                                (() => {
+                                                                                                                                        const topStudent = globalDashData?.students.filter(student => student.studentGroups.includes(group?.id ?? -1)).sort((a, b) => b.totalPoints - a.totalPoints)[0]
+                                                                                                                                        return topStudent ? topStudent.firstName + " " + topStudent.lastName : ""
+                                                                                                                                })()
+                                                                                                                        }
+                                                                                                                </div>
                                                                                                         </div>
                                                                                                 </div>
-                                                                                        </div>
-                                                                                ))
+                                                                                        )
+                                                                                })
                                                                 }
                                                         </div>
                                                 ))
@@ -277,7 +340,7 @@ export default function GlobalDashboard() {
                                 </div>
                                 <div>
                                         <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
-                                        <div className={`grid grid-cols-${(globalDashData?.topStudents.topByPointGroup.length ?? 0) + 1} gap-1`}>
+                                        <div className={`grid grid-cols-${(globalDashData?.pointGroups.length ?? 0) + 1} gap-1`}>
                                                 <div className="text-xl border px-1 flex justify-center place-items-center" style={{
                                                         background: metalStyleGradient([
                                                                 { color: '#ff0000', percent: 0 },
@@ -293,7 +356,7 @@ export default function GlobalDashboard() {
                                                         textShadow: metalTextShadow
                                                 }}>Overall</div>
                                                 {
-                                                        globalDashData?.topStudents.topByPointGroup.map(pointGroup => (
+                                                        globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => (
                                                                 <div key={pointGroup.id} className="text-xl border px-1 flex justify-center place-items-center" style={{
                                                                         background: metalStyle(pointGroup.color),
                                                                         backgroundSize: "cover",
@@ -308,19 +371,23 @@ export default function GlobalDashboard() {
                                                                 <>
                                                                         <StudentPointTile
                                                                                 key={index}
-                                                                                fullName={globalDashData?.topStudents.topOverall[index]?.firstName + " " + globalDashData?.topStudents.topOverall[index]?.lastName}
-                                                                                points={globalDashData?.topStudents.topOverall[index]?.totalPoints || 0}
+                                                                                fullName={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.firstName + " " + globalDashData?.students[index]?.lastName}
+                                                                                points={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.totalPoints || 0}
                                                                                 rank={index}
                                                                         />
                                                                         {
-                                                                                globalDashData?.topStudents.topByPointGroup.map(pointGroup => {
-                                                                                        const student = pointGroup.topStudents[index]
+                                                                                globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => {
+                                                                                        const student = globalDashData.students.sort((a, b) => {
+                                                                                                const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
+                                                                                                const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
+                                                                                                return bPoints - aPoints
+                                                                                        }).at(index)
                                                                                         //const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
                                                                                         return (
                                                                                                 <StudentPointTile
                                                                                                         key={pointGroup.id + ":" + index}
                                                                                                         fullName={student?.firstName + " " + student?.lastName}
-                                                                                                        points={student?.totalPoints || 0}
+                                                                                                        points={student?.pointGroups.find(group => group.id === pointGroup.id)?.points || 0}
                                                                                                         rank={index}
                                                                                                 />
                                                                                         )
@@ -333,88 +400,95 @@ export default function GlobalDashboard() {
                                 </div>
                                 <div>
                                         <div className="grid my-5 gap-1" style={{
-                                                gridTemplateColumns: `repeat(${globalDashData?.topStudents.topByGrade.length}, 1fr)`
+                                                gridTemplateColumns: `repeat(${globalDashData?.grades.length}, 1fr)`
                                         }}>
                                                 {
-                                                        globalDashData?.topStudents.topByGrade.map(grade => (
-                                                                <div key={grade.grade} className="text-xl border flex justify-center" style={{
+                                                        globalDashData?.grades.sort((a, b) => a - b).map(grade => (
+                                                                <div key={grade} className="text-xl border flex justify-center" style={{
                                                                         background: metalStyle('#000'),
                                                                         backgroundSize: "cover",
                                                                         backgroundPosition: "center",
                                                                         //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                                                         textShadow: metalTextShadow
-                                                                }}>Grade {grade.grade}</div>
+                                                                }}>Grade {grade}</div>
                                                         ))
                                                 }
                                                 {
-                                                        globalDashData?.topStudents.topByGrade.map(grade => (
+                                                        globalDashData?.grades.sort((a, b) => a - b).map(grade => (
                                                                 <div className="grid grid-cols-1 gap-1">{
-                                                                        [...Array(10)].map((_, index) => (
-                                                                                <>
-                                                                                        {
-                                                                                                grade.topStudents[index] ? <StudentPointTile
-                                                                                                        key={grade.grade + ":" + index}
-                                                                                                        fullName={grade.topStudents[index]?.firstName + " " + grade.topStudents[index]?.lastName}
-                                                                                                        points={grade.topStudents[index]?.totalPoints || 0}
+                                                                        [...Array(10)].map((_, index) => {
+                                                                                const student = globalDashData.students.filter(student => student.grade === grade).sort((a, b) => b.totalPoints - a.totalPoints)[index]
+                                                                                return (
+                                                                                                student !== undefined ? <StudentPointTile
+                                                                                                        key={grade + ":" + index}
+                                                                                                        fullName={student.firstName + " " + student.lastName}
+                                                                                                        points={student.totalPoints || 0}
                                                                                                         rank={index}
                                                                                                 /> : <EmptyStudentPointTile />
-                                                                                        }
-                                                                                </>
-                                                                        ))}
+                                                                                        )
+                                                                        })}
                                                                 </div>
                                                         ))
                                                 }
                                         </div>
                                 </div>
                         </div>
-                        <div className="border rounded-xl p-5 grid" style={{
-                                gridTemplateRows: "1fr 1fr",
-                        }}>
-                                <div>
-                                        <div className="text-2xl border-b mb-1 flex justify-center">Top Students This Month</div>
-                                        {
-                                                globalDashData?.topStudents.topTrending.map(student => (
-                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
-                                                                background: metalStyle('#000'),
-                                                                backgroundSize: "cover",
-                                                                backgroundPosition: "center",
-                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                gridTemplateColumns: "3fr 1fr",
-                                                                textShadow: metalTextShadow,
-                                                                textWrap: "nowrap"
-                                                        }}>
-                                                                <div className="flex justify-start">
-                                                                        {student.firstName + " " + student.lastName}
+                        <div className="grid">
+                                <div className="text-2xl border-b mb-1 flex justify-center items-center pt-5">Monthly Trends</div>
+                                <div className="border rounded-xl p-5 grid">
+                                        <div>
+                                                <div className="text-xl border-b mb-1 flex justify-center">Most Points</div>
+                                                {
+                                                        globalDashData?.students
+                                                        .sort((a, b) => b.monthToMonthChange - a.monthToMonthChange)
+                                                        .slice(0, 10)
+                                                        .map(student => (
+                                                                <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
+                                                                        background: metalStyle('#000'),
+                                                                        backgroundSize: "cover",
+                                                                        backgroundPosition: "center",
+                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                        gridTemplateColumns: "3fr 1fr",
+                                                                        textShadow: metalTextShadow,
+                                                                        textWrap: "nowrap"
+                                                                }}>
+                                                                        <div className="flex justify-start">
+                                                                                {student.firstName + " " + student.lastName}
+                                                                        </div>
+                                                                        <div className="flex justify-end text-green-500">
+                                                                                +{(student.monthToMonthChange).toLocaleString()}pts
+                                                                        </div>
                                                                 </div>
-                                                                <div className="flex justify-end text-green-500">
-                                                                        +{(student.totalPoints - student.lastWeekTotalPoints).toLocaleString()}pts
+                                                        ))
+                                                }
+                                        </div>
+                                        <div>
+                                                <div className="text-xl border-b mb-1 flex justify-center">Most Improved Rank</div>
+                                                {
+                                                        globalDashData?.students
+                                                        .sort((a, b) => (a.rank - a.lastMonthRank) - (b.rank - b.lastMonthRank))
+                                                        .filter(student => student.lastMonthRank - student.rank > 0)
+                                                        .slice(0, 10)
+                                                        .map(student => (
+                                                                <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
+                                                                        background: metalStyle('#000'),
+                                                                        backgroundSize: "cover",
+                                                                        backgroundPosition: "center",
+                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                        gridTemplateColumns: "3fr 1fr",
+                                                                        textShadow: metalTextShadow,
+                                                                        textWrap: "nowrap"
+                                                                }}>
+                                                                        <div className="flex justify-start">
+                                                                                {student.firstName + " " + student.lastName}
+                                                                        </div>
+                                                                        <div className="flex justify-end text-green-500">
+                                                                                +{student.lastMonthRank - student.rank}
+                                                                        </div>
                                                                 </div>
-                                                        </div>
-                                                ))
-                                        }
-                                </div>
-                                <div>
-                                        <div className="text-2xl border-b mb-1 flex justify-center">Most Improved This Month</div>
-                                        {
-                                                globalDashData?.topStudents.topImproved.map(student => (
-                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
-                                                                background: metalStyle('#000'),
-                                                                backgroundSize: "cover",
-                                                                backgroundPosition: "center",
-                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                gridTemplateColumns: "3fr 1fr",
-                                                                textShadow: metalTextShadow,
-                                                                textWrap: "nowrap"
-                                                        }}>
-                                                                <div className="flex justify-start">
-                                                                        {student.firstName + " " + student.lastName}
-                                                                </div>
-                                                                <div className="flex justify-end text-green-500">
-                                                                        +{(Math.round(student.percentAboveAverage * 100)).toLocaleString()}%
-                                                                </div>
-                                                        </div>
-                                                ))
-                                        }
+                                                        ))
+                                                }
+                                        </div>
                                 </div>
                         </div>
                 </div>
