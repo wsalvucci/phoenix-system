@@ -1,12 +1,10 @@
 "use client";
-import { convertPointUsingRuleType, GlobalDashboardData, metalStyle, metalStyleGradient, rankToColor, stringToRuleType } from "@/app/dataClasses";
-import { newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
-import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { metalStyle, metalStyleGradient, rankToColor } from "@/app/dataClasses";
+import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import { createClient } from "@/utils/supabase/client";
-import Color from "color";
 import { DateTime } from "luxon";
-import { Quicksand, Russo_One, Montserrat, Staatliches } from "next/font/google";
+import { Quicksand } from "next/font/google";
 import { useEffect, useState } from "react";
 const Quote = require("inspirational-quotes");
 
@@ -27,7 +25,7 @@ export default function GlobalDashboard() {
 
         const updateData = async (timeframeId: number | null) => {
                 console.log("Updating data");
-                getGlobalPointStats(12, timeframeId, null, null, null, null, null, null).then((data) => {
+                featuredDashGetGlobalStats(12, timeframeId).then((data) => {
                         console.log(data)
                         setGlobalDashData(data);
                 })

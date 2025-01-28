@@ -1,8 +1,6 @@
-import { getFeaturedDashData, newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
-import TopStudents from "./screens/TopStudents";
 import AnimatedFeatured from "./screens/AnimatedFeatured";
 import { Quicksand } from "next/font/google";
-import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 
 const customFont = Quicksand({
   weight: "500",
@@ -10,7 +8,7 @@ const customFont = Quicksand({
 });
 
 export default async function FeaturedDashboard() {
-  const featuredDashData = await getGlobalPointStats(12, null, null, null, null, null, null, null);
+  const featuredDashData = await featuredDashGetGlobalStats(12, null);
 
   if (!featuredDashData) {
     return (

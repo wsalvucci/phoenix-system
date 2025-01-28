@@ -4,7 +4,6 @@ import { AdminData, GlobalPoints, PointEventData, PointGroupData, RankingGroupDa
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
 import { getOwnStudentData } from "../server/student/studentApi";
-import { Global } from "recharts";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
     const supabase = createClient();
@@ -402,29 +401,23 @@ export async function adminGetGlobalPointStats(
     if (adminData === null) return null;
     if (adminData.schools.find((school) => school === schoolId) === undefined) return null;
 
-    return await getGlobalPointStats(schoolId, timeframeId, null, null, null, null, null, null);
+    return await getGlobalPointStats(schoolId, timeframeId, null, null, null);
 }
 
-export async function getGlobalPointStats(
+export async function featuredDashGetGlobalStats(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<GlobalPoints | null> {
+    return await getGlobalPointStats(schoolId, timeframeId, 20, 5, 0.33);
+}
+
+async function getGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,
     numStudentsOverall: number | null,
     numStudentsPerPointGroup: number | null,
     ratioStudentsPerGrade: number | null,
-    numStudentsPerStudentGroup: number | null,
-    numStudentsMostImproved: number | null,
-    numStudentsTrending: number | null,
 ) : Promise<GlobalPoints | null> {
-
-    // const adminData = await getAdminData();
-    // if (adminData === null) {
-        numStudentsOverall = 20;
-        numStudentsPerPointGroup = 5;
-        ratioStudentsPerGrade = 0.33;
-        numStudentsPerStudentGroup = 5;
-        numStudentsMostImproved = 10;
-        numStudentsTrending = 10;
-    // }
 
     const [
         pointData,
@@ -678,8 +671,7 @@ export async function getGlobalPointStats(
     }).sort((a, b) => (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints));
 
     if (selectedTimeframe === null) return null;
-    const monthsPassed = DateTime.now().diff(DateTime.fromISO(selectedTimeframe?.startDate)).as("months");
-    console.log("Months passed: " + monthsPassed);
+
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,
@@ -705,8 +697,13 @@ export async function getGlobalPointStats(
                 studentGroups: student.studentGroups
             }
         }).filter((student) => {
-            if (numStudentsOverall === null) return true;
-            if (ratioStudentsPerGrade === null) return true;
+            // This is a privacy filter so that people who are not admins
+            // can't see the full list of students beyond the best
+            if (
+                numStudentsOverall === null ||
+                ratioStudentsPerGrade === null ||
+                numStudentsPerPointGroup === null
+            ) return true;
             const studentWithinGradeRatio = student.gradeRank / (allStudentsRankedByGrade.find((grade) => grade.grade === student.grade)?.students.length ?? 1) < ratioStudentsPerGrade
             const studentWithinOverall = student.rank <= numStudentsOverall;
             const studentWithinPointGroup = 
@@ -775,7 +772,7 @@ export async function getStudentPointStats(
     const baseStudentData = await getStudent(verifiedStudentId);
     if (baseStudentData === null) return null;
 
-    const globalStats = await getGlobalPointStats(baseStudentData.schoolId, timeframeId, null, null, null, null, null, null);
+    const globalStats = await getGlobalPointStats(baseStudentData.schoolId, timeframeId, null, null, null);
     if (globalStats === null) return null;
 
     const studentIndex = globalStats.students.findIndex((student) => student.id === verifiedStudentId);

@@ -4,7 +4,7 @@ import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis } fro
 import Link from "next/link";
 import Color from "color";
 import { Space_Mono } from "next/font/google"
-import { adminGetGlobalPointStats, getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { adminGetGlobalPointStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 
 const customFont = Space_Mono({
@@ -40,6 +40,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
             parseInt(schoolId),
             null,
         )
+        console.log(testData)
         setAdminDashData(testData)
     }
 

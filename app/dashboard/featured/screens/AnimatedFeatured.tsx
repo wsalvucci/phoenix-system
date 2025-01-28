@@ -1,15 +1,15 @@
 "use client";
-import { backgroundGradient, FeaturedDashboardData, metalStyle, metalStyleGradient, numberToOrdinal, rankToColor } from "@/app/dataClasses";
+import { backgroundGradient, numberToOrdinal, rankToColor } from "@/app/dataClasses";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import { Roboto_Mono } from "next/font/google";
-import { FaArrowAltCircleUp, FaMedal } from "react-icons/fa"
+import { FaMedal } from "react-icons/fa"
 import Color from "color";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
-import { getGlobalPointStats } from "@/app/supaApi/universal/universalApi";
+import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faArrowUp, faCircleArrowDown, faCircleArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 
 const monoFont = Roboto_Mono({
     subsets: ["latin"]
@@ -262,7 +262,7 @@ export default function AnimatedFeatured(
     }, [featuredDashData, paused, passedTime])
 
     const updateData = async (timeframe: number | null = null) => {
-        getGlobalPointStats(12, timeframe, null, null, null, null, null, null).then((data) => {
+        featuredDashGetGlobalStats(12, timeframe).then((data) => {
             if (data === null) return
             setFeaturedDashData(data)
         })
