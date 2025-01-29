@@ -1048,3 +1048,22 @@ export const numberToOrdinal = (n: number) => {
         const v = n % 100;
         return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
+
+export const shinyBackgroundStyle = (color: string) => ({
+        background: backgroundGradient([
+                {
+                    color: Color(color).darken(0.75).toString(),
+                    percent: 0
+                },
+                {
+                    color: Color(color).darken(0.5).toString(),
+                    percent: 50
+                },
+                {
+                    color: Color(color).darken(0.75).toString(),
+                    percent: 100
+                }
+            ]),
+        borderLeft: `1px solid ${Color(color).toString()}`,
+        borderRight: `1px solid ${Color(color).toString()}`,
+})

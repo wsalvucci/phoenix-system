@@ -93,11 +93,16 @@ export type GlobalPoints = {
         rank: number,
         lastMonthRank: number,
         totalPoints: number,
+        lastMonthPoints: number,
         grade: number,
         gradeRank: number,
+        lastMonthGradeRank: number,
         pointGroups: {
             id: number,
             points: number,
+            rank: number,
+            lastMonthPoints: number,
+            lastMonthRank: number
         }[],
         totalPointsByDay: {
             date: string,
@@ -120,7 +125,9 @@ export type GlobalPoints = {
         name: string,
         totalStudents: number,
         averagePoints: number,
+        lastMonthAveragePoints: number,
         rawPoints: number,
+        lastMonthRawPoints: number,
         pointGroups: {
             id: number,
             points: number

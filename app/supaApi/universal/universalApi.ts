@@ -460,7 +460,8 @@ async function getGlobalPointStats(
                     grade: newStudentData.grade,
                     pointGroups: pointGroups?.map((pointGroup) => ({
                         id: pointGroup.id,
-                        points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0
+                        points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0,
+                        lastMonthPoints: pointGroup.id === pointEvent.template.pointGroupId && pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0
                     })) ?? [],
                     totalPointsByDay: [{
                         date: pointEvent.date,
@@ -483,6 +484,9 @@ async function getGlobalPointStats(
                 existingStudent.pointGroups.forEach((pointGroup) => {
                     if (pointGroup.id === pointEvent.template.pointGroupId) {
                         pointGroup.points += pointsEarned;
+                        if (pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO()) {
+                            pointGroup.lastMonthPoints += pointsEarned;
+                        }
                     }
                 });
                 const existingDay = existingStudent.totalPointsByDay.find((day) => day.date === pointEvent.date);
@@ -516,7 +520,8 @@ async function getGlobalPointStats(
         grade: number,
         pointGroups: {
             id: number,
-            points: number
+            points: number,
+            lastMonthPoints: number
         }[],
         totalPointsByDay: {
             date: string,
@@ -571,8 +576,39 @@ async function getGlobalPointStats(
             totalPoints: number,
         }[]
     }[]);
+
+    const allStudentsRankedByGradeLastMonth = allStudentsRankedByLastMonth.reduce((acc, student) => {
+        const existingGrade = acc.find((grade) => grade.grade === student.grade);
+        const data = {
+            id: student.id,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            totalPoints: student.lastMonthPoints
+        }
+        if (existingGrade === undefined) {
+            acc.push({
+                grade: student.grade,
+                students: [data]
+            });
+        } else {
+            existingGrade.students.push(data);
+        }
+        return acc;
+    }, [] as {
+        grade: number,
+        students: {
+            id: number,
+            firstName: string,
+            lastName: string,
+            totalPoints: number,
+        }[]
+    }[]);
     
     allStudentsRankedByGrade.forEach((grade) => {
+        grade.students.sort((a, b) => b.totalPoints - a.totalPoints);
+    })
+
+    allStudentsRankedByGradeLastMonth.forEach((grade) => {
         grade.students.sort((a, b) => b.totalPoints - a.totalPoints);
     })
 
@@ -616,7 +652,36 @@ async function getGlobalPointStats(
                 id: student.id,
                 firstName: student.firstName,
                 lastName: student.lastName,
-                totalPoints: student.totalPoints
+                totalPoints: student.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0
+            }
+            if (existingGroup === undefined) {
+                acc.push({
+                    id: pointGroup.id,
+                    students: [data]
+                });
+            } else {
+                existingGroup.students.push(data);
+            }
+        });
+        return acc;
+    }, [] as {
+        id: number,
+        students: {
+            id: number,
+            firstName: string,
+            lastName: string,
+            totalPoints: number,
+        }[]
+    }[])
+
+    const allStudentsRankedByPointGroupLastMonth = allStudentsRankedByLastMonth.reduce((acc, student) => {
+        student.pointGroups.forEach((pointGroup) => {
+            const existingGroup = acc.find((group) => group.id === pointGroup.id);
+            const data = {
+                id: student.id,
+                firstName: student.firstName,
+                lastName: student.lastName,
+                totalPoints: student.pointGroups.find((group) => group.id === pointGroup.id)?.lastMonthPoints ?? 0
             }
             if (existingGroup === undefined) {
                 acc.push({
@@ -642,12 +707,26 @@ async function getGlobalPointStats(
         group.students.sort((a, b) => b.totalPoints - a.totalPoints);
     });
 
+    allStudentsRankedByPointGroupLastMonth.forEach((group) => {
+        group.students.sort((a, b) => b.totalPoints - a.totalPoints);
+    });
+
     const allStudentGroupsRanked = studentGroups?.map((studentGroup) => {
         const totalPoints = allStudentsRanked.reduce((acc, student) => {
             if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
             return acc + student.totalPoints;
         }, 0);
+        const lastMonthTotalPoints = allStudentsRankedByLastMonth.reduce((acc, student) => {
+            if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
+            return acc + student.lastMonthPoints;
+        }, 0);
         const rawPoints = rankingGroupPoints?.reduce((acc, rankingGroup) => {
+            const groupPoints = rankingGroup.groupPoints.find((groupPoint) => groupPoint.groupId === studentGroup.id);
+            if (groupPoints === undefined) return acc;
+            return acc + groupPoints.points;
+        }, 0);
+        const lastMonthRawPoints = rankingGroupPoints?.reduce((acc, rankingGroup) => {
+            if (rankingGroup.date <= DateTime.now().minus({ months: 1 }).toISO()) return acc;
             const groupPoints = rankingGroup.groupPoints.find((groupPoint) => groupPoint.groupId === studentGroup.id);
             if (groupPoints === undefined) return acc;
             return acc + groupPoints.points;
@@ -658,7 +737,9 @@ async function getGlobalPointStats(
             name: studentGroup.name,
             totalStudents: studentGroup.students.length,
             averagePoints: totalPoints / studentGroup.students.length,
+            lastMonthAveragePoints: lastMonthTotalPoints / studentGroup.students.length,
             rawPoints: rawPoints ?? 0,
+            lastMonthRawPoints: lastMonthRawPoints ?? 0,
             pointGroups: pointGroups?.map((pointGroup) => ({
                 id: pointGroup.id,
                 points: studentGroup.students.reduce((acc, student) => {
@@ -688,9 +769,17 @@ async function getGlobalPointStats(
                 rank: index + 1,
                 lastMonthRank: (allStudentsRankedByLastMonth.findIndex((lastMonthStudent) => lastMonthStudent.id === student.id) ?? -1) + 1,
                 totalPoints: student.totalPoints,
+                lastMonthPoints: student.lastMonthPoints,
                 grade: student.grade,
                 gradeRank: (allStudentsRankedByGrade.find((grade) => grade.grade === student.grade)?.students.findIndex((gradeStudent) => gradeStudent.id === student.id) ?? -1) + 1,
-                pointGroups: student.pointGroups,
+                lastMonthGradeRank: (allStudentsRankedByGradeLastMonth.find((grade) => grade.grade === student.grade)?.students.findIndex((gradeStudent) => gradeStudent.id === student.id) ?? -1) + 1,
+                pointGroups: student.pointGroups.map((pointGroup) => ({
+                    id: pointGroup.id,
+                    points: pointGroup.points,
+                    rank: (allStudentsRankedByPointGroup.find((group) => group.id === pointGroup.id)?.students.findIndex((groupStudent) => groupStudent.id === student.id) ?? -1) + 1,
+                    lastMonthPoints: pointGroup.lastMonthPoints,
+                    lastMonthRank: (allStudentsRankedByPointGroupLastMonth.find((group) => group.id === pointGroup.id)?.students.findIndex((groupStudent) => groupStudent.id === student.id) ?? -1) + 1
+                })),
                 totalPointsByDay: student.totalPointsByDay,
                 pointsEarnedEachDay: student.pointsEarnedEachDay,
                 monthToMonthChange: student.totalPoints - lastMonthPts,
@@ -719,7 +808,9 @@ async function getGlobalPointStats(
             name: studentGroup.name,
             totalStudents: studentGroup.totalStudents,
             averagePoints: studentGroup.averagePoints,
+            lastMonthAveragePoints: studentGroup.lastMonthAveragePoints,
             rawPoints: studentGroup.rawPoints,
+            lastMonthRawPoints: studentGroup.lastMonthRawPoints,
             pointGroups: studentGroup.pointGroups
         })) ?? [],
         rankingGroups: rankingGroups?.map((rankingGroup) => ({

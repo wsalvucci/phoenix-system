@@ -1,16 +1,21 @@
 "use client";
-import { metalStyle, metalStyleGradient, rankToColor } from "@/app/dataClasses";
+import { metalStyle, metalStyleGradient, rankToColor, shinyBackgroundStyle } from "@/app/dataClasses";
 import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import { createClient } from "@/utils/supabase/client";
 import { DateTime } from "luxon";
-import { Quicksand } from "next/font/google";
+import { Azeret_Mono, Quicksand } from "next/font/google";
 import { useEffect, useState } from "react";
 const Quote = require("inspirational-quotes");
 
 const customFont = Quicksand({
         weight: "400",
         subsets: ["latin"]
+});
+
+const azeret = Azeret_Mono({
+    weight: "400",
+    subsets: ["latin"]
 });
 
 const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
@@ -55,39 +60,45 @@ export default function GlobalDashboard() {
         const StudentPointTile = ({
                 fullName,
                 points,
+                lastMonthPoints,
                 rank,
                 rankChange
         }: {
                 fullName: string,
                 points: number | null,
+                lastMonthPoints: number | null,
                 rank: number,
                 rankChange: number | null
         }) => (
-                <div className="text-lg border grid py-1 px-2 mx-2" style={{
-                        background: metalStyle(rankToColor(rank + 1).toString()),
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                        gridTemplateColumns: "50px 2fr 1fr",
+                <div className="text-lg border grid gap-1 py-1 px-2 mx-2" style={{
+                        ...shinyBackgroundStyle(rankToColor(rank+1).toString()),
+                        gridTemplateColumns: "50px 200px 2fr 1fr",
                         textShadow: metalTextShadow
                 }}>
                         {
                                 rankChange !== null && rankChange !== 0 ?
-                                <div className="flex justify-center place-items-center text-xl" style={{
-                                        color: rankChange > 0 ? "green" : "red"
+                                <div className={`flex justify-start place-items-center text-xl ${azeret.className}`} style={{
+                                        color: rankChange > 0 ? "#00CC00" : "red"
                                 }}>
                                         {rankChange > 0 ? "+" : ""}{rankChange}
                                 </div> : <div />
                         }
                         <div className="flex justify-start place-items-center" style={{
-                                textWrap: "nowrap"
+                                textWrap: "nowrap",
+                                overflow: "hidden",
                         }}>
                                 {fullName}
                         </div>
                         {
                                 points !== null &&
-                                <div className="flex justify-end place-items-center">
-                                        {points.toLocaleString()}pts
+                                <div className={`flex justify-end place-items-center ${azeret.className}`}>
+                                        {points.toLocaleString()}
+                                </div>
+                        }
+                        {
+                                lastMonthPoints !== null && points !== null &&
+                                <div className={`flex justify-end place-items-center text-sm ${azeret.className}`} style={{ color: "#00CC00"}}>
+                                        +{(points - (lastMonthPoints ?? 0)).toLocaleString()}
                                 </div>
                         }
                 </div>
@@ -262,36 +273,43 @@ export default function GlobalDashboard() {
                                         <StudentPointTile
                                                 fullName="1st Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={0}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="2nd Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={1}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="3rd Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={2}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="4th Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={3}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="5th Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={4}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="6th - 10th Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={5}
                                                 rankChange={null} />
                                         <StudentPointTile
                                                 fullName="11th - 20th Place"
                                                 points={null}
+                                                lastMonthPoints={null}
                                                 rank={10}
                                                 rankChange={null} />
                                 </div>
@@ -325,18 +343,20 @@ export default function GlobalDashboard() {
                                                                                         if (!group) return <></>
                                                                                         return (
                                                                                                 <div key={group.id} className="text-lg grid grid-cols-1 place-items-center" style={{
-                                                                                                        background: metalStyle(rankToColor(rankIndex + 1).toString()),
-                                                                                                        backgroundSize: "cover",
-                                                                                                        backgroundPosition: "center",
-                                                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                                                        ...shinyBackgroundStyle(rankToColor(rankIndex + 1).toString()),
                                                                                                         textShadow: metalTextShadow
                                                                                                 }}>
-                                                                                                        <div>
                                                                                                                 <div className="flex justify-center">
                                                                                                                         {group.name}
                                                                                                                 </div>
-                                                                                                                <div className="flex justify-center">
-                                                                                                                        {Math.round(group.averagePoints + group.rawPoints).toLocaleString()}pts
+                                                                                                                <div className={`w-full px-5 grid ${azeret.className}`} style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+                                                                                                                        <div />
+                                                                                                                        <div className="flex items-center justify-center">
+                                                                                                                                {Math.round(group.averagePoints + group.rawPoints).toLocaleString()}
+                                                                                                                        </div>
+                                                                                                                        <div className="flex items-end justify-end" style={{ color: "#00CC00" }}>
+                                                                                                                                +{Math.round((group.averagePoints + group.rawPoints) - (group.lastMonthAveragePoints + group.lastMonthRawPoints)).toLocaleString()}
+                                                                                                                        </div>
                                                                                                                 </div>
                                                                                                                 <div className="flex justify-center">
                                                                                                                         {
@@ -346,7 +366,6 @@ export default function GlobalDashboard() {
                                                                                                                                 })()
                                                                                                                         }
                                                                                                                 </div>
-                                                                                                        </div>
                                                                                                 </div>
                                                                                         )
                                                                                 })
@@ -393,6 +412,7 @@ export default function GlobalDashboard() {
                                                                                         key={index}
                                                                                         fullName={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.firstName + " " + globalDashData?.students[index]?.lastName}
                                                                                         points={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.totalPoints || 0}
+                                                                                        lastMonthPoints={globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index]?.lastMonthPoints || 0}
                                                                                         rank={index}
                                                                                         rankChange={ovrStudentRankChange}
                                                                                 />
@@ -403,14 +423,16 @@ export default function GlobalDashboard() {
                                                                                                         const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0
                                                                                                         return bPoints - aPoints
                                                                                                 }).at(index)
-                                                                                                //const student = globalDashData.topStudents.topByPointGroup.find(topByPointGroup => topByPointGroup.id === pointGroup.id)?.topStudents[index]
+                                                                                                const pointGroupData = student?.pointGroups.find(group => group.id === pointGroup.id)
+                                                                                                if (!pointGroupData) return <></>
                                                                                                 return (
                                                                                                         <StudentPointTile
                                                                                                                 key={pointGroup.id + ":" + index}
                                                                                                                 fullName={student?.firstName + " " + student?.lastName}
-                                                                                                                points={student?.pointGroups.find(group => group.id === pointGroup.id)?.points || 0}
+                                                                                                                points={pointGroupData.points || 0}
+                                                                                                                lastMonthPoints={pointGroupData.lastMonthPoints || 0}
                                                                                                                 rank={index}
-                                                                                                                rankChange={null}
+                                                                                                                rankChange={pointGroupData.lastMonthRank - pointGroupData.rank}
                                                                                                         />
                                                                                                 )
                                                                                         })
@@ -446,8 +468,9 @@ export default function GlobalDashboard() {
                                                                                                         key={grade + ":" + index}
                                                                                                         fullName={student.firstName + " " + student.lastName}
                                                                                                         points={student.totalPoints || 0}
+                                                                                                        lastMonthPoints={student.lastMonthPoints || 0}
                                                                                                         rank={index}
-                                                                                                        rankChange={null}
+                                                                                                        rankChange={student.lastMonthGradeRank - student.gradeRank}
                                                                                                 /> : <EmptyStudentPointTile />
                                                                                         )
                                                                         })}
