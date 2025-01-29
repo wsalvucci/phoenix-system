@@ -13,7 +13,7 @@ export default async function StudentDashboard() {
     // const studentData = await getStudentPointStats(343, null);
     // const studentData = await getStudentPointStats(333, null);
     // const studentData = await getStudentPointStats(355, null);
-    // const studentData = await getStudentPointStats(315, null);
+    // const studentData = await getStudentPointStats(348, null);
 
     if (studentData === null) {
         return (

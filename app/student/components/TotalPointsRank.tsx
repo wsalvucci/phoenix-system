@@ -18,7 +18,12 @@ const numberToOrdinal = (n: number) => {
 
 export default function TotalPointsRank(
     {
-        studentId, studentName, totalPoints, totalRank, byPointGroup, nearbyStudents
+        studentId,
+        studentName,
+        totalPoints,
+        totalRank,
+        byPointGroup,
+        nearbyStudents
     }: {
         studentId: number,
         studentName: string,

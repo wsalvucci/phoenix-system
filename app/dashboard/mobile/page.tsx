@@ -1,20 +1,27 @@
 "use client";
-import { GlobalDashboardData, metalStyle, metalTextShadow, MobileDashboardData, rankToColor } from "@/app/dataClasses";
-import { newGetGlobalDashData } from "@/app/supaApi/server/dashboard/dashboardApi";
+import { backgroundGradient, metalStyle, metalTextShadow, rankToColor } from "@/app/dataClasses";
 import { useEffect, useState } from "react";
-import { Quicksand } from "next/font/google"
+import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";
+import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
+import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
+import Color from "color";
 
 const customFont = Quicksand({
     weight: "400",
     subsets: ["latin"]
 });
 
+const azeret = Azeret_Mono({
+    weight: "400",
+    subsets: ["latin"]
+});
+
 export default function MobileDashboard() {
-    const [mobileDashData, setMobileDashData] = useState<GlobalDashboardData | null>(null);
+    const [mobileDashData, setMobileDashData] = useState<GlobalPoints | null>(null);
 
     const updateData = async () => {
-        newGetGlobalDashData(12).then((data) => {
+        featuredDashGetGlobalStats(12, null).then((data) => {
             setMobileDashData(data);
             console.log(data);
         });
@@ -35,15 +42,29 @@ export default function MobileDashboard() {
     }) => {
         return (
             <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
-                background: metalStyle(rankToColor(rank).toString()),
-                gridTemplateColumns: "1fr 4fr 1fr",
+                background: backgroundGradient([
+                    {
+                        color: rankToColor(rank).darken(0.5).toString(),
+                        percent: 0
+                    },
+                    {
+                        color: rankToColor(rank).darken(0.25).toString(),
+                        percent: 50
+                    },
+                    {
+                        color: rankToColor(rank).darken(0.5).toString(),
+                        percent: 100
+                    }
+                ]),
+                borderLeft: `1px solid ${rankToColor(rank).toString()}`,
+                borderRight: `1px solid ${rankToColor(rank).toString()}`,
+                gridTemplateColumns: "1fr 6fr 2fr",
                 backgroundSize: "cover",
                 textShadow: metalTextShadow,
-                backgroundPositionX: `${(Math.random() * 20) - 40}em`,
             }}>
-                <div className="flex ">{rank}</div>
+                <div className={`flex ${azeret.className}`}>{rank}</div>
                 <div className="flex ">{fullName}</div>
-                <div className="flex justify-end">{points}</div>
+                <div className={`flex justify-end ${azeret.className}`}>{points.toLocaleString()}</div>
             </div>
         );
     }
@@ -54,11 +75,11 @@ export default function MobileDashboard() {
                 <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
                 <div>
                     {
-                        mobileDashData?.topStudents.topOverall.map((student, index) => {
+                        mobileDashData?.students
+                        .slice(0, 20)
+                        .map((student, index) => {
                             return (
-                                <div className="my-1" style={{
-                                    border: `${student.id === mobileDashData.topStudents.studentData?.id ? "2px solid #fff" : "none"}`,
-                                }}>{
+                                <div className="my-1">{
                                         topStudentCard(
                                             {
                                                 fullName: student.firstName + " " + student.lastName,
@@ -72,17 +93,6 @@ export default function MobileDashboard() {
                         })
                     }
                 </div>
-                <div className="py-3">
-                    {
-                        mobileDashData?.topStudents.studentData && mobileDashData?.topStudents.topOverall.find((student) => student.id === mobileDashData?.topStudents.studentData?.id) === undefined && topStudentCard(
-                            {
-                                fullName: mobileDashData.topStudents.studentData.firstName + " " + mobileDashData.topStudents.studentData.lastName,
-                                points: mobileDashData.topStudents.studentData.totalPoints,
-                                rank: mobileDashData.topStudents.studentData.rank
-                            }
-                        )
-                    }
-                </div>
             </div>
             <div className="flex justify-center">
                 <Link
@@ -92,17 +102,36 @@ export default function MobileDashboard() {
             <div className="pb-5">
                 <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
                 {
-                    mobileDashData?.topStudents.topByGrade.map((grade) => {
+                    mobileDashData?.grades
+                    .sort((a, b) => a - b)
+                    .map((grade) => {
                         return (
                             <div className="pb-3">
                                 <div className="px-2 py-1 my-1 flex justify-center text-lg" style={{
-                                    background: metalStyle("#000"),
+                                    background: backgroundGradient([
+                                        {
+                                            color: Color('#555').darken(0.5).toString(),
+                                            percent: 0
+                                        },
+                                        {
+                                            color: Color('#555').darken(0.25).toString(),
+                                            percent: 50
+                                        },
+                                        {
+                                            color: Color('#555').darken(0.5).toString(),
+                                            percent: 100
+                                        }
+                                    ]),
+                                    borderLeft: `1px solid ${Color('#555').toString()}`,
+                                    borderRight: `1px solid ${Color('#555').toString()}`,
                                     backgroundSize: "cover",
                                     textShadow: metalTextShadow
-                                }}>Grade {grade.grade}</div>
+                                }}>Grade {grade}</div>
                                 <div>
                                     {
-                                        grade.topStudents.map((student, index) => {
+                                        mobileDashData.students
+                                        .filter(student => student.grade === grade)
+                                        .map((student, index) => {
                                             return topStudentCard(
                                                 {
                                                     fullName: student.firstName + " " + student.lastName,
@@ -127,19 +156,48 @@ export default function MobileDashboard() {
                                     {rankingGroup.name}
                                 </div>
                                 {
-                                    rankingGroup.studentGroups.map((group, index) => {
+                                    rankingGroup.studentGroups
+                                    .sort((a, b) => {
+                                        const groupA = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === a);
+                                        const groupB = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === b);
+                                        if (!groupA || !groupB) {
+                                            return 0;
+                                        }
+                                        const groupAPoints = groupA.averagePoints + groupA.rawPoints;
+                                        const groupBPoints = groupB.averagePoints + groupB.rawPoints;
+                                        return groupBPoints - groupAPoints;
+                                    })
+                                    .map((groupId, index) => {
+                                        const groupData = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === groupId);
+                                        if (!groupData) {
+                                            return null;
+                                        }
                                         return (
                                             <div key={index}>
                                                 <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
-                                                    background: metalStyle(rankToColor(index + 1).toString()),
+                                                    background: backgroundGradient([
+                                                        {
+                                                            color: rankToColor(index + 1).darken(0.5).toString(),
+                                                            percent: 0
+                                                        },
+                                                        {
+                                                            color: rankToColor(index + 1).darken(0.25).toString(),
+                                                            percent: 50
+                                                        },
+                                                        {
+                                                            color: rankToColor(index + 1).darken(0.5).toString(),
+                                                            percent: 100
+                                                        }
+                                                    ]),
+                                                    borderLeft: `1px solid ${rankToColor(index + 1).toString()}`,
+                                                    borderRight: `1px solid ${rankToColor(index + 1).toString()}`,
                                                     gridTemplateColumns: "1fr 4fr 1fr",
                                                     backgroundSize: "cover",
                                                     textShadow: metalTextShadow,
-                                                    backgroundPositionX: `${(Math.random() * 20) - 40}em`,
                                                 }}>
                                                     <div className="flex ">{index + 1}</div>
-                                                    <div className="flex ">{group.name}</div>
-                                                    <div className="flex justify-end">{Math.round(group.averagePoints)}</div>
+                                                    <div className="flex ">{groupData.name}</div>
+                                                    <div className={`flex justify-end ${azeret.className}`}>{Math.round(groupData.averagePoints + groupData.rawPoints).toLocaleString()}</div>
                                                 </div>
                                             </div>
                                         )
