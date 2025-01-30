@@ -158,17 +158,12 @@ export default function MobileDashboard() {
                                 {
                                     rankingGroup.studentGroups
                                     .sort((a, b) => {
-                                        const groupA = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === a);
-                                        const groupB = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === b);
-                                        if (!groupA || !groupB) {
-                                            return 0;
-                                        }
-                                        const groupAPoints = groupA.averagePoints + groupA.rawPoints;
-                                        const groupBPoints = groupB.averagePoints + groupB.rawPoints;
+                                        const groupAPoints = a.averagePoints + b.rawPoints;
+                                        const groupBPoints = a.averagePoints + b.rawPoints;
                                         return groupBPoints - groupAPoints;
                                     })
-                                    .map((groupId, index) => {
-                                        const groupData = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === groupId);
+                                    .map((group, index) => {
+                                        const groupData = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === group.id);
                                         if (!groupData) {
                                             return null;
                                         }

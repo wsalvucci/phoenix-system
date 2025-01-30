@@ -544,7 +544,7 @@ export default function AnimatedFeatured(
                 {
                     featuredDashData
                         .studentGroups
-                        .filter((group) => featuredDashData.rankingGroups.find((rg) => rg.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id)?.studentGroups.includes(group.id))
+                        .filter((group) => featuredDashData.rankingGroups.find((rg) => rg.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id)?.studentGroups.find((sg) => sg.id === group.id) !== undefined)
                         .map((group) => {
                             return {
                                 id: group.id,
