@@ -359,18 +359,21 @@ export type Database = {
           id: number
           name: string
           school_id: number
+          timeframe_id: number | null
         }
         Insert: {
           created_at?: string
           id?: number
           name: string
           school_id: number
+          timeframe_id?: number | null
         }
         Update: {
           created_at?: string
           id?: number
           name?: string
           school_id?: number
+          timeframe_id?: number | null
         }
         Relationships: [
           {
@@ -378,6 +381,13 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ranking_group_timeframe_id_fkey"
+            columns: ["timeframe_id"]
+            isOneToOne: false
+            referencedRelation: "school_timeframes"
             referencedColumns: ["id"]
           },
         ]

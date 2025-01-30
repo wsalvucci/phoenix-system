@@ -78,6 +78,32 @@ export type StudentGroupData = {
 export type RankingGroupData = {
     id: number,
     name: string,
+    studentGroups: number[],
+    timeframeStart: string | null,
+    timeframeEnd: string | null,
+}
+
+export type CompiledStudentPoints = {
+    id: number,
+    firstName: string,
+    lastName: string,
+    totalPoints: number,
+    lastMonthPoints: number,
+    grade: number,
+    pointGroups: {
+        id: number,
+        points: number,
+        lastMonthPoints: number
+    }[],
+    totalPointsByDay: {
+        date: string,
+        points: number
+    }[],
+    pointsEarnedEachDay: {
+        date: string,
+        points: number
+    }[],
+    monthToMonthImprovement: number,
     studentGroups: number[]
 }
 
@@ -136,7 +162,19 @@ export type GlobalPoints = {
     rankingGroups: {
         id: number,
         name: string,
-        studentGroups: number[]
+        studentGroups: {
+            id: number,
+            name: string,
+            totalStudents: number,
+            averagePoints: number,
+            lastMonthAveragePoints: number,
+            rawPoints: number,
+            lastMonthRawPoints: number,
+            pointGroups: {
+                id: number,
+                points: number
+            }[]
+        }[]
     }[],
     pointEvents: {
         id: number,

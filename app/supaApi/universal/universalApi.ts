@@ -1,6 +1,6 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
-import { AdminData, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, StudentPointsData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
+import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, StudentPointsData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
 import { getOwnStudentData } from "../server/student/studentApi";
@@ -278,7 +278,7 @@ export async function getSchoolRankingGroups(
     const supabase = await supabaseServiceClient();
 
     const { data: rankingGroups, error: rankingGroupsError } = await supabase.from("ranking_group")
-        .select("*, student_group (id)")
+        .select("*, school_timeframes (*), student_group (id)")
         .eq("school_id", schoolId);
 
     if (rankingGroups === null) {
@@ -289,45 +289,50 @@ export async function getSchoolRankingGroups(
     return rankingGroups.map((rankingGroup) => ({
         id: rankingGroup.id,
         name: rankingGroup.name,
-        studentGroups: rankingGroup.student_group.map((studentGroup) => studentGroup.id)
+        studentGroups: rankingGroup.student_group.map((studentGroup) => studentGroup.id),
+        timeframeStart: rankingGroup.school_timeframes?.starts_at ?? null,
+        timeframeEnd: rankingGroup.school_timeframes?.ends_at ?? null
     }));
 }
 
 export async function getRankingGroupPoints(
     schoolId: number,
-    timeframeId: number | null,
 ) : Promise<RankingGroupPointEventData[] | null> {
     const supabase = await supabaseServiceClient();
-
-    const timeframe = await getSelectedOrActiveTimeframe(schoolId, timeframeId);
-
-    if (timeframe === null) return null
 
     const { data: pointGroups, error: pointGroupsError } = await supabase.from("ranking_group")
         .select("*, ranking_group_point_event (*, student_group_point (*))")
         .eq("school_id", schoolId)
-        .gte("ranking_group_point_event.date", timeframe.startDate)
-        .lte("ranking_group_point_event.date", timeframe.endDate);
     
     if (pointGroups === null) {
         console.error(pointGroupsError);
         return null;
     }
 
-    return pointGroups.reduce((acc, rankingGroup) => {
-        rankingGroup.ranking_group_point_event.forEach((pointEvent) => {
-            acc.push({
-                id: pointEvent.id,
-                name: pointEvent.name ?? "",
-                date: pointEvent.created_at,
-                groupPoints: pointEvent.student_group_point.map((studentGroupPoint) => ({
-                    groupId: studentGroupPoint.student_group_id,
-                    points: studentGroupPoint.value
-                }))
+    const data = await pointGroups.reduce(async (accPromise, rankingGroup) => {
+        const acc = await accPromise;
+        const rankingGroupTimeframe = await getSelectedOrActiveTimeframe(schoolId, rankingGroup.timeframe_id);
+        if (rankingGroupTimeframe === null) return acc;
+
+        rankingGroup.ranking_group_point_event
+            .filter((pointEvent) => {
+                return pointEvent.date >= rankingGroupTimeframe.startDate && pointEvent.date <= rankingGroupTimeframe.endDate;
             })
-        })
-        return acc
-    }, [] as RankingGroupPointEventData[]);
+            .forEach((pointEvent) => {
+                acc.push({
+                    id: pointEvent.id,
+                    name: pointEvent.name ?? "",
+                    date: pointEvent.created_at,
+                    groupPoints: pointEvent.student_group_point.map((studentGroupPoint) => ({
+                        groupId: studentGroupPoint.student_group_id,
+                        points: studentGroupPoint.value
+                    }))
+                });
+            });
+        return acc;
+    }, Promise.resolve([] as RankingGroupPointEventData[]));
+
+    return data;
 }
 
 enum PointConversionRuleType {
@@ -432,116 +437,114 @@ async function getGlobalPointStats(
         getAllTimeframePointEvents(schoolId, timeframeId),
         getSchoolStudents(schoolId),
         getSchoolPointGroups(schoolId),
-        getRankingGroupPoints(schoolId, timeframeId),
+        getRankingGroupPoints(schoolId),
         getSchoolStudentGroups(schoolId),
         getSchoolRankingGroups(schoolId),
         getSchoolTimeframes(schoolId),
         getSelectedOrActiveTimeframe(schoolId, timeframeId)
     ]);
 
-    const pointsPerStudent = pointData?.reduce((acc, pointEvent) => {
-        pointEvent.studentPoints.forEach((studentPoint) => {
-            const existingStudent = acc.find((student) => student.id === studentPoint.studentId);
-            const pointsEarned = calculatePoints(
-                pointEvent.template.conversionRule.name,
-                studentPoint.input,
-                pointEvent.template.conversionRule.value
-            )
-
-            if (existingStudent === undefined) {
-                const newStudentData = students?.find((student) => student.id === studentPoint.studentId);
-                if (newStudentData === undefined) return acc;
-                acc.push({
-                    id: studentPoint.studentId,
-                    firstName: newStudentData.firstName,
-                    lastName: newStudentData.lastName,
-                    totalPoints: pointsEarned,
-                    lastMonthPoints: pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0,
-                    grade: newStudentData.grade,
-                    pointGroups: pointGroups?.map((pointGroup) => ({
-                        id: pointGroup.id,
-                        points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0,
-                        lastMonthPoints: pointGroup.id === pointEvent.template.pointGroupId && pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0
-                    })) ?? [],
-                    totalPointsByDay: [{
-                        date: pointEvent.date,
-                        points: pointsEarned
-                    }],
-                    pointsEarnedEachDay: [{
-                        date: pointEvent.date,
-                        points: pointsEarned
-                    }],
-                    monthToMonthImprovement: 0,
-                    studentGroups: studentGroups
-                        ?.filter(
-                            (studentGroup) => studentGroup.students.find((student) => student === studentPoint.studentId) !== undefined
-                        )
-                        .map((studentGroup) => studentGroup.id) ?? []
-                });
-            } else {
-                existingStudent.totalPoints += pointsEarned;
-                existingStudent.lastMonthPoints += pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0;
-                existingStudent.pointGroups.forEach((pointGroup) => {
-                    if (pointGroup.id === pointEvent.template.pointGroupId) {
-                        pointGroup.points += pointsEarned;
-                        if (pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO()) {
-                            pointGroup.lastMonthPoints += pointsEarned;
-                        }
-                    }
-                });
-                const existingDay = existingStudent.totalPointsByDay.find((day) => day.date === pointEvent.date);
-                if (existingDay === undefined) {
-                    existingStudent.totalPointsByDay.push({
-                        date: pointEvent.date,
-                        points: existingStudent.totalPoints + pointsEarned
-                    });
-                } else {
-                    existingDay.points += pointsEarned;
-                }
-                const existingDayEarned = existingStudent.pointsEarnedEachDay.find((day) => day.date === pointEvent.date);
-                if (existingDayEarned === undefined) {
-                    existingStudent.pointsEarnedEachDay.push({
-                        date: pointEvent.date,
-                        points: pointsEarned
-                    });
-                } else {
-                    existingDayEarned.points += pointsEarned;
-                }
-            }
+    const getPointsPerStudent = (pointData: PointEventData[], startsAt: string | null, endsAt: string | null) => {
+        const startingDate = DateTime.fromISO(startsAt ? startsAt : (selectedTimeframe?.startDate ?? ""))
+        const endingDate = DateTime.fromISO(endsAt ? endsAt : (selectedTimeframe?.endDate ?? ""))
+        if (!startingDate.isValid || !endingDate.isValid) return null;
+        return pointData
+        ?.filter((pointEvent) => {
+            return pointEvent.date >= startingDate.toISO() && pointEvent.date <= endingDate.toISO();
         })
+        .reduce((acc, pointEvent) => {
+            pointEvent.studentPoints.forEach((studentPoint) => {
+                const existingStudent = acc.find((student) => student.id === studentPoint.studentId);
+                const pointsEarned = calculatePoints(
+                    pointEvent.template.conversionRule.name,
+                    studentPoint.input,
+                    pointEvent.template.conversionRule.value
+                )
+    
+                if (existingStudent === undefined) {
+                    const newStudentData = students?.find((student) => student.id === studentPoint.studentId);
+                    if (newStudentData === undefined) return acc;
+                    acc.push({
+                        id: studentPoint.studentId,
+                        firstName: newStudentData.firstName,
+                        lastName: newStudentData.lastName,
+                        totalPoints: pointsEarned,
+                        lastMonthPoints: pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0,
+                        grade: newStudentData.grade,
+                        pointGroups: pointGroups?.map((pointGroup) => ({
+                            id: pointGroup.id,
+                            points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0,
+                            lastMonthPoints: pointGroup.id === pointEvent.template.pointGroupId && pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0
+                        })) ?? [],
+                        totalPointsByDay: [{
+                            date: pointEvent.date,
+                            points: pointsEarned
+                        }],
+                        pointsEarnedEachDay: [{
+                            date: pointEvent.date,
+                            points: pointsEarned
+                        }],
+                        monthToMonthImprovement: 0,
+                        studentGroups: studentGroups
+                            ?.filter(
+                                (studentGroup) => studentGroup.students.find((student) => student === studentPoint.studentId) !== undefined
+                            )
+                            .map((studentGroup) => studentGroup.id) ?? []
+                    });
+                } else {
+                    existingStudent.totalPoints += pointsEarned;
+                    existingStudent.lastMonthPoints += pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0;
+                    existingStudent.pointGroups.forEach((pointGroup) => {
+                        if (pointGroup.id === pointEvent.template.pointGroupId) {
+                            pointGroup.points += pointsEarned;
+                            if (pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO()) {
+                                pointGroup.lastMonthPoints += pointsEarned;
+                            }
+                        }
+                    });
+                    const existingDay = existingStudent.totalPointsByDay.find((day) => day.date === pointEvent.date);
+                    if (existingDay === undefined) {
+                        existingStudent.totalPointsByDay.push({
+                            date: pointEvent.date,
+                            points: existingStudent.totalPoints + pointsEarned
+                        });
+                    } else {
+                        existingDay.points += pointsEarned;
+                    }
+                    const existingDayEarned = existingStudent.pointsEarnedEachDay.find((day) => day.date === pointEvent.date);
+                    if (existingDayEarned === undefined) {
+                        existingStudent.pointsEarnedEachDay.push({
+                            date: pointEvent.date,
+                            points: pointsEarned
+                        });
+                    } else {
+                        existingDayEarned.points += pointsEarned;
+                    }
+                }
+            })
+    
+            return acc;
+        }, [] as CompiledStudentPoints[]);
+    }
 
-        return acc;
-    }, [] as {
-        id: number,
-        firstName: string,
-        lastName: string,
-        totalPoints: number,
-        lastMonthPoints: number,
-        grade: number,
-        pointGroups: {
-            id: number,
-            points: number,
-            lastMonthPoints: number
-        }[],
-        totalPointsByDay: {
-            date: string,
-            points: number
-        }[],
-        pointsEarnedEachDay: {
-            date: string,
-            points: number
-        }[],
-        monthToMonthImprovement: number,
-        studentGroups: number[]
-    }[]);
+    const pointsPerStudent = getPointsPerStudent(pointData ?? [], null, null);
 
-    if (pointsPerStudent === undefined) return null;
+    if (pointsPerStudent === null) return null;
 
-    const allStudentsRanked = pointsPerStudent.sort((a, b) => b.totalPoints - a.totalPoints);
-    const copyOfAllStudentsRanked = allStudentsRanked.map((student) => ({ ...student }));
+    const rankAllStudents = (compiledStudents: CompiledStudentPoints[]) => {
+        return compiledStudents.sort((a, b) => b.totalPoints - a.totalPoints);
+    }
 
-    const allStudentsRankedByLastMonth = copyOfAllStudentsRanked
-        .sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+    const allStudentsRanked = rankAllStudents(pointsPerStudent);
+
+    const rankAllStudentsLastMonth = (compiledStudents: CompiledStudentPoints[]) => {
+        const copiedData = compiledStudents.map((student) => ({
+            ...student,
+        }));
+        return copiedData.sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+    }
+
+    const allStudentsRankedByLastMonth = rankAllStudentsLastMonth(pointsPerStudent);
 
     const allStudentGrades = allStudentsRanked.reduce((acc, student) => {
         if (acc.find((grade) => grade === student.grade) === undefined) {
@@ -711,12 +714,13 @@ async function getGlobalPointStats(
         group.students.sort((a, b) => b.totalPoints - a.totalPoints);
     });
 
-    const allStudentGroupsRanked = studentGroups?.map((studentGroup) => {
-        const totalPoints = allStudentsRanked.reduce((acc, student) => {
+    const getStudentGroupPoints = (studentGroup: StudentGroupData, startsAt: string | null, endsAt: string | null) => {
+        const localPointData = getPointsPerStudent(pointData ?? [], startsAt, endsAt);
+        const totalPoints = localPointData?.reduce((acc, student) => {
             if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
             return acc + student.totalPoints;
         }, 0);
-        const lastMonthTotalPoints = allStudentsRankedByLastMonth.reduce((acc, student) => {
+        const lastMonthTotalPoints = rankAllStudentsLastMonth(localPointData ?? []).reduce((acc, student) => {
             if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
             return acc + student.lastMonthPoints;
         }, 0);
@@ -736,20 +740,68 @@ async function getGlobalPointStats(
             id: studentGroup.id,
             name: studentGroup.name,
             totalStudents: studentGroup.students.length,
-            averagePoints: totalPoints / studentGroup.students.length,
+            averagePoints: (totalPoints ?? 0) / studentGroup.students.length,
             lastMonthAveragePoints: lastMonthTotalPoints / studentGroup.students.length,
             rawPoints: rawPoints ?? 0,
             lastMonthRawPoints: lastMonthRawPoints ?? 0,
             pointGroups: pointGroups?.map((pointGroup) => ({
                 id: pointGroup.id,
                 points: studentGroup.students.reduce((acc, student) => {
-                    const studentData = allStudentsRanked.find((rankedStudent) => rankedStudent.id === student);
+                    const studentData = localPointData?.find((rankedStudent) => rankedStudent.id === student);
                     if (studentData === undefined) return acc;
                     return acc + (studentData.pointGroups.find((group) => group.id === pointGroup.id)?.points || 0);
                 }, 0)
             })) ?? []
         };
+    }
+
+    const allStudentGroupsRanked = studentGroups?.map((studentGroup) => {
+        return getStudentGroupPoints(studentGroup, null, null)
     }).sort((a, b) => (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints));
+
+    const allRankingGroupsRanked = rankingGroups?.reduce((acc, rankingGroup) => {
+        const studentGroupsData = rankingGroup.studentGroups.map((studentGroup) => {
+            const studentGroupData = studentGroups?.find((group) => group.id === studentGroup);
+            if (studentGroupData === undefined) return null;
+            const groupPointData = getStudentGroupPoints(studentGroupData, rankingGroup.timeframeStart, rankingGroup.timeframeEnd);
+            return {
+                id: studentGroupData.id,
+                name: studentGroupData.name,
+                totalStudents: studentGroupData.students.length,
+                averagePoints: groupPointData.averagePoints,
+                lastMonthAveragePoints: groupPointData.lastMonthAveragePoints,
+                rawPoints: groupPointData.rawPoints,
+                lastMonthRawPoints: groupPointData.lastMonthRawPoints,
+                pointGroups: groupPointData.pointGroups
+            };
+        }).filter(group => group !== null);
+    
+        acc.push({
+            id: rankingGroup.id,
+            name: rankingGroup.name,
+            studentGroups: studentGroupsData
+        });
+    
+        return acc;
+    }, [] as {
+        id: number,
+        name: string,
+        studentGroups: {
+            id: number,
+            name: string,
+            totalStudents: number,
+            averagePoints: number,
+            lastMonthAveragePoints: number,
+            rawPoints: number,
+            lastMonthRawPoints: number,
+            pointGroups: {
+                id: number,
+                points: number
+            }[]
+        }[]
+    }[]).filter((rankingGroup) => {
+        return rankingGroup.studentGroups.find((studentGroup) => studentGroup.averagePoints > 0) !== undefined;
+    });
 
     if (selectedTimeframe === null) return null;
 
@@ -813,11 +865,7 @@ async function getGlobalPointStats(
             lastMonthRawPoints: studentGroup.lastMonthRawPoints,
             pointGroups: studentGroup.pointGroups
         })) ?? [],
-        rankingGroups: rankingGroups?.map((rankingGroup) => ({
-            id: rankingGroup.id,
-            name: rankingGroup.name,
-            studentGroups: rankingGroup.studentGroups
-        })) ?? [],
+        rankingGroups: allRankingGroupsRanked ?? [],
         pointEvents: pointData?.map((pointEvent) => ({
             id: pointEvent.id,
             name: pointEvent.name,
@@ -909,10 +957,6 @@ export async function getStudentPointStats(
                 return b.totalPoints - a.totalPoints;
             })
         const idx = studentsSortedByStudentGroupPoints.findIndex((student) => student.id === verifiedStudentId);
-        //console.log(studentGroup.name, idx);
-        if (studentGroup.id === 4) {
-           // console.log(studentsSortedByStudentGroupPoints.map((student) => student.firstName + " " + student.lastName));
-        }
         if (idx !== -1) {
             const nearbyStudentsData = studentsSortedByStudentGroupPoints.slice(Math.max(idx - NEARBY_STUDENT_COUNT, 0), Math.min(idx + NEARBY_STUDENT_COUNT, studentsSortedByStudentGroupPoints.length));
             return {

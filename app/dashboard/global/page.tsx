@@ -331,37 +331,34 @@ export default function GlobalDashboard() {
                                                                 </div>
                                                                 {
                                                                         rankingGroup.studentGroups.sort((a, b) => {
-                                                                                var aGroup = globalDashData?.studentGroups.find(studentGroup => studentGroup.id === a)
-                                                                                var bGroup = globalDashData?.studentGroups.find(studentGroup => studentGroup.id === b)
-                                                                                var aPoints = (aGroup?.averagePoints ?? 0) + (aGroup?.rawPoints ?? 0)
-                                                                                var bPoints = (bGroup?.averagePoints ?? 0) + (bGroup?.rawPoints ?? 0)
+                                                                                var aPoints = (a?.averagePoints ?? 0) + (a?.rawPoints ?? 0)
+                                                                                var bPoints = (b?.averagePoints ?? 0) + (b?.rawPoints ?? 0)
                                                                                 return bPoints - aPoints
                                                                         })
                                                                                 .slice(0, 5)
                                                                                 .map((studentGroup, rankIndex) => {
-                                                                                        var group = globalDashData?.studentGroups.find(group => group.id === studentGroup)
-                                                                                        if (!group) return <></>
+                                                                                        if (!studentGroup) return <></>
                                                                                         return (
-                                                                                                <div key={group.id} className="text-lg grid grid-cols-1 place-items-center" style={{
+                                                                                                <div key={studentGroup.id} className="text-lg grid grid-cols-1 place-items-center" style={{
                                                                                                         ...shinyBackgroundStyle(rankToColor(rankIndex + 1).toString()),
                                                                                                         textShadow: metalTextShadow
                                                                                                 }}>
                                                                                                                 <div className="flex justify-center">
-                                                                                                                        {group.name}
+                                                                                                                        {studentGroup.name}
                                                                                                                 </div>
                                                                                                                 <div className={`w-full px-5 grid ${azeret.className}`} style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
                                                                                                                         <div />
                                                                                                                         <div className="flex items-center justify-center">
-                                                                                                                                {Math.round(group.averagePoints + group.rawPoints).toLocaleString()}
+                                                                                                                                {Math.round(studentGroup.averagePoints + studentGroup.rawPoints).toLocaleString()}
                                                                                                                         </div>
                                                                                                                         <div className="flex items-end justify-end" style={{ color: "#00CC00" }}>
-                                                                                                                                +{Math.round((group.averagePoints + group.rawPoints) - (group.lastMonthAveragePoints + group.lastMonthRawPoints)).toLocaleString()}
+                                                                                                                                +{Math.round((studentGroup.averagePoints + studentGroup.rawPoints) - (studentGroup.lastMonthAveragePoints + studentGroup.lastMonthRawPoints)).toLocaleString()}
                                                                                                                         </div>
                                                                                                                 </div>
                                                                                                                 <div className="flex justify-center">
                                                                                                                         {
                                                                                                                                 (() => {
-                                                                                                                                        const topStudent = globalDashData?.students.filter(student => student.studentGroups.includes(group?.id ?? -1)).sort((a, b) => b.totalPoints - a.totalPoints)[0]
+                                                                                                                                        const topStudent = globalDashData?.students.filter(student => student.studentGroups.includes(studentGroup?.id ?? -1)).sort((a, b) => b.totalPoints - a.totalPoints)[0]
                                                                                                                                         return topStudent ? topStudent.firstName + " " + topStudent.lastName : ""
                                                                                                                                 })()
                                                                                                                         }
