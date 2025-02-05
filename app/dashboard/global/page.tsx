@@ -189,7 +189,7 @@ export default function GlobalDashboard() {
                         backgroundPosition: "center",
                         color: "#eee"
                 }}>
-                        <div className="border rounded-xl p-5 overflow-auto">
+                        <div className="border rounded-xl p-5 overflow-hidden">
                                 <div style={{height: "3%"}}>
                                         <select className="text-lg bg-transparent" defaultValue={
                                                 globalDashData?.timeframes.find(timeframe => timeframe.isActive)?.id
@@ -219,52 +219,52 @@ export default function GlobalDashboard() {
                                                 }
                                         </div>
                                 </div>
-                                <div style={{height: "55%"}}>
-                                <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
-                                <div className="grid grid-cols-1 gap-5">
-                                        {
-                                                globalDashData?.pointEvents
-                                                        .filter(event => DateTime.fromISO(event.date).plus({ 'days': 1 }) > DateTime.now())
-                                                        .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
-                                                        .map(event => (
-                                                                <div key={event.id} className="p-2" style={{
-                                                                        background: metalStyle(globalDashData?.pointGroups.find(pointGroup => pointGroup.id === event.pointGroup)?.color || '#000'),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        textShadow: metalTextShadow
-                                                                }}>
-                                                                        <div className="grid" style={{
-                                                                                gridTemplateColumns: "3fr 1fr",
+                                <div className="overflow-y-scroll" style={{height: "55%"}}>
+                                        <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
+                                        <div className="grid grid-cols-1 gap-5">
+                                                {
+                                                        globalDashData?.pointEvents
+                                                                .filter(event => DateTime.fromISO(event.date).plus({ 'days': 1 }) > DateTime.now())
+                                                                .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
+                                                                .map(event => (
+                                                                        <div key={event.id} className="p-2" style={{
+                                                                                background: metalStyle(globalDashData?.pointGroups.find(pointGroup => pointGroup.id === event.pointGroup)?.color || '#000'),
+                                                                                backgroundSize: "cover",
+                                                                                backgroundPosition: "center",
+                                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
+                                                                                textShadow: metalTextShadow
                                                                         }}>
-                                                                                <div>
-                                                                                        <div className="text-2xl">{event.name}</div>
-                                                                                        <div className="text-lg">{
-                                                                                                event.maxPoints
-                                                                                        }pts</div>
-                                                                                </div>
-                                                                                <div className="text-lg flex justify-end place-items-center">
-                                                                                        <div className="grid grid-cols-1">
-                                                                                                {
-                                                                                                        event.date <= DateTime.now().plus({ days: 7 }).toISODate() ?
+                                                                                <div className="grid" style={{
+                                                                                        gridTemplateColumns: "3fr 1fr",
+                                                                                }}>
+                                                                                        <div>
+                                                                                                <div className="text-2xl">{event.name}</div>
+                                                                                                <div className="text-lg">{
+                                                                                                        event.maxPoints
+                                                                                                }pts</div>
+                                                                                        </div>
+                                                                                        <div className="text-lg flex justify-end place-items-center">
+                                                                                                <div className="grid grid-cols-1">
+                                                                                                        {
+                                                                                                                event.date <= DateTime.now().plus({ days: 7 }).toISODate() ?
 
-                                                                                                                <div className="flex justify-end">
-                                                                                                                        {
-                                                                                                                                isToday(DateTime.fromISO(event.date)) ? 'Today' : DateTime.fromISO(event.date).toFormat('EEEE')
-                                                                                                                        }
-                                                                                                                </div> :
-                                                                                                                <div className="flex justify-end">
-                                                                                                                        {DateTime.fromISO(event.date).toFormat('MMM d')}
-                                                                                                                </div>
+                                                                                                                        <div className="flex justify-end">
+                                                                                                                                {
+                                                                                                                                        isToday(DateTime.fromISO(event.date)) ? 'Today' : DateTime.fromISO(event.date).toFormat('EEEE')
+                                                                                                                                }
+                                                                                                                        </div> :
+                                                                                                                        <div className="flex justify-end">
+                                                                                                                                {DateTime.fromISO(event.date).toFormat('MMM d')}
+                                                                                                                        </div>
 
-                                                                                                }
+                                                                                                        }
+                                                                                                </div>
                                                                                         </div>
                                                                                 </div>
                                                                         </div>
-                                                                </div>
-                                                        ))
-                                        }
-                                </div>
+                                                                ))
+                                                }
+                                        </div>
                                 </div>
                                 <div className="grid grid-cols-1 gap-1" style={{height: "25%"}}>
                                         <div className="text-2xl flex justify-center">

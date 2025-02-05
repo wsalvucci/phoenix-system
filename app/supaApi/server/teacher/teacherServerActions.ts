@@ -696,8 +696,8 @@ export default async function importPhoenixScorebookData(
         const supabase = await supabaseServiceClient();
 
         data.map(async (pointEvent) => {
-                await supabase.from('student_point')
-                        .upsert(pointEvent.studentPoints.map((student) => {
+                const {data, error} = await supabase.from('student_point')
+                        .upsert(pointEvent.studentPoints.filter(student => !isNaN(student.id)).map((student) => {
                                 return {
                                         created_at: DateTime.now().toISO(),
                                         point_value: student.value,
@@ -707,6 +707,11 @@ export default async function importPhoenixScorebookData(
                                         point_event_id: pointEvent.pointEventId
                                 }
                         }))
+
+                if (error) {
+                        console.error("Error importing student points", error);
+                        return "Error importing student points";
+                }
         })
 
         return
