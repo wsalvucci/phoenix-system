@@ -191,6 +191,7 @@ export type GlobalPoints = {
 }
 
 export type StudentPointsData = {
+    schoolId: number,
     studentId: number,
     firstName: string,
     lastName: string,

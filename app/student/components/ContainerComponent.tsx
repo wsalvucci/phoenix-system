@@ -157,6 +157,14 @@ export default function ContainerComponent(
                             href="/dashboard/mobile"
                             className="px-2 py-1 my-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Global Stats</Link>
                     </div>
+                    <div>
+                        <div className="flex justify-center">
+                            <Link
+                                href="/student/compare"
+                                className="px-2 py-1 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">Compare</Link>
+                        </div>
+                        <div className="text-center w-full">See how you compare to the top 10 students</div>
+                    </div>
                     <RecentPoints
                         totalRank={totalRank}
                         recentPoints={liveStudentData.pointEvents} />

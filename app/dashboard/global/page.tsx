@@ -72,7 +72,7 @@ export default function GlobalDashboard() {
         }) => (
                 <div className="text-lg border grid gap-1 py-1 px-2 mx-2" style={{
                         ...shinyBackgroundStyle(rankToColor(rank+1).toString()),
-                        gridTemplateColumns: "50px 200px 2fr 1fr",
+                        gridTemplateColumns: "50px 200px 2fr",
                         textShadow: metalTextShadow
                 }}>
                         {
@@ -93,12 +93,6 @@ export default function GlobalDashboard() {
                                 points !== null &&
                                 <div className={`flex justify-end place-items-center ${azeret.className}`}>
                                         {points.toLocaleString()}
-                                </div>
-                        }
-                        {
-                                lastMonthPoints !== null && points !== null &&
-                                <div className={`flex justify-end place-items-center text-sm ${azeret.className}`} style={{ color: "#00CC00"}}>
-                                        +{(points - (lastMonthPoints ?? 0)).toLocaleString()}
                                 </div>
                         }
                 </div>

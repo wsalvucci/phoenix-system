@@ -1003,6 +1003,7 @@ export async function getStudentPointStats(
     });
 
     return {
+        schoolId: baseStudentData.schoolId,
         studentId: baseStudentData.id,
         firstName: baseStudentData.firstName,
         lastName: baseStudentData.lastName,
