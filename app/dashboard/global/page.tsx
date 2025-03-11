@@ -124,6 +124,8 @@ export default function GlobalDashboard() {
         const thanksgivingImage = "https://cdn.midjourney.com/d8260d25-7f96-48b6-82c8-10adf86793b4/0_2.png"
         const christmasImage = "https://cdn.midjourney.com/e9a1702e-8700-4256-b5de-b5c86dbd7347/0_2.png"
         const winterImage = "https://cdn.midjourney.com/7864ac3b-9750-49c4-b7b0-ffb134b73a00/0_3.png"
+        const patrickImage = "https://cdn.midjourney.com/2a57652b-95fb-45d6-9e0a-c92d33afca92/0_0.png"
+        const springImage = "https://cdn.midjourney.com/37d1f183-e76b-48e4-a632-54368dfd270d/0_0.png"
 
         const seasonalImage = (): string => {
                 const currentTime = DateTime.now();
@@ -163,9 +165,21 @@ export default function GlobalDashboard() {
                                 } else {
                                         return christmasImage;
                                 }
-                        case 1: {
+                        case 1:
+                        case 2: {
                                 return winterImage;
                         }
+                        case 3:
+                                if (currentDay < 12) {
+                                        return winterImage;
+                                } else if (currentDay < 17) {
+                                        return patrickImage;
+                                } else {
+                                        return springImage;
+                                }
+                        case 4:
+                        case 5:
+                                return springImage;
                         default: return "";
                 }
         }
