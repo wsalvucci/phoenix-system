@@ -864,8 +864,8 @@ export default function TeacherGroupScorebook({ params: { groupId } }: { params:
                     <div className="border-e">
                       {
                         scorebookData?.students.map((student) => {
-                          const studentInput = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.input
-                          const studentValue = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.value
+                          const studentInput = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.input ?? 0
+                          const studentValue = pointEvent.studentPoints.find((student2) => student.id === student2.id)?.value ?? 0
                           const currentInput = scorebookData.pointEvents
                             .find((pointEvent2) => pointEvent.pointEventId === pointEvent2.id)?.studentPoints
                             .find((student2) => student.id === student2.student.id)?.pointData.input
