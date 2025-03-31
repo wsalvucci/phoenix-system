@@ -95,14 +95,8 @@ export type CompiledStudentPoints = {
         points: number,
         lastMonthPoints: number
     }[],
-    totalPointsByDay: {
-        date: string,
-        points: number
-    }[],
-    pointsEarnedEachDay: {
-        date: string,
-        points: number
-    }[],
+    totalPointsByDay: Map<string, number>,
+    pointsEarnedEachDay: Map<string, number>,
     monthToMonthImprovement: number,
     studentGroups: number[]
 }
@@ -130,14 +124,8 @@ export type GlobalPoints = {
             lastMonthPoints: number,
             lastMonthRank: number
         }[],
-        totalPointsByDay: {
-            date: string,
-            points: number
-        }[],
-        pointsEarnedEachDay: {
-            date: string,
-            points: number
-        }[],
+        totalPointsByDay: Map<string, number>,
+        pointsEarnedEachDay: Map<string, number>,
         monthToMonthChange: number,
         studentGroups: number[]
     }[],

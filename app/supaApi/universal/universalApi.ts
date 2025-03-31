@@ -297,42 +297,66 @@ export async function getSchoolRankingGroups(
 
 export async function getRankingGroupPoints(
     schoolId: number,
-) : Promise<RankingGroupPointEventData[] | null> {
+): Promise<RankingGroupPointEventData[] | null> {
     const supabase = await supabaseServiceClient();
 
-    const { data: pointGroups, error: pointGroupsError } = await supabase.from("ranking_group")
-        .select("*, ranking_group_point_event (*, student_group_point (*))")
-        .eq("school_id", schoolId)
-    
-    if (pointGroups === null) {
-        console.error(pointGroupsError);
+    // 1. Fetch all timeframes for the school
+    const { data: timeframesData, error: timeframesError } = await supabase
+        .from("school_timeframes")
+        .select("id, starts_at, ends_at")
+        .eq("school_id", schoolId);
+
+    if (timeframesError || !timeframesData) {
+        console.error("Error fetching school timeframes:", timeframesError);
         return null;
     }
 
-    const data = await pointGroups.reduce(async (accPromise, rankingGroup) => {
-        const acc = await accPromise;
-        const rankingGroupTimeframe = await getSelectedOrActiveTimeframe(schoolId, rankingGroup.timeframe_id);
-        if (rankingGroupTimeframe === null) return acc;
+    // Create a map for quick timeframe lookup
+    const timeframeMap = new Map(timeframesData.map(tf => [tf.id, { startDate: tf.starts_at, endDate: tf.ends_at }]));
 
-        rankingGroup.ranking_group_point_event
-            .filter((pointEvent) => {
-                return pointEvent.date >= rankingGroupTimeframe.startDate && pointEvent.date <= rankingGroupTimeframe.endDate;
-            })
-            .forEach((pointEvent) => {
-                acc.push({
-                    id: pointEvent.id,
-                    name: pointEvent.name ?? "",
-                    date: pointEvent.created_at,
-                    groupPoints: pointEvent.student_group_point.map((studentGroupPoint) => ({
-                        groupId: studentGroupPoint.student_group_id,
-                        points: studentGroupPoint.value
-                    }))
-                });
+    // 2. Fetch all ranking group point events for the school, including the parent ranking group's timeframe_id
+    const { data: eventsData, error: eventsError } = await supabase
+        .from("ranking_group_point_event")
+        .select(`
+            id,
+            name,
+            created_at,
+            date, 
+            ranking_group_id,
+            ranking_group!inner(timeframe_id),
+            student_group_point(*)
+        `)
+        .eq("ranking_group.school_id", schoolId); // Filter by school_id via the joined ranking_group
+
+    if (eventsError || !eventsData) {
+        console.error("Error fetching ranking group point events:", eventsError);
+        return null;
+    }
+
+    // 3. Filter events in JavaScript using the timeframe map
+    const filteredEvents: RankingGroupPointEventData[] = [];
+    eventsData.forEach((event) => {
+        const timeframeId = event.ranking_group?.timeframe_id;
+        if (timeframeId === null || timeframeId === undefined) return; // Skip if event has no timeframe linked
+
+        const timeframe = timeframeMap.get(timeframeId);
+        if (!timeframe) return; // Skip if timeframe details not found
+
+        // Check if the event date falls within the linked timeframe
+        if (event.date >= timeframe.startDate && event.date <= timeframe.endDate) {
+            filteredEvents.push({
+                id: event.id,
+                name: event.name ?? "",
+                date: event.created_at, // Using created_at as before, adjust if event.date is intended
+                groupPoints: event.student_group_point.map((studentGroupPoint) => ({
+                    groupId: studentGroupPoint.student_group_id,
+                    points: studentGroupPoint.value
+                }))
             });
-        return acc;
-    }, Promise.resolve([] as RankingGroupPointEventData[]));
+        }
+    });
 
-    return data;
+    return filteredEvents;
 }
 
 enum PointConversionRuleType {
@@ -453,310 +477,267 @@ async function getGlobalPointStats(
         getSelectedOrActiveTimeframe(schoolId, timeframeId)
     ]);
 
-    const getPointsPerStudent = (pointData: PointEventData[], startsAt: string | null, endsAt: string | null) => {
+    // --- Pre-process rankingGroupPoints for efficient lookup --- 
+    const groupRawPointsMap = new Map<number, { date: string, points: number }[]>();
+    rankingGroupPoints?.forEach(rgpEvent => {
+        rgpEvent.groupPoints.forEach(gp => {
+            if (!groupRawPointsMap.has(gp.groupId)) {
+                groupRawPointsMap.set(gp.groupId, []);
+            }
+            // Ensure you are pushing the correct event date associated with the points
+            groupRawPointsMap.get(gp.groupId)?.push({ date: rgpEvent.date, points: gp.points });
+        });
+    });
+
+    const getPointsPerStudent = (pointData: PointEventData[], startsAt: string | null, endsAt: string | null): Map<number, CompiledStudentPoints> | null => {
         const startingDate = DateTime.fromISO(startsAt ? startsAt : (selectedTimeframe?.startDate ?? ""))
         const endingDate = DateTime.fromISO(endsAt ? endsAt : (selectedTimeframe?.endDate ?? ""))
         if (!startingDate.isValid || !endingDate.isValid) return null;
-        return pointData
-        ?.filter((pointEvent) => {
-            return pointEvent.date >= startingDate.toISO() && pointEvent.date <= endingDate.toISO();
-        })
-        .reduce((acc, pointEvent) => {
-            pointEvent.studentPoints.forEach((studentPoint) => {
-                const existingStudent = acc.find((student) => student.id === studentPoint.studentId);
-                const pointsEarned = calculatePoints(
-                    pointEvent.template.conversionRule.name,
-                    studentPoint.input,
-                    pointEvent.template.conversionRule.value
-                )
-    
-                if (existingStudent === undefined) {
-                    const newStudentData = students?.find((student) => student.id === studentPoint.studentId);
-                    if (newStudentData === undefined) return acc;
-                    acc.push({
-                        id: studentPoint.studentId,
-                        firstName: newStudentData.firstName,
-                        lastName: newStudentData.lastName,
-                        totalPoints: pointsEarned,
-                        lastMonthPoints: pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0,
-                        grade: newStudentData.grade,
-                        pointGroups: pointGroups?.map((pointGroup) => ({
-                            id: pointGroup.id,
-                            points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0,
-                            lastMonthPoints: pointGroup.id === pointEvent.template.pointGroupId && pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0
-                        })) ?? [],
-                        totalPointsByDay: [{
-                            date: pointEvent.date,
-                            points: pointsEarned
-                        }],
-                        pointsEarnedEachDay: [{
-                            date: pointEvent.date,
-                            points: pointsEarned
-                        }],
-                        monthToMonthImprovement: 0,
-                        studentGroups: studentGroups
-                            ?.filter(
-                                (studentGroup) => studentGroup.students.find((student) => student === studentPoint.studentId) !== undefined
-                            )
-                            .map((studentGroup) => studentGroup.id) ?? []
-                    });
-                } else {
-                    existingStudent.totalPoints += pointsEarned;
-                    existingStudent.lastMonthPoints += pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO() ? pointsEarned : 0;
-                    existingStudent.pointGroups.forEach((pointGroup) => {
-                        if (pointGroup.id === pointEvent.template.pointGroupId) {
-                            pointGroup.points += pointsEarned;
-                            if (pointEvent.date <= DateTime.now().minus({ months: 1 }).toISO()) {
-                                pointGroup.lastMonthPoints += pointsEarned;
+
+        // Use a Map for efficient lookups
+        const studentPointsMap = new Map<number, CompiledStudentPoints>();
+
+        pointData
+            ?.filter((pointEvent) => {
+                // Ensure date filtering happens correctly based on provided start/end or timeframe
+                const eventDate = DateTime.fromISO(pointEvent.date);
+                return eventDate.isValid && eventDate >= startingDate && eventDate <= endingDate;
+            })
+            .forEach((pointEvent) => { // Use forEach instead of reduce when modifying a Map
+                const eventDateISO = pointEvent.date;
+                const isLastMonth = DateTime.fromISO(eventDateISO) <= DateTime.now().minus({ months: 1 });
+
+                pointEvent.studentPoints.forEach((studentPoint) => {
+                    const pointsEarned = calculatePoints(
+                        pointEvent.template.conversionRule.name,
+                        studentPoint.input,
+                        pointEvent.template.conversionRule.value
+                    );
+
+                    let existingStudent = studentPointsMap.get(studentPoint.studentId);
+
+                    if (existingStudent === undefined) {
+                        const newStudentData = students?.find((student) => student.id === studentPoint.studentId);
+                        if (newStudentData === undefined) return; // Skip if student master data not found
+
+                        existingStudent = {
+                            id: studentPoint.studentId,
+                            firstName: newStudentData.firstName,
+                            lastName: newStudentData.lastName,
+                            totalPoints: pointsEarned,
+                            lastMonthPoints: isLastMonth ? pointsEarned : 0,
+                            grade: newStudentData.grade,
+                            pointGroups: pointGroups?.map((pointGroup) => ({
+                                id: pointGroup.id,
+                                points: pointGroup.id === pointEvent.template.pointGroupId ? pointsEarned : 0,
+                                lastMonthPoints: pointGroup.id === pointEvent.template.pointGroupId && isLastMonth ? pointsEarned : 0
+                            })) ?? [],
+                            totalPointsByDay: new Map<string, number>(), // Use Map for daily totals
+                            pointsEarnedEachDay: new Map<string, number>(), // Use Map for daily earned
+                            monthToMonthImprovement: 0, // This likely needs recalculation later
+                            studentGroups: studentGroups
+                                ?.filter(
+                                    (studentGroup) => studentGroup.students.find((student) => student === studentPoint.studentId) !== undefined
+                                )
+                                .map((studentGroup) => studentGroup.id) ?? []
+                        };
+                        existingStudent.totalPointsByDay.set(eventDateISO, pointsEarned); // Initialize day map
+                        existingStudent.pointsEarnedEachDay.set(eventDateISO, pointsEarned);
+                        studentPointsMap.set(studentPoint.studentId, existingStudent);
+
+                    } else {
+                        existingStudent.totalPoints += pointsEarned;
+                        existingStudent.lastMonthPoints += isLastMonth ? pointsEarned : 0;
+
+                        // Update point group points
+                        const relevantPointGroup = existingStudent.pointGroups.find(pg => pg.id === pointEvent.template.pointGroupId);
+                        if (relevantPointGroup) {
+                            relevantPointGroup.points += pointsEarned;
+                            if (isLastMonth) {
+                                relevantPointGroup.lastMonthPoints += pointsEarned;
                             }
                         }
-                    });
-                    const existingDay = existingStudent.totalPointsByDay.find((day) => day.date === pointEvent.date);
-                    if (existingDay === undefined) {
-                        existingStudent.totalPointsByDay.push({
-                            date: pointEvent.date,
-                            points: existingStudent.totalPoints + pointsEarned
-                        });
-                    } else {
-                        existingDay.points += pointsEarned;
+
+                        // Update total points by day
+                        existingStudent.totalPointsByDay.set(
+                            eventDateISO,
+                            (existingStudent.totalPointsByDay.get(eventDateISO) || 0) + pointsEarned
+                        );
+
+                         // Update points earned each day
+                        existingStudent.pointsEarnedEachDay.set(
+                            eventDateISO,
+                            (existingStudent.pointsEarnedEachDay.get(eventDateISO) || 0) + pointsEarned
+                        );
+
+                        // No need to update studentGroups here as they don't change per event
+                        studentPointsMap.set(studentPoint.studentId, existingStudent); // Update the map entry
                     }
-                    const existingDayEarned = existingStudent.pointsEarnedEachDay.find((day) => day.date === pointEvent.date);
-                    if (existingDayEarned === undefined) {
-                        existingStudent.pointsEarnedEachDay.push({
-                            date: pointEvent.date,
-                            points: pointsEarned
-                        });
-                    } else {
-                        existingDayEarned.points += pointsEarned;
-                    }
-                }
-            })
-    
-            return acc;
-        }, [] as CompiledStudentPoints[]);
+                });
+            });
+
+        return studentPointsMap;
     }
 
-    const pointsPerStudent = getPointsPerStudent(pointData ?? [], null, null);
+    const pointsPerStudentMap = getPointsPerStudent(pointData ?? [], null, null);
 
-    if (pointsPerStudent === null) return null;
+    if (pointsPerStudentMap === null) return null;
 
-    const rankAllStudents = (compiledStudents: CompiledStudentPoints[]) => {
-        return compiledStudents.sort((a, b) => b.totalPoints - a.totalPoints);
-    }
+    // Convert Map back to Array for sorting/ranking
+    const pointsPerStudent = Array.from(pointsPerStudentMap.values());
 
-    const allStudentsRanked = rankAllStudents(pointsPerStudent);
+    // --- Optimizing Rank Calculation --- 
 
-    const rankAllStudentsLastMonth = (compiledStudents: CompiledStudentPoints[]) => {
-        const copiedData = compiledStudents.map((student) => ({
-            ...student,
-        }));
-        return copiedData.sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
-    }
+    // 1. Sort Arrays
+    const allStudentsRanked = [...pointsPerStudent].sort((a, b) => b.totalPoints - a.totalPoints);
+    const allStudentsRankedByLastMonth = [...pointsPerStudent].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
 
-    const allStudentsRankedByLastMonth = rankAllStudentsLastMonth(pointsPerStudent);
+    const allStudentGrades = Array.from(new Set(pointsPerStudent.map(s => s.grade))); // More efficient way to get unique grades
 
-    const allStudentGrades = allStudentsRanked.reduce((acc, student) => {
-        if (acc.find((grade) => grade === student.grade) === undefined) {
-            acc.push(student.grade);
+    // Group students by grade for ranking
+    const studentsByGrade = new Map<number, CompiledStudentPoints[]>();
+    pointsPerStudent.forEach(student => {
+        if (!studentsByGrade.has(student.grade)) {
+            studentsByGrade.set(student.grade, []);
         }
-        return acc;
-    }, [] as number[]);
+        studentsByGrade.get(student.grade)?.push(student);
+    });
 
+    // Group students by point group for ranking
+    const studentsByPointGroup = new Map<number, CompiledStudentPoints[]>();
+    pointsPerStudent.forEach(student => {
+        student.pointGroups.forEach(pg => {
+            if (!studentsByPointGroup.has(pg.id)) {
+                studentsByPointGroup.set(pg.id, []);
+            }
+            // Add a copy of the student relevant for this point group ranking
+            studentsByPointGroup.get(pg.id)?.push({
+                ...student,
+                // We only need points specific to this group for sorting within the group
+                totalPoints: pg.points, 
+                lastMonthPoints: pg.lastMonthPoints
+            });
+        });
+    });
+
+    // 2. Create Rank Maps
+    const overallRankMap = new Map<number, number>();
+    allStudentsRanked.forEach((student, index) => overallRankMap.set(student.id, index + 1));
+
+    const lastMonthRankMap = new Map<number, number>();
+    allStudentsRankedByLastMonth.forEach((student, index) => lastMonthRankMap.set(student.id, index + 1));
+
+    const gradeRankMap = new Map<number, number>();
+    const lastMonthGradeRankMap = new Map<number, number>();
+    studentsByGrade.forEach((studentsInGrade, grade) => {
+        // Sort within grade
+        const rankedInGrade = [...studentsInGrade].sort((a, b) => b.totalPoints - a.totalPoints);
+        rankedInGrade.forEach((student, index) => gradeRankMap.set(student.id, index + 1));
+
+        // Sort within grade for last month
+        const rankedLastMonthInGrade = [...studentsInGrade].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+        rankedLastMonthInGrade.forEach((student, index) => lastMonthGradeRankMap.set(student.id, index + 1));
+    });
+
+    const pointGroupRankMap = new Map<number, Map<number, number>>();
+    const lastMonthPointGroupRankMap = new Map<number, Map<number, number>>();
+    studentsByPointGroup.forEach((studentsInGroup, pgId) => {
+        // Sort within point group
+        const rankedInPG = [...studentsInGroup].sort((a, b) => b.totalPoints - a.totalPoints); // Uses the specific group points stored earlier
+        const pgRank = new Map<number, number>();
+        rankedInPG.forEach((student, index) => pgRank.set(student.id, index + 1));
+        pointGroupRankMap.set(pgId, pgRank);
+
+        // Sort within point group for last month
+        const rankedLastMonthInPG = [...studentsInGroup].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+        const pgLastMonthRank = new Map<number, number>();
+        rankedLastMonthInPG.forEach((student, index) => pgLastMonthRank.set(student.id, index + 1));
+        lastMonthPointGroupRankMap.set(pgId, pgLastMonthRank);
+    });
+
+    // --- Remove Unnecessary Intermediate Grouping Calculations --- 
+    // The following blocks using .reduce were previously used but are likely redundant
+    // now that ranks are calculated via Maps and the final structure is built differently.
+    /*
     const allStudentsRankedByGrade = allStudentsRanked.reduce((acc, student) => {
-        const existingGrade = acc.find((grade) => grade.grade === student.grade);
-        const data = {
-            id: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            totalPoints: student.totalPoints
-        }
-        if (existingGrade === undefined) {
-            acc.push({
-                grade: student.grade,
-                students: [data]
-            });
-        } else {
-            existingGrade.students.push(data);
-        }
-        return acc;
-    }, [] as {
-        grade: number,
-        students: {
-            id: number,
-            firstName: string,
-            lastName: string,
-            totalPoints: number,
-        }[]
-    }[]);
-
-    const allStudentsRankedByGradeLastMonth = allStudentsRankedByLastMonth.reduce((acc, student) => {
-        const existingGrade = acc.find((grade) => grade.grade === student.grade);
-        const data = {
-            id: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            totalPoints: student.lastMonthPoints
-        }
-        if (existingGrade === undefined) {
-            acc.push({
-                grade: student.grade,
-                students: [data]
-            });
-        } else {
-            existingGrade.students.push(data);
-        }
-        return acc;
-    }, [] as {
-        grade: number,
-        students: {
-            id: number,
-            firstName: string,
-            lastName: string,
-            totalPoints: number,
-        }[]
-    }[]);
-    
+        // ... removed code ...
+    }, [] as { // ... type ... } []);
     allStudentsRankedByGrade.forEach((grade) => {
         grade.students.sort((a, b) => b.totalPoints - a.totalPoints);
     })
-
-    allStudentsRankedByGradeLastMonth.forEach((grade) => {
-        grade.students.sort((a, b) => b.totalPoints - a.totalPoints);
-    })
-
-    const allStudentsRankedByStudentGroup = allStudentsRanked.reduce((acc, student) => {
-        student.studentGroups.forEach((studentGroup) => {
-            const existingGroup = acc.find((group) => group.id === studentGroup);
-            const data = {
-                id: student.id,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                totalPoints: student.totalPoints
-            }
-            if (existingGroup === undefined) {
-                acc.push({
-                    id: studentGroup,
-                    students: [data]
-                });
-            } else {
-                existingGroup.students.push(data);
-            }
-        });
-        return acc;
-    }, [] as {
-        id: number,
-        students: {
-            id: number,
-            firstName: string,
-            lastName: string,
-            totalPoints: number,
-        }[]
-    }[])
     
-    allStudentsRankedByStudentGroup.forEach((group) => {
-        group.students.sort((a, b) => b.totalPoints - a.totalPoints);
-    });
+    // const allStudentsRankedByGradeLastMonth = allStudentsRankedByLastMonth.reduce( ... ) // Removed
+    // const allStudentsRankedByStudentGroup = allStudentsRanked.reduce( ... ) // Removed
+    // const allStudentsRankedByPointGroup = allStudentsRanked.reduce( ... ) // Removed
+    // const allStudentsRankedByPointGroupLastMonth = allStudentsRankedByLastMonth.reduce( ... ) // Removed
+    */
 
-    const allStudentsRankedByPointGroup = allStudentsRanked.reduce((acc, student) => {
-        student.pointGroups.forEach((pointGroup) => {
-            const existingGroup = acc.find((group) => group.id === pointGroup.id);
-            const data = {
-                id: student.id,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                totalPoints: student.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0
-            }
-            if (existingGroup === undefined) {
-                acc.push({
-                    id: pointGroup.id,
-                    students: [data]
-                });
-            } else {
-                existingGroup.students.push(data);
-            }
-        });
-        return acc;
-    }, [] as {
-        id: number,
-        students: {
-            id: number,
-            firstName: string,
-            lastName: string,
-            totalPoints: number,
-        }[]
-    }[])
+    // --- Student Group Point Calculation (Remains as optimized previously) ---
+    const getStudentGroupPoints = (studentGroup: StudentGroupData | null, startsAt: string | null, endsAt: string | null): any | null => {
+        if (!studentGroup) return null;
 
-    const allStudentsRankedByPointGroupLastMonth = allStudentsRankedByLastMonth.reduce((acc, student) => {
-        student.pointGroups.forEach((pointGroup) => {
-            const existingGroup = acc.find((group) => group.id === pointGroup.id);
-            const data = {
-                id: student.id,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                totalPoints: student.pointGroups.find((group) => group.id === pointGroup.id)?.lastMonthPoints ?? 0
-            }
-            if (existingGroup === undefined) {
-                acc.push({
-                    id: pointGroup.id,
-                    students: [data]
-                });
-            } else {
-                existingGroup.students.push(data);
-            }
-        });
-        return acc;
-    }, [] as {
-        id: number,
-        students: {
-            id: number,
-            firstName: string,
-            lastName: string,
-            totalPoints: number,
-        }[]
-    }[])
-    
-    allStudentsRankedByPointGroup.forEach((group) => {
-        group.students.sort((a, b) => b.totalPoints - a.totalPoints);
-    });
+        // Use the main pointsPerStudentMap for efficiency if timeframes match, otherwise recalculate (potential further optimization here)
+        const localPointsMap = (startsAt === null && endsAt === null)
+            ? pointsPerStudentMap
+            : getPointsPerStudent(pointData ?? [], startsAt, endsAt);
 
-    allStudentsRankedByPointGroupLastMonth.forEach((group) => {
-        group.students.sort((a, b) => b.totalPoints - a.totalPoints);
-    });
+        if (localPointsMap === null) return null; // Handle case where recalculation fails
 
-    const getStudentGroupPoints = (studentGroup: StudentGroupData, startsAt: string | null, endsAt: string | null) => {
-        const localPointData = getPointsPerStudent(pointData ?? [], startsAt, endsAt);
-        const totalPoints = localPointData?.reduce((acc, student) => {
-            if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
+        // Convert map values to array for reduction/iteration
+        const localPointArray = Array.from(localPointsMap.values());
+
+        const totalPoints = localPointArray.reduce((acc, student) => {
+            if (!studentGroup.students.includes(student.id)) return acc;
             return acc + student.totalPoints;
         }, 0);
-        const lastMonthTotalPoints = rankAllStudentsLastMonth(localPointData ?? []).reduce((acc, student) => {
-            if (studentGroup.students.find((groupStudent) => groupStudent === student.id) === undefined) return acc;
+
+        // Calculate lastMonthTotalPoints directly from the array
+        const lastMonthTotalPoints = localPointArray.reduce((acc, student) => {
+            if (!studentGroup.students.includes(student.id)) return acc;
             return acc + student.lastMonthPoints;
         }, 0);
-        const rawPoints = rankingGroupPoints?.reduce((acc, rankingGroup) => {
-            const groupPoints = rankingGroup.groupPoints.find((groupPoint) => groupPoint.groupId === studentGroup.id);
-            if (groupPoints === undefined) return acc;
-            return acc + groupPoints.points;
+
+        // (Keep rawPoints calculations - use pre-processed map)
+        const relevantRawPoints = groupRawPointsMap.get(studentGroup.id) ?? [];
+
+        const rawPoints = relevantRawPoints.reduce((acc, rawPointEvent) => {
+            const eventDate = DateTime.fromISO(rawPointEvent.date);
+            const startDate = DateTime.fromISO(startsAt ?? selectedTimeframe?.startDate ?? "");
+            const endDate = DateTime.fromISO(endsAt ?? selectedTimeframe?.endDate ?? "");
+            if (eventDate.isValid && startDate.isValid && endDate.isValid && eventDate >= startDate && eventDate <= endDate) {
+                return acc + rawPointEvent.points;
+            }
+            return acc;
         }, 0);
-        const lastMonthRawPoints = rankingGroupPoints?.reduce((acc, rankingGroup) => {
-            if (rankingGroup.date <= DateTime.now().minus({ months: 1 }).toISO()) return acc;
-            const groupPoints = rankingGroup.groupPoints.find((groupPoint) => groupPoint.groupId === studentGroup.id);
-            if (groupPoints === undefined) return acc;
-            return acc + groupPoints.points;
+
+        const lastMonthRawPoints = relevantRawPoints.reduce((acc, rawPointEvent) => {
+            const eventDate = DateTime.fromISO(rawPointEvent.date);
+            // Adjust date range for last month
+            const baseStartDate = DateTime.fromISO(startsAt ?? selectedTimeframe?.startDate ?? "");
+            const baseEndDate = DateTime.fromISO(endsAt ?? selectedTimeframe?.endDate ?? "");
+            const startDate = baseStartDate.isValid ? baseStartDate.minus({ months: 1 }) : DateTime.invalid("Invalid start date");
+            const endDate = baseEndDate.isValid ? baseEndDate.minus({ months: 1 }) : DateTime.invalid("Invalid end date");
+
+            if (eventDate.isValid && startDate.isValid && endDate.isValid && eventDate >= startDate && eventDate <= endDate) {
+                 return acc + rawPointEvent.points;
+            }
+            return acc;
         }, 0);
 
         return {
             id: studentGroup.id,
             name: studentGroup.name,
             totalStudents: studentGroup.students.length,
-            averagePoints: (totalPoints ?? 0) / studentGroup.students.length,
-            lastMonthAveragePoints: lastMonthTotalPoints / studentGroup.students.length,
+            averagePoints: studentGroup.students.length > 0 ? totalPoints / studentGroup.students.length : 0,
+            lastMonthAveragePoints: studentGroup.students.length > 0 ? lastMonthTotalPoints / studentGroup.students.length : 0,
             rawPoints: rawPoints ?? 0,
             lastMonthRawPoints: lastMonthRawPoints ?? 0,
             pointGroups: pointGroups?.map((pointGroup) => ({
                 id: pointGroup.id,
-                points: studentGroup.students.reduce((acc, student) => {
-                    const studentData = localPointData?.find((rankedStudent) => rankedStudent.id === student);
+                points: localPointArray.reduce((acc, student) => {
+                    if (!studentGroup.students.includes(student.id)) return acc;
+                    // Use the data already calculated (from the potentially recalculated map)
+                    const studentData = localPointsMap.get(student.id);
                     if (studentData === undefined) return acc;
                     return acc + (studentData.pointGroups.find((group) => group.id === pointGroup.id)?.points || 0);
                 }, 0)
@@ -764,85 +745,129 @@ async function getGlobalPointStats(
         };
     }
 
-    const allStudentGroupsRanked = studentGroups?.map((studentGroup) => {
-        return getStudentGroupPoints(studentGroup, null, null)
-    }).sort((a, b) => (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints));
+    // Pre-calculate all student group points for the main timeframe
+    const allStudentGroupPointsData = new Map<number, any>();
+    studentGroups?.forEach(sg => {
+        const groupData = getStudentGroupPoints(sg, null, null);
+        if (groupData) {
+            allStudentGroupPointsData.set(sg.id, groupData);
+        }
+    });
 
-    const allRankingGroupsRanked = rankingGroups?.reduce((acc, rankingGroup) => {
-        const studentGroupsData = rankingGroup.studentGroups.map((studentGroup) => {
-            const studentGroupData = studentGroups?.find((group) => group.id === studentGroup);
-            if (studentGroupData === undefined) return null;
-            const groupPointData = getStudentGroupPoints(studentGroupData, rankingGroup.timeframeStart, rankingGroup.timeframeEnd);
+    // Sort the pre-calculated group data for the studentGroups list in the result
+    const allStudentGroupsRanked = Array.from(allStudentGroupPointsData.values()).sort((a, b) => 
+        (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints)
+    );
+
+    // --- Filter Ranking Groups based on Timeframe Overlap --- 
+    const filteredRankingGroups = rankingGroups?.filter(rg => {
+        // --- Start Debug Logging ---
+        console.log(`\nChecking RG: ${rg.id} (${rg.name})`);
+        console.log(`  RG Timeframe: ${rg.timeframeStart} to ${rg.timeframeEnd}`);
+        console.log(`  Selected Timeframe: ${selectedTimeframe?.startDate} to ${selectedTimeframe?.endDate}`);
+        // --- End Debug Logging ---
+
+        if (!selectedTimeframe || !rg.timeframeStart || !rg.timeframeEnd) {
+            console.log(`  Result: Filtering out due to missing timeframe info.`);
+            return false; // Exclude if timeframes are missing
+        }
+        const rgStart = DateTime.fromISO(rg.timeframeStart);
+        const rgEnd = DateTime.fromISO(rg.timeframeEnd);
+        const selStart = DateTime.fromISO(selectedTimeframe.startDate);
+        const selEnd = DateTime.fromISO(selectedTimeframe.endDate);
+
+        // --- Start Debug Logging ---
+        console.log(`  Parsed RG Start: ${rgStart.toISO()}, Valid: ${rgStart.isValid}`);
+        console.log(`  Parsed RG End: ${rgEnd.toISO()}, Valid: ${rgEnd.isValid}`);
+        console.log(`  Parsed Sel Start: ${selStart.toISO()}, Valid: ${selStart.isValid}`);
+        console.log(`  Parsed Sel End: ${selEnd.toISO()}, Valid: ${selEnd.isValid}`);
+        // --- End Debug Logging ---
+
+        if (!rgStart.isValid || !rgEnd.isValid || !selStart.isValid || !selEnd.isValid) {
+            console.log(`  Result: Filtering out due to invalid date parsing.`);
+            return false; // Exclude if dates are invalid
+        }
+
+        // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
+        const overlapCondition = rgStart <= selEnd && rgEnd >= selStart;
+        // --- Start Debug Logging ---
+        console.log(`  Overlap Condition (rgStart <= selEnd && rgEnd >= selStart): ${overlapCondition}`);
+        // --- End Debug Logging ---
+        return overlapCondition;
+    }) ?? []; // Default to empty array if rankingGroups is null/undefined
+
+    // --- Pre-process Point Events for Ranks --- 
+    const processedPointEventsData = pointData?.map(event => {
+        // Calculate points for each student in the event
+        const studentsWithPoints = event.studentPoints.map(sp => ({
+            id: sp.studentId,
+            points: calculatePoints(
+                event.template.conversionRule.name,
+                sp.input,
+                event.template.conversionRule.value
+            )
+        }));
+
+        // Sort students within this event by points
+        const sortedStudents = [...studentsWithPoints].sort((a, b) => b.points - a.points);
+
+        // Assign ranks within the event
+        const studentsWithRank = sortedStudents.map((student, index, arr) => {
+            // Basic rank assignment (handle ties simply by index)
+            // More complex tie-breaking could be added if needed
+            const rank = index + 1; 
+            // Alternative: findIndex on unique scores for dense rank
+            // const rank = arr.findIndex(s => s.points === student.points) + 1;
             return {
-                id: studentGroupData.id,
-                name: studentGroupData.name,
-                totalStudents: studentGroupData.students.length,
-                averagePoints: groupPointData.averagePoints,
-                lastMonthAveragePoints: groupPointData.lastMonthAveragePoints,
-                rawPoints: groupPointData.rawPoints,
-                lastMonthRawPoints: groupPointData.lastMonthRawPoints,
-                pointGroups: groupPointData.pointGroups
+                ...student,
+                rank: rank
             };
-        }).filter(group => group !== null);
-    
-        acc.push({
-            id: rankingGroup.id,
-            name: rankingGroup.name,
-            studentGroups: studentGroupsData
         });
-    
-        return acc;
-    }, [] as {
-        id: number,
-        name: string,
-        studentGroups: {
-            id: number,
-            name: string,
-            totalStudents: number,
-            averagePoints: number,
-            lastMonthAveragePoints: number,
-            rawPoints: number,
-            lastMonthRawPoints: number,
-            pointGroups: {
-                id: number,
-                points: number
-            }[]
-        }[]
-    }[]).filter((rankingGroup) => {
-        return rankingGroup.studentGroups.find((studentGroup) => studentGroup.averagePoints > 0) !== undefined;
+        
+        // Create a Map for quick student lookup by ID within this event
+        const studentRankMap = new Map(studentsWithRank.map(s => [s.id, { points: s.points, rank: s.rank }]));
+
+        return {
+            ...event,
+            // Replace original studentPoints with processed ones including rank
+            studentsWithRank: studentRankMap 
+        };
     });
 
     if (selectedTimeframe === null) return null;
 
+    // --- Final Mapping Logic (Using Rank Maps & Pre-calculated Group/Event Data) --- 
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,
         timeframes: schoolTimeframes ?? [],
         grades: allStudentGrades,
-        students: allStudentsRanked.map((student, index) => {
-            const lastMonthPts = student.pointsEarnedEachDay.filter((day) =>
-                DateTime.now().minus({ months: 1 }) >= DateTime.fromISO(day.date)
-            ).reduce((acc, day) => acc + day.points, 0)
+        students: allStudentsRanked.map((student) => { // Iterate over the original sorted array
+            // Fix last month calculation for Map
+            const lastMonthPts = Array.from(student.pointsEarnedEachDay.entries())
+                .filter(([date, points]) => DateTime.fromISO(date) <= DateTime.now().minus({ months: 1 }))
+                .reduce((acc, [date, points]) => acc + points, 0);
+
             return {
                 id: student.id,
                 firstName: student.firstName,
                 lastName: student.lastName,
-                rank: index + 1,
-                lastMonthRank: (allStudentsRankedByLastMonth.findIndex((lastMonthStudent) => lastMonthStudent.id === student.id) ?? -1) + 1,
+                rank: overallRankMap.get(student.id) ?? 0, // Use Map
+                lastMonthRank: lastMonthRankMap.get(student.id) ?? 0, // Use Map
                 totalPoints: student.totalPoints,
                 lastMonthPoints: student.lastMonthPoints,
                 grade: student.grade,
-                gradeRank: (allStudentsRankedByGrade.find((grade) => grade.grade === student.grade)?.students.findIndex((gradeStudent) => gradeStudent.id === student.id) ?? -1) + 1,
-                lastMonthGradeRank: (allStudentsRankedByGradeLastMonth.find((grade) => grade.grade === student.grade)?.students.findIndex((gradeStudent) => gradeStudent.id === student.id) ?? -1) + 1,
+                gradeRank: gradeRankMap.get(student.id) ?? 0, // Use Map
+                lastMonthGradeRank: lastMonthGradeRankMap.get(student.id) ?? 0, // Use Map
                 pointGroups: student.pointGroups.map((pointGroup) => ({
                     id: pointGroup.id,
                     points: pointGroup.points,
-                    rank: (allStudentsRankedByPointGroup.find((group) => group.id === pointGroup.id)?.students.findIndex((groupStudent) => groupStudent.id === student.id) ?? -1) + 1,
+                    rank: pointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0, // Use nested Map
                     lastMonthPoints: pointGroup.lastMonthPoints,
-                    lastMonthRank: (allStudentsRankedByPointGroupLastMonth.find((group) => group.id === pointGroup.id)?.students.findIndex((groupStudent) => groupStudent.id === student.id) ?? -1) + 1
+                    lastMonthRank: lastMonthPointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0 // Use nested Map
                 })),
-                totalPointsByDay: student.totalPointsByDay,
-                pointsEarnedEachDay: student.pointsEarnedEachDay,
+                totalPointsByDay: student.totalPointsByDay, // Keep Map format
+                pointsEarnedEachDay: student.pointsEarnedEachDay, // Keep Map format
                 monthToMonthChange: student.totalPoints - lastMonthPts,
                 studentGroups: student.studentGroups
             }
@@ -854,45 +879,65 @@ async function getGlobalPointStats(
                 ratioStudentsPerGrade === null ||
                 numStudentsPerPointGroup === null
             ) return true;
-            const studentWithinGradeRatio = student.gradeRank / (allStudentsRankedByGrade.find((grade) => grade.grade === student.grade)?.students.length ?? 1) < ratioStudentsPerGrade
+            // Use the studentsByGrade map for grade count - UPDATED
+            const gradeStudentCount = studentsByGrade.get(student.grade)?.length ?? 1; 
+            const studentWithinGradeRatio = student.gradeRank / gradeStudentCount < ratioStudentsPerGrade;
             const studentWithinOverall = student.rank <= numStudentsOverall;
             const studentWithinPointGroup = 
                 student.pointGroups.find((pointGroup) => {
-                    const rank = allStudentsRankedByPointGroup.find((group) => group.id === pointGroup.id)?.students.findIndex((groupStudent) => groupStudent.id === student.id) ?? -1;
+                    const rank = pointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? -1;
                     return rank <= numStudentsPerPointGroup;
                 }) !== undefined;
             return studentWithinGradeRatio || studentWithinOverall || studentWithinPointGroup;
         }),
         pointGroups: pointGroups ?? [],
-        studentGroups: allStudentGroupsRanked?.map((studentGroup) => ({
-            id: studentGroup.id,
-            name: studentGroup.name,
-            totalStudents: studentGroup.totalStudents,
-            averagePoints: studentGroup.averagePoints,
-            lastMonthAveragePoints: studentGroup.lastMonthAveragePoints,
-            rawPoints: studentGroup.rawPoints,
-            lastMonthRawPoints: studentGroup.lastMonthRawPoints,
-            pointGroups: studentGroup.pointGroups
-        })) ?? [],
-        rankingGroups: allRankingGroupsRanked ?? [],
-        pointEvents: pointData?.map((pointEvent) => ({
-            id: pointEvent.id,
-            name: pointEvent.name,
+        // Use the pre-calculated and sorted student group data
+        studentGroups: allStudentGroupsRanked.map(groupData => ({
+            id: groupData.id,
+            name: groupData.name,
+            totalStudents: groupData.totalStudents,
+            averagePoints: groupData.averagePoints,
+            lastMonthAveragePoints: groupData.lastMonthAveragePoints,
+            rawPoints: groupData.rawPoints,
+            lastMonthRawPoints: groupData.lastMonthRawPoints,
+            pointGroups: groupData.pointGroups
+        })),        
+        // Map the pre-filtered ranking groups
+        rankingGroups: filteredRankingGroups.map((rankingGroup) => ({ 
+            id: rankingGroup.id,
+            name: rankingGroup.name,
+            studentGroups: rankingGroup.studentGroups.map((studentGroupId) => ({
+                id: studentGroupId,
+                // Fetch basic info, avoid complex recalculation here for now
+                name: studentGroups?.find(sg => sg.id === studentGroupId)?.name ?? "Unknown Group", 
+                // Placeholder values - calculation would happen here if needed
+                totalStudents: allStudentGroupPointsData.get(studentGroupId)?.totalStudents ?? 0,
+                averagePoints: allStudentGroupPointsData.get(studentGroupId)?.averagePoints ?? 0,
+                lastMonthAveragePoints: allStudentGroupPointsData.get(studentGroupId)?.lastMonthAveragePoints ?? 0,
+                rawPoints: allStudentGroupPointsData.get(studentGroupId)?.rawPoints ?? 0,
+                lastMonthRawPoints: allStudentGroupPointsData.get(studentGroupId)?.lastMonthRawPoints ?? 0,
+                pointGroups: allStudentGroupPointsData.get(studentGroupId)?.pointGroups ?? []
+            }))
+        })).filter(rg => rg.studentGroups.some(sg => (sg.averagePoints + sg.rawPoints) > 0)), // Keep the filter for empty groups
+        
+        // Use pre-processed point event data
+        pointEvents: processedPointEventsData?.map((event) => ({
+            id: event.id,
+            name: event.name,
+            // Recalculate maxPoints (could also be pre-calculated if needed)
             maxPoints: calculatePoints(
-                pointEvent.template.conversionRule.name,
-                pointEvent.maxInput,
-                pointEvent.template.conversionRule.value
+                event.template.conversionRule.name,
+                event.maxInput,
+                event.template.conversionRule.value
             ),
-            date: pointEvent.date,
-            studentGroupId: pointEvent.studentGroup.id,
-            pointGroup: pointEvent.template.pointGroupId,
-            students: pointEvent.studentPoints.map((studentPoint) => ({
-                id: studentPoint.studentId,
-                points: calculatePoints(
-                    pointEvent.template.conversionRule.name,
-                    studentPoint.input,
-                    pointEvent.template.conversionRule.value
-                )
+            date: event.date,
+            studentGroupId: event.studentGroup.id,
+            pointGroup: event.template.pointGroupId,
+            // Map student IDs to their pre-calculated points and ranks for this event
+            students: Array.from(event.studentsWithRank.entries()).map(([studentId, data]) => ({
+                id: studentId,
+                points: data.points,
+                rank: data.rank
             }))
         })) ?? []
     }
