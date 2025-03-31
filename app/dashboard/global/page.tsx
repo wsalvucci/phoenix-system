@@ -523,61 +523,63 @@ export default function GlobalDashboard() {
                                         </div>
                                 </div>
                         </div>
-                        <div className="grid">
-                                <div className="text-4xl border-b mb-1 flex justify-center items-center pt-5">Monthly Trends</div>
-                                <div className="border rounded-xl p-5 grid">
-                                        <div>
+                        <div className="flex flex-col h-full pt-5">
+                                <div className="text-4xl border-b mb-1 flex justify-center items-center">Monthly Trends</div>
+                                <div className="border rounded-xl p-2 flex flex-col flex-grow overflow-hidden gap-2">
+                                        <div className="overflow-y-auto flex-shrink min-h-0">
                                                 <div className="text-xl border-b mb-1 flex justify-center">Most Points</div>
-                                                {
-                                                        globalDashData?.students
-                                                        .sort((a, b) => b.monthToMonthChange - a.monthToMonthChange)
-                                                        .slice(0, 10)
-                                                        .map(student => (
-                                                                <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
-                                                                        background: metalStyle('#000'),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        gridTemplateColumns: "3fr 1fr",
-                                                                        textShadow: metalTextShadow,
-                                                                        textWrap: "nowrap"
-                                                                }}>
-                                                                        <div className="flex justify-start">
-                                                                                {student.firstName + " " + student.lastName}
+                                                <div className="flex flex-col gap-1">
+                                                        {
+                                                                globalDashData?.students
+                                                                .sort((a, b) => b.monthToMonthChange - a.monthToMonthChange)
+                                                                .slice(0, 10)
+                                                                .map(student => (
+                                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2" style={{
+                                                                                background: metalStyle('#000'),
+                                                                                backgroundSize: "cover",
+                                                                                backgroundPosition: "center",
+                                                                                gridTemplateColumns: "3fr 1fr",
+                                                                                textShadow: metalTextShadow,
+                                                                                textWrap: "nowrap"
+                                                                        }}>
+                                                                                <div className="flex justify-start">
+                                                                                        {student.firstName + " " + student.lastName}
+                                                                                </div>
+                                                                                <div className="flex justify-end text-green-500">
+                                                                                        +{(student.monthToMonthChange).toLocaleString()}pts
+                                                                                </div>
                                                                         </div>
-                                                                        <div className="flex justify-end text-green-500">
-                                                                                +{(student.monthToMonthChange).toLocaleString()}pts
-                                                                        </div>
-                                                                </div>
-                                                        ))
-                                                }
+                                                                ))
+                                                        }
+                                                </div>
                                         </div>
-                                        <div>
+                                        <div className="overflow-y-auto flex-shrink min-h-0">
                                                 <div className="text-xl border-b mb-1 flex justify-center">Most Improved Rank</div>
-                                                {
-                                                        globalDashData?.students
-                                                        .sort((a, b) => (a.rank - a.lastMonthRank) - (b.rank - b.lastMonthRank))
-                                                        .filter(student => student.lastMonthRank - student.rank > 0)
-                                                        .slice(0, 10)
-                                                        .map(student => (
-                                                                <div key={student.id} className="text-lg border grid py-1 px-2 mx-2 my-1" style={{
-                                                                        background: metalStyle('#000'),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        gridTemplateColumns: "3fr 1fr",
-                                                                        textShadow: metalTextShadow,
-                                                                        textWrap: "nowrap"
-                                                                }}>
-                                                                        <div className="flex justify-start">
-                                                                                {student.firstName + " " + student.lastName}
+                                                <div className="flex flex-col gap-1">
+                                                        {
+                                                                globalDashData?.students
+                                                                .sort((a, b) => (a.rank - a.lastMonthRank) - (b.rank - b.lastMonthRank))
+                                                                .filter(student => student.lastMonthRank - student.rank > 0)
+                                                                .slice(0, 10)
+                                                                .map(student => (
+                                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2" style={{
+                                                                                background: metalStyle('#000'),
+                                                                                backgroundSize: "cover",
+                                                                                backgroundPosition: "center",
+                                                                                gridTemplateColumns: "3fr 1fr",
+                                                                                textShadow: metalTextShadow,
+                                                                                textWrap: "nowrap"
+                                                                        }}>
+                                                                                <div className="flex justify-start">
+                                                                                        {student.firstName + " " + student.lastName}
+                                                                                </div>
+                                                                                <div className="flex justify-end text-green-500">
+                                                                                        +{student.lastMonthRank - student.rank}
+                                                                                </div>
                                                                         </div>
-                                                                        <div className="flex justify-end text-green-500">
-                                                                                +{student.lastMonthRank - student.rank}
-                                                                        </div>
-                                                                </div>
-                                                        ))
-                                                }
+                                                                ))
+                                                        }
+                                                </div>
                                         </div>
                                 </div>
                         </div>

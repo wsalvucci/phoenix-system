@@ -655,24 +655,7 @@ async function getGlobalPointStats(
         lastMonthPointGroupRankMap.set(pgId, pgLastMonthRank);
     });
 
-    // --- Remove Unnecessary Intermediate Grouping Calculations --- 
-    // The following blocks using .reduce were previously used but are likely redundant
-    // now that ranks are calculated via Maps and the final structure is built differently.
-    /*
-    const allStudentsRankedByGrade = allStudentsRanked.reduce((acc, student) => {
-        // ... removed code ...
-    }, [] as { // ... type ... } []);
-    allStudentsRankedByGrade.forEach((grade) => {
-        grade.students.sort((a, b) => b.totalPoints - a.totalPoints);
-    })
-    
-    // const allStudentsRankedByGradeLastMonth = allStudentsRankedByLastMonth.reduce( ... ) // Removed
-    // const allStudentsRankedByStudentGroup = allStudentsRanked.reduce( ... ) // Removed
-    // const allStudentsRankedByPointGroup = allStudentsRanked.reduce( ... ) // Removed
-    // const allStudentsRankedByPointGroupLastMonth = allStudentsRankedByLastMonth.reduce( ... ) // Removed
-    */
-
-    // --- Student Group Point Calculation (Remains as optimized previously) ---
+    // --- Student Group Point Calculation (Logic moved to final mapping) ---
     const getStudentGroupPoints = (studentGroup: StudentGroupData | null, startsAt: string | null, endsAt: string | null): any | null => {
         if (!studentGroup) return null;
 
@@ -691,11 +674,30 @@ async function getGlobalPointStats(
             return acc + student.totalPoints;
         }, 0);
 
-        // Calculate lastMonthTotalPoints directly from the array
-        const lastMonthTotalPoints = localPointArray.reduce((acc, student) => {
-            if (!studentGroup.students.includes(student.id)) return acc;
-            return acc + student.lastMonthPoints;
-        }, 0);
+        // Calculate lastMonthTotalPoints accurately based on points earned within the timeframe AND last month
+        const lastMonthCutoff = DateTime.now().minus({ months: 1 });
+        const timeframeStartDate = DateTime.fromISO(startsAt ?? selectedTimeframe?.startDate ?? "");
+        const timeframeEndDate = DateTime.fromISO(endsAt ?? selectedTimeframe?.endDate ?? "");
+
+        let accurateLastMonthTotalPoints = 0;
+        if (timeframeStartDate.isValid && timeframeEndDate.isValid) { // Only calculate if timeframe is valid
+            localPointArray.forEach(student => {
+                if (!studentGroup.students.includes(student.id)) return; // Skip students not in the group
+
+                for (const [dateStr, points] of student.pointsEarnedEachDay.entries()) {
+                    const eventDate = DateTime.fromISO(dateStr);
+                    // Check if the event date is within the timeframe AND within the last month
+                    if (
+                        eventDate.isValid &&
+                        eventDate <= lastMonthCutoff &&
+                        eventDate >= timeframeStartDate &&
+                        eventDate <= timeframeEndDate
+                    ) {
+                        accurateLastMonthTotalPoints += points;
+                    }
+                }
+            });
+        }
 
         // (Keep rawPoints calculations - use pre-processed map)
         const relevantRawPoints = groupRawPointsMap.get(studentGroup.id) ?? [];
@@ -729,7 +731,8 @@ async function getGlobalPointStats(
             name: studentGroup.name,
             totalStudents: studentGroup.students.length,
             averagePoints: studentGroup.students.length > 0 ? totalPoints / studentGroup.students.length : 0,
-            lastMonthAveragePoints: studentGroup.students.length > 0 ? lastMonthTotalPoints / studentGroup.students.length : 0,
+            // Use the accurately calculated last month points
+            lastMonthAveragePoints: studentGroup.students.length > 0 ? accurateLastMonthTotalPoints / studentGroup.students.length : 0,
             rawPoints: rawPoints ?? 0,
             lastMonthRawPoints: lastMonthRawPoints ?? 0,
             pointGroups: pointGroups?.map((pointGroup) => ({
@@ -745,17 +748,14 @@ async function getGlobalPointStats(
         };
     }
 
-    // Pre-calculate all student group points for the main timeframe
-    const allStudentGroupPointsData = new Map<number, any>();
-    studentGroups?.forEach(sg => {
-        const groupData = getStudentGroupPoints(sg, null, null);
-        if (groupData) {
-            allStudentGroupPointsData.set(sg.id, groupData);
-        }
-    });
+    // Create a map for quick lookup of studentGroup objects by ID
+    const studentGroupMap = new Map(studentGroups?.map(sg => [sg.id, sg]));
 
-    // Sort the pre-calculated group data for the studentGroups list in the result
-    const allStudentGroupsRanked = Array.from(allStudentGroupPointsData.values()).sort((a, b) => 
+    // --- Calculate top-level student group list (based on selected timeframe) --- 
+    const topLevelStudentGroupStats = studentGroups?.map(sg => {
+        return getStudentGroupPoints(sg, null, null); // Use selectedTimeframe (null, null)
+    }).filter(data => data !== null) ?? [];
+    const rankedTopLevelStudentGroups = [...topLevelStudentGroupStats].sort((a, b) => 
         (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints)
     );
 
@@ -891,8 +891,8 @@ async function getGlobalPointStats(
             return studentWithinGradeRatio || studentWithinOverall || studentWithinPointGroup;
         }),
         pointGroups: pointGroups ?? [],
-        // Use the pre-calculated and sorted student group data
-        studentGroups: allStudentGroupsRanked.map(groupData => ({
+        // Use the recalculated and sorted top-level student group data
+        studentGroups: rankedTopLevelStudentGroups.map(groupData => ({ 
             id: groupData.id,
             name: groupData.name,
             totalStudents: groupData.totalStudents,
@@ -902,23 +902,31 @@ async function getGlobalPointStats(
             lastMonthRawPoints: groupData.lastMonthRawPoints,
             pointGroups: groupData.pointGroups
         })),        
-        // Map the pre-filtered ranking groups
-        rankingGroups: filteredRankingGroups.map((rankingGroup) => ({ 
-            id: rankingGroup.id,
-            name: rankingGroup.name,
-            studentGroups: rankingGroup.studentGroups.map((studentGroupId) => ({
-                id: studentGroupId,
-                // Fetch basic info, avoid complex recalculation here for now
-                name: studentGroups?.find(sg => sg.id === studentGroupId)?.name ?? "Unknown Group", 
-                // Placeholder values - calculation would happen here if needed
-                totalStudents: allStudentGroupPointsData.get(studentGroupId)?.totalStudents ?? 0,
-                averagePoints: allStudentGroupPointsData.get(studentGroupId)?.averagePoints ?? 0,
-                lastMonthAveragePoints: allStudentGroupPointsData.get(studentGroupId)?.lastMonthAveragePoints ?? 0,
-                rawPoints: allStudentGroupPointsData.get(studentGroupId)?.rawPoints ?? 0,
-                lastMonthRawPoints: allStudentGroupPointsData.get(studentGroupId)?.lastMonthRawPoints ?? 0,
-                pointGroups: allStudentGroupPointsData.get(studentGroupId)?.pointGroups ?? []
-            }))
-        })).filter(rg => rg.studentGroups.some(sg => (sg.averagePoints + sg.rawPoints) > 0)), // Keep the filter for empty groups
+        // Map the pre-filtered ranking groups, calculating stats within the loop
+        rankingGroups: filteredRankingGroups.map((rankingGroup) => { 
+            // Calculate stats for student groups within this specific ranking group's timeframe
+            const studentGroupStatsInRG = rankingGroup.studentGroups.map((studentGroupId) => {
+                const studentGroupObject = studentGroupMap.get(studentGroupId); // Find the student group object
+                // Pass null if studentGroupObject is undefined
+                const stats = getStudentGroupPoints(studentGroupObject ?? null, rankingGroup.timeframeStart, rankingGroup.timeframeEnd); // Calculate with RG timeframe
+                return {
+                    id: studentGroupId,
+                    name: stats?.name ?? studentGroupObject?.name ?? "Unknown Group", 
+                    totalStudents: stats?.totalStudents ?? 0,
+                    averagePoints: stats?.averagePoints ?? 0,
+                    lastMonthAveragePoints: stats?.lastMonthAveragePoints ?? 0, 
+                    rawPoints: stats?.rawPoints ?? 0,
+                    lastMonthRawPoints: stats?.lastMonthRawPoints ?? 0, 
+                    pointGroups: stats?.pointGroups ?? []
+                };
+            });
+
+            return {
+                id: rankingGroup.id,
+                name: rankingGroup.name,
+                studentGroups: studentGroupStatsInRG // Use the calculated stats
+            }
+        }).filter(rg => rg.studentGroups.some(sg => (sg.averagePoints + sg.rawPoints) > 0)), // Keep the filter for empty groups
         
         // Use pre-processed point event data
         pointEvents: processedPointEventsData?.map((event) => ({
