@@ -424,6 +424,15 @@ async function getGlobalPointStats(
     ratioStudentsPerGrade: number | null,
 ) : Promise<GlobalPoints | null> {
 
+    // --- START: Artificial Delay for Local Testing ---
+    // if (process.env.NODE_ENV === 'development') {
+    //     const delaySeconds = 15;
+    //     console.log(`[DEV ONLY] Simulating ${delaySeconds} second delay in getGlobalPointStats...`);
+    //     await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+    //     console.log(`[DEV ONLY] Delay finished.`);
+    // }
+    // --- END: Artificial Delay for Local Testing ---
+
     const [
         pointData,
         students,

@@ -27,12 +27,18 @@ export default function GlobalDashboard() {
 
         const [globalDashData, setGlobalDashData] = useState<GlobalPoints | null>(null);
         const [timeframe, setTimeframe] = useState<number | null>(null);
+        const [fetchError, setFetchError] = useState<string | null>(null);
 
         const updateData = async (timeframeId: number | null) => {
                 console.log("Updating data");
+                setFetchError(null);
                 featuredDashGetGlobalStats(12, timeframeId).then((data) => {
                         console.log(data)
                         setGlobalDashData(data);
+                }).catch((error) => {
+                        console.error("Failed to fetch global stats:", error);
+                        setFetchError(error.message || "An unknown error occurred while fetching data.");
+                        setGlobalDashData(null);
                 })
         }
 
@@ -187,6 +193,38 @@ export default function GlobalDashboard() {
         const isToday = (dateTime: DateTime) => {
                 const curDate = DateTime.now()
                 return (curDate.year == dateTime.year) && (curDate.month == dateTime.month) && (curDate.day == dateTime.day)
+        }
+
+        if (fetchError) {
+            return (
+                <div className={`flex flex-col justify-center items-center min-h-screen text-red-400 text-2xl ${customFont.className}`} style={{
+                        background: `linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url('${seasonalImage()}')`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                }}>
+                       <p>Error Loading Dashboard</p>
+                       <p className="text-lg mt-2">{fetchError}</p>
+                       <button
+                           onClick={() => updateData(timeframe)}
+                           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                       >
+                           Retry
+                       </button>
+                </div>
+            );
+        }
+
+        if (globalDashData === null) {
+             return (
+                 <div className={`flex justify-center items-center min-h-screen text-white text-3xl ${customFont.className}`} style={{
+                         background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${seasonalImage()}')`,
+                         backgroundSize: "cover",
+                         backgroundPosition: "center",
+                 }}>
+                         Loading Global Dashboard...
+                         {/* You could replace this text with a spinner component */}
+                 </div>
+             );
         }
 
         return (
