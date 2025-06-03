@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { calculatePoints } from '@/app/supaApi/universal/universalApi'
+import { calculatePoints } from '@/app/supaApi/universal/utils/calculatePoints'
 import {
   convertPointUsingRuleType,
   PointConversionRuleType,
 } from '@/app/dataClasses'
 
-// Using calculatePoints exported from universal API
+// Using calculatePoints utility function
 
 describe('calculatePoints', () => {
   it('handles add rule', () => {

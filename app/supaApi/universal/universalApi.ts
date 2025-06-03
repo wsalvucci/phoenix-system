@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
 import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, StudentPointsData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
+import { calculatePoints } from "./utils/calculatePoints";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
 import { getOwnStudentData } from "../server/student/studentApi";
@@ -359,68 +360,6 @@ export async function getRankingGroupPoints(
     return filteredEvents;
 }
 
-enum PointConversionRuleType {
-    ADD = 'add',
-    SUBTRACT = 'subtract',
-    MULTIPLY = 'multiply',
-    DIVIDE = 'divide',
-    FORMULA = 'formula',
-    DIRECT = 'direct'
-}
-
-export function calculatePoints(
-    ruleName: string,
-    input: number,
-    ruleValue: number,
-) : number {
-    const convertPointUsingRuleType = (
-            ruleType: PointConversionRuleType,
-            value: number,
-            input: number,
-            formula: string | null = null
-    ): number => {
-            switch (ruleType) {
-                    case PointConversionRuleType.ADD:
-                            return Number(input) + Number(value);
-                    case PointConversionRuleType.SUBTRACT:
-                            return Number(input) - Number(value);
-                    case PointConversionRuleType.MULTIPLY:
-                            return Number(input) * Number(value);
-                    case PointConversionRuleType.DIVIDE:
-                            return Number(input) / Number(value);
-                    case PointConversionRuleType.FORMULA:
-                            if (!formula) return input;
-                            return eval(formula);
-                    case PointConversionRuleType.DIRECT:
-                            return input;
-            }
-    }
-
-    const stringToRuleType = (ruleType: string): PointConversionRuleType => {
-            switch (ruleType.toLowerCase()) {
-                    case 'add':
-                            return PointConversionRuleType.ADD;
-                    case 'subtract':
-                            return PointConversionRuleType.SUBTRACT;
-                    case 'multiply':
-                            return PointConversionRuleType.MULTIPLY;
-                    case 'divide':
-                            return PointConversionRuleType.DIVIDE;
-                    case 'formula':
-                            return PointConversionRuleType.FORMULA;
-                    case 'direct':
-                            return PointConversionRuleType.DIRECT;
-                    default:
-                            return PointConversionRuleType.DIRECT;
-            }
-    }
-
-    return convertPointUsingRuleType(
-        stringToRuleType(ruleName),
-        ruleValue,
-        input
-    )
-}
 
 export async function adminGetGlobalPointStats(
     schoolId: number,
