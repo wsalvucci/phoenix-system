@@ -368,7 +368,7 @@ enum PointConversionRuleType {
     DIRECT = 'direct'
 }
 
-function calculatePoints(
+export function calculatePoints(
     ruleName: string,
     input: number,
     ruleValue: number,
