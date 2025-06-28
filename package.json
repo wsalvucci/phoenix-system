@@ -11,6 +11,7 @@
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "^5.81.2",
     "@vercel/analytics": "^1.4.1",
     "autoprefixer": "10.4.17",
     "color": "^4.2.3",

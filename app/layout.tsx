@@ -1,7 +1,9 @@
 import { Analytics } from "@vercel/analytics/next"
-
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import QueryProvider from "@/components/QueryProvider";
 
 import { config } from '@fortawesome/fontawesome-svg-core'
 import '@fortawesome/fontawesome-svg-core/styles.css'
@@ -25,10 +27,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={GeistSans.className}>
       <body className="bg-background text-foreground">
-        <main className="min-h-screen flex flex-col items-center">
-          {children}
-          <Analytics />
-        </main>
+        <QueryProvider>
+          <ThemeProvider>
+            <main className="min-h-screen flex flex-col items-center">
+              <ThemeToggle />
+              {children}
+              <Analytics />
+            </main>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

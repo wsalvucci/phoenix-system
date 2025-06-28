@@ -9,6 +9,9 @@ import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
 import InstallPrompt from "./components/InstallPrompt";
 import DashboardButton from "./components/DashboardButton";
 import ParentButton from "./components/ParentButton";
+import StudentChip from "@/components/home/StudentChip";
+import AdminChip from "@/components/home/AdminChip";
+import TeacherChip from "@/components/home/TeacherChip";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -23,21 +26,6 @@ export default async function Index() {
   };
 
   const isSupabaseConnected = canInitSupabaseClient();
-
-  const supabase = createClient();
-  const { data: userData } = await supabase.auth.getUser();
-
-  let adminData = null;
-  let teacherData = null;
-  let studentData = null;
-
-  if (userData.user !== null) {
-    adminData = await getOwnAdminData();
-    teacherData = await getOwnTeacherData();
-    studentData = await getOwnStudentData();
-  }
-
-  console.log(userData)
 
   return (
     <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -56,15 +44,15 @@ export default async function Index() {
         <div className="font-bold text-left sm:text-xl md:text-4xl">
           WELCOME TO
         </div>
-        <div className="text-left max-sm:text-5xl md:text-9xl">
+        <div className="text-left sm:text-5xl md:text-8xl">
           PHOENIX
         </div>
 
-        {userData.user !== null && adminData != null && <AdminPortal user={adminData} />}
-        {userData.user !== null && <LinkTeacher user={teacherData} />}
-        {userData.user !== null && <LinkStudent user={studentData} />}
-        {userData.user !== null && <DashboardButton />}
-        {userData.user !== null && <ParentButton />}
+        <div className="flex flex-col gap-4">
+          <StudentChip />
+          <AdminChip />
+          <TeacherChip />
+        </div>
       </div>
     </div>
   );
