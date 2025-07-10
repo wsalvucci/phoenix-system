@@ -1,5 +1,8 @@
 "use client";
 import { backgroundGradient, metalStyle, metalTextShadow, rankToColor } from "@/app/dataClasses";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { useEffect, useState } from "react";
 import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";

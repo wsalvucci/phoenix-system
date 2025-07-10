@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { linkTeacher } from "../serverActions";
 import { createClient } from "@/utils/supabase/client";
 import clientLinkTeacher from "@/app/supaApi/client/clientLinkTeacher";

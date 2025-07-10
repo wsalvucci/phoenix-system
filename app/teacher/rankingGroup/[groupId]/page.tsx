@@ -1,6 +1,9 @@
 "use client";
 
 import { createRankingGroupPointEvent, editRankingGroupPointEvent, getRankingGroupPoints } from "@/app/supaApi/server/teacher/teacherServerActions";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { DateTime } from "luxon";
 import { Fragment, useEffect, useState } from "react";
 import { RankingGroupScorebookData } from "@/app/dataClasses";

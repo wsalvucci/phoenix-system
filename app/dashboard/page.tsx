@@ -1,6 +1,9 @@
 import { Quicksand } from "next/font/google";
 import Link from "next/link"
 
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
+
 const customFont = Quicksand({
   weight: "400",
   subsets: ["latin"]

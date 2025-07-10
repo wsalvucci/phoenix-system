@@ -1,5 +1,8 @@
 "use client";
 import { StudentGroup } from "@/app/dataClasses";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { clientGetStudentGroup } from "@/app/supaApi/client/teacher/teacherApi";
 import { createClient } from "@/utils/supabase/client";
 import { useState, useEffect } from "react";

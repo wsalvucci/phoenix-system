@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { deleteStudentFromParent, getStudentsOfParent, linkStudentToParent } from "../supaApi/server/parent/parentApi";
 import Link from "next/link";
 

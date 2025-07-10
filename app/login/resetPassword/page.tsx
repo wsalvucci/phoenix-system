@@ -1,5 +1,8 @@
 "use client";
 import { SubmitButton } from "../submit-button";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { createClient } from "../../../utils/supabase/client"
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";

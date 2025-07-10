@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { RankingGroupData, StudentGroup, Teacher } from "@/app/dataClasses";
 import Link from "next/link";
 import clientGetOwnTeacherData from "@/app/supaApi/client/teacher/clientGetOwnTeacherData";

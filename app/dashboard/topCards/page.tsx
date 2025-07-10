@@ -1,5 +1,8 @@
 "use client";
 import { getTopScrollingDashboard } from "@/api/dashboard";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { numberToOrdinal, rankToColor } from "@/app/dataClasses";
 import { LoadingState } from "@/components/LoadingLayout";
 import { percentileToRating, Timeframe } from "@/types/domain";

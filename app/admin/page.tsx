@@ -1,5 +1,8 @@
 "use client";
 import { AdminHomeDashboard, School } from "@/types/domain";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import { getAdminHomeDashboard, getAdminSchoolDashboardData } from "@/api/admin";
 import { LoadingState } from "@/components/LoadingLayout";
 import { useQuery } from "@tanstack/react-query";

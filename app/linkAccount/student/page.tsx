@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+
+// Force static generation to reduce serverless functions
+export const dynamic = 'force-static';
 import linkStudent from "@/app/supaApi/server/linkStudent";
 
 export default function LinkStudent() {
