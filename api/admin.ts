@@ -814,34 +814,92 @@ export async function getAdminStudentDataWithTimeframe(
 
     const validStudentGroupRanks = studentGroupRanks.filter((item): item is { groupId: number; name: string; rank: number; outOf: number } => item !== null);
 
-    // Format point events
-    const pointEvents = pointData?.map(record => ({
-      id: record.point_event.id,
-      name: record.point_event.name || '',
-      date: record.point_event.date || '',
-      pointGroup: {
-        id: record.point_event.point_template.point_group.id,
-        name: record.point_event.point_template.point_group.name,
-        color: record.point_event.point_template.point_group.color
-      },
-      pointTemplate: {
-        id: record.point_event.point_template.id,
-        name: record.point_event.point_template.name || '',
-        conversionRuleType: {
-          id: record.point_event.point_template.point_conversion_rule_type.id,
-          name: record.point_event.point_template.point_conversion_rule_type.name
-        },
-        conversionRuleValue: record.point_event.point_template.conversion_rule_value || 0
-      },
-      maxInput: record.point_event.max_input || 0,
-      pointsEarned: {
-        input: record.input_score || 0,
-        value: record.point_value || 0
-      }
-    })) || [];
+    // Format point events with rankings
+    const pointEventsWithRanks = await Promise.all(
+      pointData?.map(async (record) => {
+        // Get all students' scores for this specific point event
+        const { data: eventScores } = await serviceClient
+          .from('student_point')
+          .select(`
+            student_id,
+            input_score,
+            point_value
+          `)
+          .eq('point_event_id', record.point_event.id);
 
-    // Sort point events by date (newest first)
-    pointEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Calculate rank for this student in this event
+        let rank = -1;
+        let outOf = 0;
+        
+        if (eventScores && eventScores.length > 0) {
+          // Sort by points earned (descending), then by input score (descending) for ties
+          const sortedScores = eventScores
+            .map(score => ({
+              studentId: score.student_id,
+              inputScore: score.input_score || 0,
+              pointValue: score.point_value || 0
+            }))
+            .sort((a, b) => {
+              if (b.pointValue !== a.pointValue) {
+                return b.pointValue - a.pointValue;
+              }
+              return b.inputScore - a.inputScore;
+            });
+
+          // Assign ranks (tied students get same rank)
+          let currentRank = 1;
+          let currentScore = sortedScores[0]?.pointValue;
+          let currentInput = sortedScores[0]?.inputScore;
+          
+          for (let i = 0; i < sortedScores.length; i++) {
+            const score = sortedScores[i];
+            
+            // If score is different from previous, increment rank
+            if (score.pointValue !== currentScore || score.inputScore !== currentInput) {
+              currentRank = i + 1;
+              currentScore = score.pointValue;
+              currentInput = score.inputScore;
+            }
+            
+            // If this is our student, record their rank
+            if (score.studentId === studentId) {
+              rank = currentRank;
+            }
+          }
+          
+          outOf = sortedScores.length;
+        }
+
+        return {
+          id: record.point_event.id,
+          name: record.point_event.name || '',
+          date: record.point_event.date || '',
+          pointGroup: {
+            id: record.point_event.point_template.point_group.id,
+            name: record.point_event.point_template.point_group.name,
+            color: record.point_event.point_template.point_group.color
+          },
+          pointTemplate: {
+            id: record.point_event.point_template.id,
+            name: record.point_event.point_template.name || '',
+            conversionRuleType: {
+              id: record.point_event.point_template.point_conversion_rule_type.id,
+              name: record.point_event.point_template.point_conversion_rule_type.name
+            },
+            conversionRuleValue: record.point_event.point_template.conversion_rule_value || 0
+          },
+          maxInput: record.point_event.max_input || 0,
+          pointsEarned: {
+            input: record.input_score || 0,
+            value: record.point_value || 0
+          },
+          rank,
+          outOf
+        };
+      }) || []
+    );
+
+    pointEventsWithRanks.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Calculate overall ranking
     const { data: allStudents } = await serviceClient
@@ -903,7 +961,7 @@ export async function getAdminStudentDataWithTimeframe(
         },
         rankByRankingGroup: validStudentGroupRanks
       },
-      pointEvents
+      pointEvents: pointEventsWithRanks
     };
 
     logger.info('Admin student data retrieved successfully', { 
@@ -911,7 +969,7 @@ export async function getAdminStudentDataWithTimeframe(
       studentId,
       timeframeId,
       totalPoints,
-      pointEventCount: pointEvents.length
+      pointEventCount: pointEventsWithRanks.length
     });
 
     return result;

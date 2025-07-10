@@ -620,7 +620,9 @@ export type AdminStudentDashboardData = {
                 pointsEarned: {
                         input: number,
                         value: number
-                }
+                },
+                rank: number,
+                outOf: number
         }[],
 }
 

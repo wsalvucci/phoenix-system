@@ -79,12 +79,26 @@ export async function getSchoolRankingGroups(schoolId: number): Promise<AdminRan
       throw new Error('Failed to load ranking groups');
     }
 
+    // Debug: Log raw data from database
+    logger.debug('Raw ranking groups data from database', { 
+      schoolId, 
+      rankingGroups,
+      rankingGroupsLength: rankingGroups?.length || 0
+    });
+
     const rankingGroupsData = rankingGroups?.map(group => ({
       id: group.id,
       name: group.name,
       schoolId: group.school_id,
       studentGroupIds: group.ranking_group_pair?.map(pair => pair.student_group_id) || []
     })) || [];
+
+    // Debug: Log processed data
+    logger.debug('Processed ranking groups data', { 
+      schoolId, 
+      rankingGroupsData,
+      rankingGroupsDataLength: rankingGroupsData.length
+    });
 
     logger.info('School ranking groups retrieved successfully', { 
       schoolId, 

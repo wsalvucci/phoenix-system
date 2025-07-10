@@ -32,6 +32,21 @@ export default function RankingGroupsNewPage() {
     isLoading: isLoadingStudentGroups 
   } = useSchoolGroupsWithCounts(schoolId);
 
+  // Debug logging
+  console.log('Ranking Groups Data:', rankingGroups);
+  console.log('Student Groups Data:', studentGroups);
+  console.log('School ID:', schoolId);
+  
+  // More detailed debugging
+  rankingGroups.forEach((group, index) => {
+    console.log(`Ranking Group ${index}:`, {
+      id: group.id,
+      name: group.name,
+      studentGroupIds: group.studentGroupIds,
+      studentGroupIdsLength: group.studentGroupIds?.length || 0
+    });
+  });
+
   // Mutations
   const createRankingGroupMutation = useCreateRankingGroup();
   const addStudentGroupMutation = useAddStudentGroupToRankingGroup();
@@ -199,42 +214,26 @@ export default function RankingGroupsNewPage() {
                   </button>
                 </div>
               </div>
-              <div className="p-4">
+              {/* List all student groups in this ranking group */}
+              <div className="p-4 space-y-2">
                 {rankingGroup.studentGroupIds.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <div className="text-2xl mb-2">👥</div>
-                    <p>No student groups assigned yet</p>
-                    <button
-                      className="border border-border px-3 py-1 rounded mt-2 hover:bg-accent transition-colors"
-                      onClick={() => openAddStudentGroupDialog(rankingGroup)}
-                    >
-                      Add Student Groups
-                    </button>
-                  </div>
+                  <div className="text-muted-foreground italic">No student groups in this ranking group.</div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {rankingGroup.studentGroupIds.map((studentGroupId) => {
-                      const studentGroup = getStudentGroupById(studentGroupId);
-                      if (!studentGroup) return null;
-
-                      return (
-                        <div key={studentGroupId} className="border border-border rounded-lg p-4 relative bg-background">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-foreground">{studentGroup.name}</h4>
-                            <button
-                              className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
-                              onClick={() => handleRemoveStudentGroup(studentGroupId, rankingGroup.id)}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <span>👥 Student Group</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  rankingGroup.studentGroupIds.map((groupId) => {
+                    const group = getStudentGroupById(groupId);
+                    if (!group) return null;
+                    return (
+                      <div key={group.id} className="flex items-center justify-between p-2 rounded border border-border bg-muted">
+                        <div className="font-medium text-foreground">{group.name}</div>
+                        <button
+                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive hover:text-white transition-colors"
+                          onClick={() => handleRemoveStudentGroup(group.id, rankingGroup.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
