@@ -81,7 +81,7 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
                             {sideBarButton("Timeframes", "/timeframes")}
                         </div>
                         {/* Main Content */}
-                        <div className="w-full h-full">
+                        <div className="w-full h-full overflow-y-auto">
                             {/* Children with schoolId and adminId props */}
                             {children}
                         </div>

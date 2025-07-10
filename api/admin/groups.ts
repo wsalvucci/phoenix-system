@@ -69,7 +69,8 @@ export async function getSchoolGroupsWithCounts(schoolId: number, includeArchive
         id,
         name,
         parent_id,
-        archived
+        archived,
+        school_id
       `)
       .eq('school_id', schoolId);
     
@@ -84,6 +85,14 @@ export async function getSchoolGroupsWithCounts(schoolId: number, includeArchive
       logger.error('Error fetching groups', { schoolId, groupsError });
       throw new Error('Failed to load groups');
     }
+
+    // Debug: Log the groups being returned
+    logger.debug('Groups returned from database', { 
+      schoolId, 
+      groups,
+      groupsLength: groups?.length || 0,
+      includeArchived
+    });
 
     // Get student counts for each group using aggregation
     const { data: studentCounts, error: studentCountsError } = await serviceClient

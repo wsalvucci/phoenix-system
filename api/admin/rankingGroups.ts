@@ -9,6 +9,11 @@ export type AdminRankingGroupData = {
   name: string;
   schoolId: number;
   studentGroupIds: number[];
+  studentGroups: {
+    id: number;
+    name: string;
+    archived: boolean;
+  }[];
 };
 
 /**
@@ -69,7 +74,12 @@ export async function getSchoolRankingGroups(schoolId: number): Promise<AdminRan
         name,
         school_id,
         ranking_group_pair (
-          student_group_id
+          student_group_id,
+          student_group (
+            id,
+            name,
+            archived
+          )
         )
       `)
       .eq('school_id', schoolId);
@@ -90,7 +100,16 @@ export async function getSchoolRankingGroups(schoolId: number): Promise<AdminRan
       id: group.id,
       name: group.name,
       schoolId: group.school_id,
-      studentGroupIds: group.ranking_group_pair?.map(pair => pair.student_group_id) || []
+      studentGroupIds: group.ranking_group_pair?.map(pair => pair.student_group_id) || [],
+      studentGroups: group.ranking_group_pair
+        ?.map(pair => ({
+          id: pair.student_group?.id,
+          name: pair.student_group?.name,
+          archived: pair.student_group?.archived
+        }))
+        .filter((sg): sg is { id: number; name: string; archived: boolean } => 
+          sg.id !== undefined && sg.name !== undefined && sg.archived !== undefined
+        ) || []
     })) || [];
 
     // Debug: Log processed data
@@ -186,7 +205,8 @@ export async function createRankingGroup(schoolId: number, groupData: {
       id: newRankingGroup.id,
       name: newRankingGroup.name,
       schoolId: newRankingGroup.school_id,
-      studentGroupIds: []
+      studentGroupIds: [],
+      studentGroups: []
     };
 
     logger.info('Ranking group created successfully', { 

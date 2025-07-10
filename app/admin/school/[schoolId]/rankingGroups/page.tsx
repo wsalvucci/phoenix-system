@@ -30,22 +30,7 @@ export default function RankingGroupsNewPage() {
   const { 
     data: studentGroups = [], 
     isLoading: isLoadingStudentGroups 
-  } = useSchoolGroupsWithCounts(schoolId);
-
-  // Debug logging
-  console.log('Ranking Groups Data:', rankingGroups);
-  console.log('Student Groups Data:', studentGroups);
-  console.log('School ID:', schoolId);
-  
-  // More detailed debugging
-  rankingGroups.forEach((group, index) => {
-    console.log(`Ranking Group ${index}:`, {
-      id: group.id,
-      name: group.name,
-      studentGroupIds: group.studentGroupIds,
-      studentGroupIdsLength: group.studentGroupIds?.length || 0
-    });
-  });
+  } = useSchoolGroupsWithCounts(schoolId, true); // Include archived groups
 
   // Mutations
   const createRankingGroupMutation = useCreateRankingGroup();
@@ -108,10 +93,6 @@ export default function RankingGroupsNewPage() {
   const openAddStudentGroupDialog = (rankingGroup: AdminRankingGroupData) => {
     setSelectedRankingGroup(rankingGroup);
     setIsAddStudentGroupDialogOpen(true);
-  };
-
-  const getStudentGroupById = (id: number): AdminGroupData | undefined => {
-    return studentGroups.find(group => group.id === id);
   };
 
   const renderStudentGroupHierarchy = (groups: AdminGroupData[], level: number = 0): JSX.Element[] => {
@@ -203,7 +184,7 @@ export default function RankingGroupsNewPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-semibold text-foreground">👥 {rankingGroup.name}</span>
                     <span className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-sm">
-                      {rankingGroup.studentGroupIds.length} groups
+                      {rankingGroup.studentGroups.length} groups
                     </span>
                   </div>
                   <button
@@ -216,24 +197,27 @@ export default function RankingGroupsNewPage() {
               </div>
               {/* List all student groups in this ranking group */}
               <div className="p-4 space-y-2">
-                {rankingGroup.studentGroupIds.length === 0 ? (
+                {rankingGroup.studentGroups.length === 0 ? (
                   <div className="text-muted-foreground italic">No student groups in this ranking group.</div>
                 ) : (
-                  rankingGroup.studentGroupIds.map((groupId) => {
-                    const group = getStudentGroupById(groupId);
-                    if (!group) return null;
-                    return (
-                      <div key={group.id} className="flex items-center justify-between p-2 rounded border border-border bg-muted">
+                  rankingGroup.studentGroups.map((group) => (
+                    <div key={group.id} className="flex items-center justify-between p-2 rounded border border-border bg-muted">
+                      <div className="flex items-center gap-2">
                         <div className="font-medium text-foreground">{group.name}</div>
-                        <button
-                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive hover:text-white transition-colors"
-                          onClick={() => handleRemoveStudentGroup(group.id, rankingGroup.id)}
-                        >
-                          Remove
-                        </button>
+                        {group.archived && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                            Archived
+                          </span>
+                        )}
                       </div>
-                    );
-                  })
+                      <button
+                        className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive hover:text-white transition-colors"
+                        onClick={() => handleRemoveStudentGroup(group.id, rankingGroup.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
