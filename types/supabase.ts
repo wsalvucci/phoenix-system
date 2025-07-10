@@ -652,6 +652,7 @@ export type Database = {
       }
       student_group: {
         Row: {
+          archived: boolean
           created_at: string
           id: number
           name: string
@@ -659,6 +660,7 @@ export type Database = {
           school_id: number | null
         }
         Insert: {
+          archived?: boolean
           created_at?: string
           id?: number
           name: string
@@ -666,6 +668,7 @@ export type Database = {
           school_id?: number | null
         }
         Update: {
+          archived?: boolean
           created_at?: string
           id?: number
           name?: string
@@ -1309,6 +1312,7 @@ export type Database = {
       get_student_groups_as_admin: {
         Args: { school_id: number }
         Returns: {
+          archived: boolean
           created_at: string
           id: number
           name: string

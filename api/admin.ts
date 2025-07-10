@@ -4,6 +4,12 @@ import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { AdminHomeDashboard, AdminSchoolDash, Admin } from '@/types/domain';
 import { createServerLogger } from '@/utils/serverLogger';
+import { getSchoolStudents } from './admin/students';
+import { getSchoolGroupsWithCounts } from './admin/groups';
+import { getSchoolTeachers } from './admin/teachers';
+import { getSchoolPointGroups } from './admin/pointGroups';
+import { getSchoolRankingGroups } from './admin/rankingGroups';
+import { getSchoolTimeframes } from './admin/timeframes';
 
 export async function getOwnAdminData(): Promise<Admin> {
   const logger = createServerLogger({ component: 'AdminAPI', action: 'getOwnAdminData' });
@@ -153,7 +159,10 @@ export async function getAdminSchoolDash(schoolId: number): Promise<AdminSchoolD
         id,
         first_name,
         last_name,
-        grade
+        grade,
+        student_point (
+          point_value
+        )
       `)
       .eq('school_id', schoolId);
 
@@ -192,21 +201,25 @@ export async function getAdminSchoolDash(schoolId: number): Promise<AdminSchoolD
       throw new Error('Failed to load point groups');
     }
 
-    // For now, we'll set totalPoints to 0 for all students
-    // In a real implementation, you'd calculate this from the student_point table
-    const studentsWithPoints = students?.map(student => ({
-      id: student.id,
-      firstName: student.first_name,
-      lastName: student.last_name,
-      grade: student.grade,
-      totalPoints: 0 // TODO: Calculate actual points
-    })) || [];
+    // Calculate total points for each student by summing their point_value
+    const studentsWithPoints = students?.map(student => {
+      const totalPoints = student.student_point?.reduce((acc, point) => acc + (point.point_value || 0), 0) || 0;
+      
+      return {
+        id: student.id,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        grade: student.grade,
+        totalPoints: totalPoints
+      };
+    }) || [];
 
     logger.info('Admin school dashboard data retrieved successfully', { 
       schoolId, 
       studentCount: studentsWithPoints.length,
       groupCount: studentGroups?.length || 0,
-      pointGroupCount: pointGroups?.length || 0
+      pointGroupCount: pointGroups?.length || 0,
+      totalPointsCalculated: studentsWithPoints.reduce((acc, student) => acc + student.totalPoints, 0)
     });
 
     return {
@@ -315,5 +328,171 @@ export async function getAdminHomeDashboard(): Promise<AdminHomeDashboard> {
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, error instanceof Error ? error : undefined);
     throw new Error('Failed to load admin dashboard');
+  }
+} 
+
+/**
+ * Get comprehensive school dashboard data using the robust admin APIs
+ */
+export async function getAdminSchoolDashboardData(schoolId: number): Promise<AdminSchoolDash> {
+  const logger = createServerLogger({ component: 'AdminAPI', action: 'getAdminSchoolDashboardData', schoolId });
+  
+  try {
+    // Get current user from regular client
+    const supabase = createClient();
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !supabaseUser) {
+      logger.error('User not authenticated', { authError });
+      throw new Error('User not authenticated');
+    }
+
+    // Use service client for database operations
+    const serviceClient = await supabaseServiceClient();
+    
+    // Get user data and verify admin access
+    const { data: userData, error: userError } = await serviceClient
+      .from('user')
+      .select(`
+        id,
+        admin_id,
+        admin (
+          admin_school_pair (
+            school_id
+          )
+        )
+      `)
+      .eq('supabase_id', supabaseUser.id)
+      .single();
+
+    if (userError || !userData) {
+      logger.error('Error fetching user data', { userId: supabaseUser.id }, new Error(userError?.message || 'User not found'));
+      throw new Error('Failed to load user data');
+    }
+
+    if (!userData.admin_id) {
+      logger.error('User is not an admin', { userId: supabaseUser.id });
+      throw new Error('Access denied - admin role required');
+    }
+
+    // Verify admin has access to this school
+    const adminSchools = userData.admin?.admin_school_pair || [];
+    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
+    
+    if (!hasAccess) {
+      logger.error('Access denied - admin does not have access to this school', { 
+        adminId: userData.admin_id, 
+        schoolId,
+        adminSchools: adminSchools.map(p => p.school_id)
+      });
+      throw new Error('Access denied - admin does not have access to this school');
+    }
+
+    // Get school info
+    const { data: school, error: schoolError } = await serviceClient
+      .from('school')
+      .select('id, name')
+      .eq('id', schoolId)
+      .single();
+
+    if (schoolError || !school) {
+      logger.error('School not found', { schoolId, schoolError });
+      throw new Error('School not found');
+    }
+
+    // Use the robust admin APIs to get comprehensive data
+    const [students, groups, teachers, pointGroups, rankingGroups, timeframes] = await Promise.all([
+      getSchoolStudents(schoolId),
+      getSchoolGroupsWithCounts(schoolId),
+      getSchoolTeachers(schoolId),
+      getSchoolPointGroups(schoolId),
+      getSchoolRankingGroups(schoolId),
+      getSchoolTimeframes(schoolId)
+    ]);
+
+    // Get students with their total points using the robust point calculation
+    const { data: studentsWithPoints, error: studentsError } = await serviceClient
+      .from('student')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        grade,
+        student_point (
+          point_value,
+          input_score,
+          point_event (
+            point_template (
+              point_conversion_rule_type (
+                name
+              ),
+              conversion_rule_value
+            )
+          )
+        )
+      `)
+      .eq('school_id', schoolId);
+
+    if (studentsError) {
+      logger.error('Error fetching students with points', { schoolId, studentsError });
+      throw new Error('Failed to load students with points');
+    }
+
+    // Calculate total points for each student using the robust conversion system
+    const studentsWithCalculatedPoints = studentsWithPoints?.map(student => {
+      const totalPoints = student.student_point?.reduce((acc, point) => {
+        // Use the point_value directly as it should already be calculated with conversion rules
+        return acc + (point.point_value || 0);
+      }, 0) || 0;
+      
+      return {
+        id: student.id,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        grade: student.grade,
+        totalPoints: totalPoints
+      };
+    }) || [];
+
+    // Transform groups to match the expected format
+    const transformedGroups = groups.map(group => ({
+      id: group.id,
+      name: group.name,
+      parentId: group.parentId || null
+    }));
+
+    // Transform point groups to match the expected format
+    const transformedPointGroups = pointGroups.map(pointGroup => ({
+      id: pointGroup.id,
+      name: pointGroup.name,
+      color: pointGroup.color || '#000000'
+    }));
+
+    logger.info('Admin school dashboard data retrieved successfully using robust APIs', { 
+      schoolId, 
+      studentCount: studentsWithCalculatedPoints.length,
+      groupCount: transformedGroups.length,
+      pointGroupCount: transformedPointGroups.length,
+      teacherCount: teachers.length,
+      rankingGroupCount: rankingGroups.length,
+      timeframeCount: timeframes.length,
+      totalPointsCalculated: studentsWithCalculatedPoints.reduce((acc, student) => acc + student.totalPoints, 0)
+    });
+
+    return {
+      school: {
+        id: school.id,
+        name: school.name
+      },
+      students: studentsWithCalculatedPoints,
+      studentGroups: transformedGroups,
+      pointTypes: transformedPointGroups
+    };
+  } catch (error) {
+    logger.error('Failed to load school dashboard using robust APIs', { 
+      schoolId, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw new Error('Failed to load school dashboard');
   }
 } 

@@ -13,7 +13,10 @@ import {
 import { 
   getSchoolGroups,
   getSchoolGroupsWithCounts,
-  createGroup
+  createGroup,
+  updateGroup,
+  archiveGroup,
+  deleteGroup
 } from '@/api/admin/groups';
 import { 
   getSchoolRankingGroups,
@@ -186,10 +189,10 @@ export const useSchoolGroups = (schoolId: number) => {
   });
 };
 
-export const useSchoolGroupsWithCounts = (schoolId: number) => {
+export const useSchoolGroupsWithCounts = (schoolId: number, includeArchived: boolean = false) => {
   return useQuery({
-    queryKey: [...adminQueryKeys.groups(schoolId), 'withCounts'],
-    queryFn: () => getSchoolGroupsWithCounts(schoolId),
+    queryKey: [...adminQueryKeys.groups(schoolId), 'withCounts', includeArchived],
+    queryFn: () => getSchoolGroupsWithCounts(schoolId, includeArchived),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -206,6 +209,55 @@ export const useCreateGroup = () => {
         parentId?: number;
       };
     }) => createGroup(schoolId, groupData),
+    onSuccess: (_, { schoolId }) => {
+      // Invalidate and refetch groups list
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useUpdateGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, groupData }: {
+      schoolId: number;
+      groupId: number;
+      groupData: {
+        name?: string;
+        parentId?: number | null;
+      };
+    }) => updateGroup(schoolId, groupId, groupData),
+    onSuccess: (_, { schoolId }) => {
+      // Invalidate and refetch groups list
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useArchiveGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId }: {
+      schoolId: number;
+      groupId: number;
+    }) => archiveGroup(schoolId, groupId),
+    onSuccess: (_, { schoolId }) => {
+      // Invalidate and refetch groups list
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useDeleteGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId }: {
+      schoolId: number;
+      groupId: number;
+    }) => deleteGroup(schoolId, groupId),
     onSuccess: (_, { schoolId }) => {
       // Invalidate and refetch groups list
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });

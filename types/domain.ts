@@ -255,9 +255,7 @@ export type AdminGroupData = {
   id: number;
   name: string;
   parentId?: number | null;
-  studentCount?: number;
-  teacherCount?: number;
-  childGroups?: AdminGroupData[];
+  archived?: boolean;
 };
 
 export type AdminPointTypeData = {

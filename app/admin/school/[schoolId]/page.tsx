@@ -4,7 +4,7 @@ import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis } fro
 import Link from "next/link";
 import { Space_Mono } from "next/font/google"
 import { useQuery } from "@tanstack/react-query";
-import { getAdminSchoolDash } from "@/api/admin";
+import { getAdminSchoolDashboardData } from "@/api/admin";
 import { useTheme } from "@/components/ThemeProvider";
 import ThemeInput from "@/components/ThemeInput";
 import ThemeSelect from "@/components/ThemeSelect";
@@ -32,7 +32,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
     const { theme } = useTheme();
     const {data: adminDashData, isLoading, error} = useQuery({
         queryKey: ["adminSchoolDash", schoolId],
-        queryFn: () => wrapServerAction(getAdminSchoolDash)(parseInt(schoolId))
+        queryFn: () => wrapServerAction(getAdminSchoolDashboardData)(parseInt(schoolId))
     })
 
     const [studentSearch, setStudentSearch] = useState<string>("")
