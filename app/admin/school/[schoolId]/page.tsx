@@ -1,11 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis } from "recharts";
 import Link from "next/link";
-import Color from "color";
 import { Space_Mono } from "next/font/google"
-import { adminGetGlobalPointStats } from "@/app/supaApi/universal/universalApi";
-import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
+import { useQuery } from "@tanstack/react-query";
+import { getAdminSchoolDash } from "@/api/admin";
+import { useTheme } from "@/components/ThemeProvider";
+import ThemeInput from "@/components/ThemeInput";
+import ThemeSelect from "@/components/ThemeSelect";
+import { LoadingState } from "@/components/LoadingLayout";
 
 const customFont = Space_Mono({
     weight: "400",
@@ -25,90 +28,99 @@ enum SortDirection {
 }
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
-
-    const [adminDashData, setAdminDashData] = useState<GlobalPoints | null>(null)
+    const { theme } = useTheme();
+    const {data: adminDashData, isLoading, error} = useQuery({
+        queryKey: ["adminSchoolDash"],
+        queryFn: () => getAdminSchoolDash(parseInt(schoolId))
+    })
 
     const [studentSearch, setStudentSearch] = useState<string>("")
     const [studentSort, setStudentSort] = useState<SortType>(SortType.LastName)
     const [studentSortDirection, setStudentSortDirection] = useState<SortDirection>(SortDirection.Ascending)
 
+    const [studentHover, setStudentHover] = useState<number | null>(null)
+
     const [groupSearch, setGroupSearch] = useState<string>("")
     const [groupSort, setGroupSort] = useState<SortType>(SortType.LastName)
-
-    const getAdminDashData = async () => {
-        const testData = await adminGetGlobalPointStats(
-            parseInt(schoolId),
-            null,
-        )
-        console.log(testData)
-        setAdminDashData(testData)
-    }
-
-    useEffect(() => {
-        getAdminDashData();
-    }, []);
+    const [groupSortDirection, setGroupSortDirection] = useState<SortDirection>(SortDirection.Ascending)
 
     return (
+        <LoadingState
+            isLoading={isLoading}
+            error={error}
+            data={adminDashData}
+            errorFallback={(err) => <div>Error: {err.message}</div>}
+        >
+            {(data) => (
         <div className="animate-in w-full">
             <ResponsiveContainer width="100%" height={200}>
                 <ScatterChart className="w-full h-full">
                     <YAxis hide dataKey="y" type="number" name="score" unit="pts" />
                     <ZAxis dataKey="name" type="category" name="student" />
                     <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter data={
-                        adminDashData?.students.sort((a, b) => a.totalPoints - b.totalPoints).map(student => {
-                            return {
-                                name: student.lastName + ", " + student.firstName,
-                                y: student.totalPoints
-                            }
-                        })
-                    } />
+                    <Scatter 
+                        data={
+                            adminDashData?.students
+                                .sort((a, b) => a.totalPoints - b.totalPoints)
+                                .map(student => {
+                                    return {
+                                        name: student.lastName + ", " + student.firstName,
+                                        y: student.totalPoints,
+                                        id: student.id
+                                    }
+                                })
+                        } 
+                        shape={(props: any) => {
+                            const { cx, cy, payload } = props;
+                            const isHovered = payload.id === studentHover;
+                            const color = isHovered 
+                                ? (theme === 'dark' ? "#00ff00" : "#00ff00") // Blue - lighter for dark theme
+                                : (theme === 'dark' ? "#9ca3af" : "#6b7280"); // Gray - lighter for dark theme
+                            return (
+                                <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={4}
+                                    fill={color}
+                                />
+                            );
+                        }}
+                    />
                 </ScatterChart>
             </ResponsiveContainer>
-            <div>
-                <div className="text-xl text-center w-full">Avg Points Per Point Group Per Student</div>
-                {
-                    // Average points by point group per student
-                    adminDashData?.pointGroups.map(pointGroup => {
-                        let totalPoints = adminDashData.students.reduce((acc, student) => {
-                            return acc + (student.pointGroups.find(pg => pg.id === pointGroup.id)?.points ?? 0)
-                        }, 0)
-
-                        return (
-                            <div key={pointGroup.id} className="grid grid-cols-2 text-center" style={{
-                                color: Color(pointGroup.color).darken(0.25).toString()
-                            }}>
-                                <div>{pointGroup.name}</div>
-                                <div>{Math.round(totalPoints / adminDashData.students.length)}</div>
-                            </div>
-                        )
-                    })
-                }
-            </div>
             <div className="grid grid-cols-3 gap-1">
                 <div>
                     <div className="text-xl">Students</div>
                     <div>
-                        <input type="text" placeholder="Search Students" className="w-full rounded-lg px-3"
+                        <ThemeInput
+                            type="text"
+                            placeholder="Search Students"
+                            fullWidth
                             onChange={(e) => {
                                 setStudentSearch(e.target.value)
                             }}
                         />
                         <div className="grid grid-cols-2 gap-1 my-1">
-                            <select className="rounded-lg px-3" onChange={(e) => {
-                                setStudentSort(parseInt(e.target.value))
-                            }}>
+                            <ThemeSelect
+                                fullWidth
+                                onChange={(e) => {
+                                    setStudentSort(parseInt(e.target.value))
+                                }}
+                            >
                                 <option value={SortType.LastName}>Last Name</option>
                                 <option value={SortType.FirstName}>First Name</option>
                                 <option value={SortType.Grade}>Grade</option>
                                 <option value={SortType.Points}>Points</option>
-                            </select>
-                            <select className="rounded-lg px-3" onChange={(e) => {
-                                setStudentSortDirection(parseInt(e.target.value))
-                            }}>
+                            </ThemeSelect>
+                            <ThemeSelect
+                                fullWidth
+                                onChange={(e) => {
+                                    setStudentSortDirection(parseInt(e.target.value))
+                                }}
+                            >
                                 <option value={SortDirection.Ascending}>ASC</option>
                                 <option value={SortDirection.Descending}>DESC</option>
-                            </select>
+                            </ThemeSelect>
                         </div>
                         <div className="grid grid-cols-4 border-b-2">
                             <div>Last Name</div>
@@ -116,7 +128,10 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             <div>Grade</div>
                             <div>Points</div>
                         </div>
-                        <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}>
+                        <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}
+                        onMouseLeave={() => {
+                            setStudentHover(null)
+                        }}>
                             {adminDashData?.students
                                 .filter(student => student.firstName.toLowerCase().includes(studentSearch.toLowerCase()) || student.lastName.toLowerCase().includes(studentSearch.toLowerCase()))
                                 .sort((a, b) => {
@@ -134,7 +149,13 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                 .map(student => {
                                     return (
                                         <Link href={`/admin/school/${schoolId}/student/${student.id}`}>
-                                            <div key={student.id} className="grid grid-cols-4 hover:bg-slate-300 dark:hover:bg-slate-700">
+                                            <div 
+                                                key={student.id} 
+                                                className="grid grid-cols-4 hover:bg-slate-300 dark:hover:bg-slate-700"
+                                                onMouseEnter={() => {
+                                                    setStudentHover(student.id)
+                                                }}
+                                            >
                                                 <div>{student.lastName}</div>
                                                 <div>{student.firstName}</div>
                                                 <div>{student.grade}</div>
@@ -149,23 +170,62 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                 <div>
                     <div className="text-xl">Groups</div>
                     <div>
+                        <ThemeInput
+                            type="text"
+                            placeholder="Search Groups"
+                            fullWidth
+                            onChange={(e) => {
+                                setGroupSearch(e.target.value)
+                            }}
+                        />
+                        <div className="grid grid-cols-2 gap-1 my-1">
+                            <ThemeSelect
+                                fullWidth
+                                onChange={(e) => {
+                                    setGroupSort(parseInt(e.target.value))
+                                }}
+                            >
+                                <option value={SortType.LastName}>Name</option>
+                            </ThemeSelect>
+                            <ThemeSelect
+                                fullWidth
+                                onChange={(e) => {
+                                    setGroupSortDirection(parseInt(e.target.value))
+                                }}
+                            >
+                                <option value={SortDirection.Ascending}>ASC</option>
+                                <option value={SortDirection.Descending}>DESC</option>
+                            </ThemeSelect>
+                        </div>
                         <div className="grid grid-cols-1 border-b-2">
                             <div>Name</div>
                         </div>
                         <div className={`overflow-y-scroll max-h-96 ${customFont.className}`}>
-                            {adminDashData?.studentGroups.sort((a, b) => a.name.localeCompare(b.name)).map(group => {
-                                return (
-                                    <Link href={`/admin/school/${schoolId}/editGroup/${group.id}`}>
-                                        <div key={group.id} className="grid grid-cols-1 hover:bg-slate-300 dark:hover:bg-slate-700">
-                                            {group.name}
-                                        </div>
-                                    </Link>
-                                )
-                            })}
+                            {adminDashData?.studentGroups
+                                .filter(group => group.name.toLowerCase().includes(groupSearch.toLowerCase()))
+                                .sort((a, b) => {
+                                    switch (groupSort) {
+                                        case SortType.LastName:
+                                            return groupSortDirection === SortDirection.Ascending ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+                                        default:
+                                            return a.name.localeCompare(b.name)
+                                    }
+                                })
+                                .map(group => {
+                                    return (
+                                        <Link href={`/admin/school/${schoolId}/editGroup/${group.id}`}>
+                                            <div key={group.id} className="grid grid-cols-1 hover:bg-slate-300 dark:hover:bg-slate-700">
+                                                {group.name}
+                                            </div>
+                                        </Link>
+                                    )
+                                })}
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+            </div>
+        )}
+        </LoadingState>
     )
 }

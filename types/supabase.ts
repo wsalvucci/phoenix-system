@@ -184,6 +184,7 @@ export type Database = {
           id: number
           max_input: number
           name: string | null
+          point_group_id: number | null
           student_group_id: number
           template_id: number
         }
@@ -193,6 +194,7 @@ export type Database = {
           id?: number
           max_input?: number
           name?: string | null
+          point_group_id?: number | null
           student_group_id: number
           template_id: number
         }
@@ -202,10 +204,18 @@ export type Database = {
           id?: number
           max_input?: number
           name?: string | null
+          point_group_id?: number | null
           student_group_id?: number
           template_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "point_event_point_group_id_fkey"
+            columns: ["point_group_id"]
+            isOneToOne: false
+            referencedRelation: "point_group"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "point_event_student_group_id_fkey"
             columns: ["student_group_id"]
@@ -474,6 +484,38 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      school_admins: {
+        Row: {
+          created_at: string
+          id: number
+          link_code: string
+          linked_supa_id: string
+          school_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          link_code?: string
+          linked_supa_id: string
+          school_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          link_code?: string
+          linked_supa_id?: string
+          school_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_admins_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       school_timeframes: {
         Row: {
@@ -1006,56 +1048,35 @@ export type Database = {
         Returns: undefined
       }
       add_student_to_student_group: {
-        Args: {
-          provided_student_id: number
-          provided_student_group_id: number
-        }
+        Args: { provided_student_id: number; provided_student_group_id: number }
         Returns: undefined
       }
       add_teacher_to_student_group: {
-        Args: {
-          provided_teacher_id: number
-          provided_student_group_id: number
-        }
+        Args: { provided_teacher_id: number; provided_student_group_id: number }
         Returns: undefined
       }
       check_admin_access_to_school: {
-        Args: {
-          provided_school_id: number
-        }
+        Args: { provided_school_id: number }
         Returns: undefined
       }
       check_admin_access_to_student: {
-        Args: {
-          provided_student_id: number
-        }
+        Args: { provided_student_id: number }
         Returns: undefined
       }
       check_admin_access_to_student_group: {
-        Args: {
-          provided_student_group_id: number
-        }
+        Args: { provided_student_group_id: number }
         Returns: undefined
       }
       check_admin_access_to_teacher: {
-        Args: {
-          provided_teacher_id: number
-        }
+        Args: { provided_teacher_id: number }
         Returns: undefined
       }
       create_group: {
-        Args: {
-          school_id: number
-          name: string
-          parent_id: number
-        }
+        Args: { school_id: number; name: string; parent_id: number }
         Returns: undefined
       }
       create_school_and_pair_admin: {
-        Args: {
-          admin_id: number
-          school_name: string
-        }
+        Args: { admin_id: number; school_name: string }
         Returns: undefined
       }
       get_own_admin_data: {
@@ -1078,9 +1099,7 @@ export type Database = {
         }[]
       }
       get_point_groups_as_admin: {
-        Args: {
-          school_id: number
-        }
+        Args: { school_id: number }
         Returns: {
           color: string
           created_at: string
@@ -1092,9 +1111,7 @@ export type Database = {
         }[]
       }
       get_school: {
-        Args: {
-          school_id: number
-        }
+        Args: { school_id: number }
         Returns: {
           created_at: string
           id: number
@@ -1102,10 +1119,7 @@ export type Database = {
         }[]
       }
       get_school_student_as_admin: {
-        Args: {
-          provided_school_id: number
-          provided_student_id: number
-        }
+        Args: { provided_school_id: number; provided_student_id: number }
         Returns: {
           birthdate: string | null
           created_at: string
@@ -1121,9 +1135,7 @@ export type Database = {
         }[]
       }
       get_school_students_as_admin: {
-        Args: {
-          provided_school_id: number
-        }
+        Args: { provided_school_id: number }
         Returns: {
           birthdate: string | null
           created_at: string
@@ -1139,10 +1151,7 @@ export type Database = {
         }[]
       }
       get_school_teacher_as_admin: {
-        Args: {
-          provided_school_id: number
-          provided_teacher_id: number
-        }
+        Args: { provided_school_id: number; provided_teacher_id: number }
         Returns: {
           teacher_id: number
           first_name: string
@@ -1152,9 +1161,7 @@ export type Database = {
         }[]
       }
       get_school_teachers_as_admin: {
-        Args: {
-          provided_school_id: number
-        }
+        Args: { provided_school_id: number }
         Returns: {
           teacher_id: number
           first_name: string
@@ -1172,10 +1179,7 @@ export type Database = {
         }[]
       }
       get_student_group_as_admin: {
-        Args: {
-          provided_school_id: number
-          provided_group_id: number
-        }
+        Args: { provided_school_id: number; provided_group_id: number }
         Returns: {
           id: number
           name: string
@@ -1186,10 +1190,7 @@ export type Database = {
         }[]
       }
       get_student_group_students_as_admin: {
-        Args: {
-          provided_school_id: number
-          provided_student_group_id: number
-        }
+        Args: { provided_school_id: number; provided_student_group_id: number }
         Returns: {
           birthdate: string | null
           created_at: string
@@ -1205,9 +1206,7 @@ export type Database = {
         }[]
       }
       get_student_groups_as_admin: {
-        Args: {
-          school_id: number
-        }
+        Args: { school_id: number }
         Returns: {
           created_at: string
           id: number
@@ -1230,10 +1229,7 @@ export type Database = {
         }[]
       }
       remove_student_from_student_group: {
-        Args: {
-          provided_student_id: number
-          provided_student_group_id: number
-        }
+        Args: { provided_student_id: number; provided_student_group_id: number }
         Returns: undefined
       }
       remove_teacher_from_student_group: {
@@ -1265,27 +1261,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1293,20 +1291,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1314,20 +1314,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1335,21 +1337,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -1358,6 +1362,15 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const

@@ -37,6 +37,8 @@ module.exports = {
           background: "hsl(var(--btn-background))",
           "background-hover": "hsl(var(--btn-background-hover))",
         },
+        "off-white": "hsl(var(--off-white))",
+        "off-black": "hsl(var(--off-black))",
       },
       borderRadius: {
         lg: "var(--radius)",
