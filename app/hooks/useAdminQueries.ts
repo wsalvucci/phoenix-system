@@ -13,10 +13,15 @@ import {
 import { 
   getSchoolGroups,
   getSchoolGroupsWithCounts,
+  getGroupById,
   createGroup,
   updateGroup,
   archiveGroup,
-  deleteGroup
+  deleteGroup,
+  addStudentToGroup,
+  removeStudentFromGroup,
+  addTeacherToGroup,
+  removeTeacherFromGroup
 } from '@/api/admin/groups';
 import { 
   getSchoolRankingGroups,
@@ -44,6 +49,7 @@ export const adminQueryKeys = {
   student: (studentId: number) => ['admin', 'student', studentId] as const,
   teachers: (schoolId: number) => ['admin', 'teachers', schoolId] as const,
   groups: (schoolId: number) => ['admin', 'groups', schoolId] as const,
+  group: (schoolId: number, groupId: number) => ['admin', 'group', schoolId, groupId] as const,
   rankingGroups: (schoolId: number) => ['admin', 'rankingGroups', schoolId] as const,
   pointGroups: (schoolId: number) => ['admin', 'pointGroups', schoolId] as const,
   timeframes: (schoolId: number) => ['admin', 'timeframes', schoolId] as const,
@@ -195,6 +201,84 @@ export const useSchoolGroupsWithCounts = (schoolId: number, includeArchived: boo
     queryFn: () => getSchoolGroupsWithCounts(schoolId, includeArchived),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+  });
+};
+
+export const useGroup = (schoolId: number, groupId: number) => {
+  return useQuery({
+    queryKey: adminQueryKeys.group(schoolId, groupId),
+    queryFn: () => getGroupById(schoolId, groupId),
+    enabled: !!schoolId && !!groupId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+};
+
+export const useAddStudentToGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, studentId }: {
+      schoolId: number;
+      groupId: number;
+      studentId: number;
+    }) => addStudentToGroup(schoolId, groupId, studentId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useRemoveStudentFromGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, studentId }: {
+      schoolId: number;
+      groupId: number;
+      studentId: number;
+    }) => removeStudentFromGroup(schoolId, groupId, studentId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useAddTeacherToGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, teacherId }: {
+      schoolId: number;
+      groupId: number;
+      teacherId: number;
+    }) => addTeacherToGroup(schoolId, groupId, teacherId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useRemoveTeacherFromGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, teacherId }: {
+      schoolId: number;
+      groupId: number;
+      teacherId: number;
+    }) => removeTeacherFromGroup(schoolId, groupId, teacherId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
   });
 };
 

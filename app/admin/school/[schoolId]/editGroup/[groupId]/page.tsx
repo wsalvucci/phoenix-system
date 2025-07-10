@@ -1,589 +1,642 @@
 "use client";
 
-import { Teacher, StudentGroup, Student } from "@/app/dataClasses"
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { clientAddStudentGroup, clientAddStudentToStudentGroup, clientAddTeacherToStudentGroup, clientGetStudentGroup, clientRemoveStudentFromStudentGroup, clientRemoveTeacherFromStudentGroup } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
-import { clientGetSchoolTeachers } from "@/app/supaApi/client/admin/teachers/adminTeachersApi";
-import { clientGetSchoolStudents } from "@/app/supaApi/client/admin/students/adminStudentsApi";
+import { useState } from 'react';
+import Link from 'next/link';
+import { useGroup, useAddStudentToGroup, useRemoveStudentFromGroup, useAddTeacherToGroup, useRemoveTeacherFromGroup, useSchoolStudents, useSchoolTeachers } from '@/app/hooks/useAdminQueries';
+import { LoadingState } from '@/components/LoadingLayout';
+import ThemeInput from '@/components/ThemeInput';
+import MotionButton from '@/components/MotionButton';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function EditGroupDashboard({ params: { schoolId, groupId } }: { params: { schoolId: string, groupId: string } }) {
+interface Student {
+  id: number;
+  firstName: string;
+  lastName: string;
+  grade: number;
+  powerschoolId?: number;
+}
 
-    const [groupData, setGroupData] = useState<StudentGroup | null>(null);
-    const [parentGroup, setParentGroup] = useState<StudentGroup | null>(null);
+interface Teacher {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
 
-    const [loading, setLoading] = useState<boolean>(true);
-    const [loadingState, setLoadingState] = useState<string>("");
-    const [loadingProgress, setLoadingProgress] = useState<number>(0);
+interface ChildGroup {
+  id: number;
+  name: string;
+  studentCount: number;
+  teacherCount: number;
+}
 
-    const [teacherSearchText, setTeacherSearchText] = useState<string>("");
-    const [teachersSelectedForRemoval, setTeachersSelectedForRemoval] = useState<number[]>([]);
+interface GroupData {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  archived?: boolean;
+  students: Student[];
+  teachers: Teacher[];
+  childGroups: ChildGroup[];
+  parentGroup?: {
+    id: number;
+    name: string;
+  };
+}
 
-    const [teacherAddSearchText, setTeacherAddSearchText] = useState<string>("");
-    const [addTeachersModalOpen, setAddTeachersModalOpen] = useState<boolean>(false);
-    const [availableTeachersToAdd, setAvailableTeachersToAdd] = useState<Teacher[]>([]);
-    const [teachersSelectedForAddition, setTeachersSelectedForAddition] = useState<number[]>([]);
+export default function EditGroupPage({ params: { schoolId, groupId } }: { params: { schoolId: string, groupId: string } }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState('');
+  const [showAddStudentsModal, setShowAddStudentsModal] = useState(false);
+  const [showAddTeachersModal, setShowAddTeachersModal] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
+  const [selectedTeachers, setSelectedTeachers] = useState<number[]>([]);
+  const [selectedStudentsForRemoval, setSelectedStudentsForRemoval] = useState<number[]>([]);
+  const [selectedTeachersForRemoval, setSelectedTeachersForRemoval] = useState<number[]>([]);
 
-    const [studentSearchText, setStudentSearchText] = useState<string>("");
-    const [studentsSelectedForRemoval, setStudentsSelectedForRemoval] = useState<number[]>([]);
+  // Queries
+  const { data: group, isLoading, error } = useGroup(parseInt(schoolId), parseInt(groupId));
+  const { data: allStudents } = useSchoolStudents(parseInt(schoolId));
+  const { data: allTeachers } = useSchoolTeachers(parseInt(schoolId));
 
-    const [studentAddSearchText, setStudentAddSearchText] = useState<string>("");
-    const [addStudentsModalOpen, setAddStudentsModalOpen] = useState<boolean>(false);
-    const [availableStudentsToAdd, setAvailableStudentsToAdd] = useState<Student[]>([]);
-    const [studentsSelectedForAddition, setStudentsSelectedForAddition] = useState<number[]>([]);
+  // Mutations
+  const addStudentMutation = useAddStudentToGroup();
+  const removeStudentMutation = useRemoveStudentFromGroup();
+  const addTeacherMutation = useAddTeacherToGroup();
+  const removeTeacherMutation = useRemoveTeacherFromGroup();
 
-    const [addChildGroupModalOpen, setAddChildGroupModalOpen] = useState<boolean>(false);
-    const [newChildGroupName, setNewChildGroupName] = useState<string>("");
+  // Filter available students (not already in the group)
+  const availableStudents = allStudents?.filter(student => 
+    !group?.students.some(gStudent => gStudent.id === student.id)
+  ) || [];
 
-    async function pullGroupData(id: number) {
-        setParentGroup(null);
-        setGroupData(null);
-        setLoadingProgress(0);
-        setLoadingState("Loading Group Data...");
+  // Filter available teachers (not already in the group)
+  const availableTeachers = allTeachers?.filter(teacher => 
+    !group?.teachers.some(gTeacher => gTeacher.id === teacher.id)
+  ) || [];
 
-        await Promise.all([
-            (async () => {
-                const pulledGroupData = await clientGetStudentGroup(id)
-                setGroupData(pulledGroupData);
-                setLoadingProgress(loadingProgress + 33);
-                setLoadingState("Loaded Base Group Data");
-                if (pulledGroupData?.parentGroup && pulledGroupData?.parentGroup !== null) {
-                    const parentGroup = await clientGetStudentGroup(pulledGroupData.parentGroup);
-                    setParentGroup(parentGroup);
-                    setAvailableStudentsToAdd(parentGroup?.students?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? []);
-                    setLoadingProgress(loadingProgress + 33);
-                    setLoadingState("Loaded Parent Group Data");
-                } else if (pulledGroupData !== null) {
-                    const allStudents = await clientGetSchoolStudents(parseInt(schoolId));
-                    setAvailableStudentsToAdd(allStudents?.filter(student => !pulledGroupData.students?.map(student => student.id).includes(student.id)) ?? []);
-                }
-            })(),
-            (async () => {
-                const allTeachers = await clientGetSchoolTeachers(parseInt(schoolId));
-                const availableTeachers = allTeachers?.filter(teacher => !groupData?.teachers?.map(teacher => teacher.id).includes(teacher.id)) ?? [];
-                setAvailableTeachersToAdd(availableTeachers);
-                setLoadingProgress(loadingProgress + 33);
-                setLoadingState("Loaded Teachers To Add");
-            })()
-        ])
+  // Filter students based on search term
+  const filteredStudents = group?.students.filter(student =>
+    student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.powerschoolId?.toString() || '').includes(searchTerm)
+  ) || [];
 
-        setLoadingProgress(100);
-        setLoading(false)
-    }
+  // Filter teachers based on search term
+  const filteredTeachers = group?.teachers.filter(teacher =>
+    teacher.firstName.toLowerCase().includes(teacherSearchTerm.toLowerCase()) ||
+    teacher.lastName.toLowerCase().includes(teacherSearchTerm.toLowerCase())
+  ) || [];
 
-    useEffect(() => {
-        pullGroupData(parseInt(groupId));
-    }, []);
+  // Filter available students for modal
+  const filteredAvailableStudents = availableStudents.filter(student =>
+    student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.powerschoolId?.toString() || '').includes(searchTerm)
+  );
 
-    const loadingScreen = () => {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div>
-                    <div className="text-2xl">Loading...</div>
-                    {/* Loading Progress Bar */}
-                    <div className="w-96 h-3 bg-slate-300 dark:bg-slate-700 rounded-lg">
-                        <div className="h-full bg-green-400 dark:bg-green-600 rounded-lg" style={{ width: `${loadingProgress}%` }} />
-                    </div>
-                    <div className="pt-3">
-                        <div className="flex items-center">
-                            <div className="w-full text-center">{loadingState}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  // Filter available teachers for modal
+  const filteredAvailableTeachers = availableTeachers.filter(teacher =>
+    teacher.firstName.toLowerCase().includes(teacherSearchTerm.toLowerCase()) ||
+    teacher.lastName.toLowerCase().includes(teacherSearchTerm.toLowerCase())
+  );
+
+  const handleAddStudents = async () => {
+    if (selectedStudents.length === 0) return;
+
+    try {
+      await Promise.all(
+        selectedStudents.map(studentId =>
+          addStudentMutation.mutateAsync({
+            schoolId: parseInt(schoolId),
+            groupId: parseInt(groupId),
+            studentId
+          })
         )
+      );
+      setSelectedStudents([]);
+      setShowAddStudentsModal(false);
+    } catch (error) {
+      console.error('Failed to add students:', error);
+      alert('Failed to add students to group');
+    }
+  };
+
+  const handleRemoveStudents = async () => {
+    if (selectedStudentsForRemoval.length === 0) return;
+
+    if (!confirm(`Are you sure you want to remove ${selectedStudentsForRemoval.length} student(s) from this group? This will also remove them from all child groups.`)) {
+      return;
     }
 
-    if (loading) {
-        return loadingScreen();
-    }
-
-    const recursiveChildGroupCard = (group: StudentGroup) => {
-        return (
-            <div className="w-fit rounded-lg p-1">
-                {group.childGroups && group.childGroups
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map(childGroup => (
-                        <div
-                            className="px-2 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
-                            key={childGroup.id}
-                        >
-                            <div>
-                                <Link href={`/admin/school/${schoolId}/editGroup/${childGroup.id}`}>
-                                    <div className="px-1 rounded-lg hover:bg-slate-500">{childGroup.name} [{childGroup.students?.length}]</div>
-                                </Link>
-                            </div>
-                            <div>
-                                {recursiveChildGroupCard(childGroup)}
-                            </div>
-                        </div>
-                    ))}
-            </div>
+    try {
+      await Promise.all(
+        selectedStudentsForRemoval.map(studentId =>
+          removeStudentMutation.mutateAsync({
+            schoolId: parseInt(schoolId),
+            groupId: parseInt(groupId),
+            studentId
+          })
         )
+      );
+      setSelectedStudentsForRemoval([]);
+    } catch (error) {
+      console.error('Failed to remove students:', error);
+      alert('Failed to remove students from group');
     }
+  };
 
-    const addStudentToGroup = async (studentId: number, groupId: number) => {
-        setLoadingState("Adding Student To Group...");
-        setLoading(true);
-        await clientAddStudentToStudentGroup(studentId, groupId)
-        console.log("Successfully added student to group");
-    }
+  const handleAddTeachers = async () => {
+    if (selectedTeachers.length === 0) return;
 
-    const removeStudentFromGroup = async (studentId: number, groupId: number) => {
-        setLoadingState("Removing Student From Group...");
-        setLoading(true);
-        await clientRemoveStudentFromStudentGroup(studentId, groupId)
-        console.log("Successfully removed student from group: ", studentId, groupId);
-    }
-
-    const recursivelyRemoveStudentFromGroup = async (studentId: number, groupData: StudentGroup) => {
-        await removeStudentFromGroup(studentId, groupData.id)
-        await Promise.all((groupData.childGroups ?? []).map(async (childGroup: StudentGroup) => {
-            if (childGroup.students?.map(student => student.id).includes(studentId)) {
-                await recursivelyRemoveStudentFromGroup(studentId, childGroup)
-            }
-        }))
-    }
-
-    const removeSelectedStudents = async (groupData: StudentGroup) => {
-        setLoadingState("Removing Selected Students...");
-        setLoading(true);
-        await Promise.all(studentsSelectedForRemoval.map(async studentId => {
-            await recursivelyRemoveStudentFromGroup(studentId, groupData)
-        })).then(() => {
-            setStudentsSelectedForRemoval([]);
-            pullGroupData(groupData.id);
-        }).catch(err => {
-            console.error("Error removing students: ", err);
-        })
-    }
-
-    const addSelectedStudents = async (groupId: number) => {
-        setLoadingState("Adding Selected Students...");
-        setLoading(true);
-        await Promise.all(studentsSelectedForAddition.map(async studentId => {
-            await addStudentToGroup(studentId, groupId)
-        }))
-        setStudentsSelectedForAddition([]);
-        pullGroupData(groupId);
-    }
-
-    const addSelectedTeachersToGroup = async (groupId: number) => {
-        setLoadingState("Adding Selected Teachers...");
-        setLoading(true);
-        await Promise.all(teachersSelectedForAddition.map(async teacherId => {
-            await clientAddTeacherToStudentGroup(teacherId, groupId)
-        }))
-        setTeachersSelectedForAddition([]);
-        pullGroupData(groupId);
-    }
-
-    const removeSelectedTeachersFromGroup = async (groupId: number) => {
-        setLoadingState("Removing Selected Teachers...");
-        setLoading(true);
-        await Promise.all(teachersSelectedForRemoval.map(async teacherId => {
-            await clientRemoveTeacherFromStudentGroup(teacherId, groupId)
-        }))
-        setTeachersSelectedForRemoval([]);
-        pullGroupData(groupId);
-    }
-
-    const addTeachersModal = (groupData: StudentGroup) => {
-        return (
-            <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
-                    <div className="text-2xl">Add Teachers</div>
-                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                    <div className="pt-1">
-                        <input
-                            className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                            type="text"
-                            placeholder="Search Teachers..."
-                            value={teacherAddSearchText}
-                            onChange={e => setTeacherAddSearchText(e.target.value)}
-                        />
-                        <div className="grid grid-cols-3 border-b items-center bg-slate-300 dark:bg-slate-700">
-                            <div>First Name</div>
-                            <div>Last Name</div>
-                            <button
-                                className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
-                                onClick={
-                                    () => {
-                                        addSelectedTeachersToGroup(groupData.id)
-                                        setAddTeachersModalOpen(false)
-                                    }
-                                }
-                            >Add Selected</button>
-                        </div>
-                        <div className="min-h-96 max-h-96 overflow-y-scroll">
-                            {availableTeachersToAdd
-                                .filter(teacher => !groupData.teachers?.map(teacher => teacher.id).includes(teacher.id))
-                                .filter(teacher => teacher.firstName.toLowerCase().includes(teacherAddSearchText.toLowerCase()) || teacher.lastName.toLowerCase().includes(teacherAddSearchText.toLowerCase()))
-                                .map(teacher => (
-                                    <div
-                                        className={`grid grid-cols-3 border-b items-center ${teachersSelectedForAddition.includes(teacher.id) ? "bg-green-200 dark:bg-green-800" : ""}`}
-                                        key={teacher.id}
-                                    >
-                                        <div>{teacher.firstName}</div>
-                                        <div>{teacher.lastName}</div>
-                                        <input
-                                            type="checkbox"
-                                            checked={teachersSelectedForAddition.includes(teacher.id)}
-                                            onChange={() => {
-                                                if (teachersSelectedForAddition.includes(teacher.id)) {
-                                                    setTeachersSelectedForAddition(teachersSelectedForAddition.filter(id => id !== teacher.id))
-                                                } else {
-                                                    setTeachersSelectedForAddition([...teachersSelectedForAddition, teacher.id])
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-                    <div className="flex justify-between">
-                        <div className="flex gap-1">
-                            <div className="pt-3">
-                                <button
-                                    className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
-                                    onClick={() => {
-                                        setTeachersSelectedForAddition(availableTeachersToAdd.map(teacher => teacher.id))
-                                    }}
-                                >Select All</button>
-                            </div>
-                            <div className="pt-3">
-                                <button
-                                    className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
-                                    onClick={() => {
-                                        setTeachersSelectedForAddition([])
-                                    }}
-                                >Deselect All</button>
-                            </div>
-                        </div>
-                        <div className="pt-3">
-                            <button
-                                className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
-                                onClick={() => {
-                                    setAddTeachersModalOpen(false)
-                                }}
-                            >Close</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    try {
+      await Promise.all(
+        selectedTeachers.map(teacherId =>
+          addTeacherMutation.mutateAsync({
+            schoolId: parseInt(schoolId),
+            groupId: parseInt(groupId),
+            teacherId
+          })
         )
+      );
+      setSelectedTeachers([]);
+      setShowAddTeachersModal(false);
+    } catch (error) {
+      console.error('Failed to add teachers:', error);
+      alert('Failed to add teachers to group');
+    }
+  };
+
+  const handleRemoveTeachers = async () => {
+    if (selectedTeachersForRemoval.length === 0) return;
+
+    if (!confirm(`Are you sure you want to remove ${selectedTeachersForRemoval.length} teacher(s) from this group?`)) {
+      return;
     }
 
-    const addStudentsModal = (groupData: StudentGroup) => {
-        return (
-            <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
-                    <div className="text-2xl">Add Students</div>
-                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                    <div className="pt-1">
-                        <input
-                            className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                            type="text"
-                            placeholder="Search Students..."
-                            value={studentAddSearchText}
-                            onChange={e => setStudentAddSearchText(e.target.value)}
-                        />
-                        <div className="grid grid-cols-4 border-b items-center bg-slate-300 dark:bg-slate-700">
-                            <div>First Name</div>
-                            <div>Last Name</div>
-                            <div>Grade</div>
-                            <button
-                                className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
-                                onClick={
-                                    () => {
-                                        addSelectedStudents(groupData.id)
-                                        setAddStudentsModalOpen(false)
-                                    }
-                                }
-                            >Add Selected</button>
-                        </div>
-                        <div className="min-h-96 max-h-96 overflow-y-scroll">
-                            {availableStudentsToAdd
-                                .filter(student => !groupData.students?.map(student => student.id).includes(student.id))
-                                .filter(student => student.firstName.toLowerCase().includes(studentAddSearchText.toLowerCase()) || student.lastName.toLowerCase().includes(studentAddSearchText.toLowerCase()))
-                                .map(student => (
-                                    <div
-                                        className={`grid grid-cols-4 border-b items-center ${studentsSelectedForAddition.includes(student.id) ? "bg-green-200 dark:bg-green-800" : ""}`}
-                                        key={student.id}
-                                    >
-                                        <div>{student.firstName}</div>
-                                        <div>{student.lastName}</div>
-                                        <div>{student.grade}</div>
-                                        <input
-                                            type="checkbox"
-                                            checked={studentsSelectedForAddition.includes(student.id)}
-                                            onChange={() => {
-                                                if (studentsSelectedForAddition.includes(student.id)) {
-                                                    setStudentsSelectedForAddition(studentsSelectedForAddition.filter(id => id !== student.id))
-                                                } else {
-                                                    setStudentsSelectedForAddition([...studentsSelectedForAddition, student.id])
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-                    <div className="flex justify-between">
-                        <div className="flex gap-1">
-                            <div className="pt-3">
-                                <button
-                                    className="border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg p-1"
-                                    onClick={() => {
-                                        setStudentsSelectedForAddition(availableStudentsToAdd.map(student => student.id))
-                                    }}
-                                >Select All</button>
-                            </div>
-                            <div className="pt-3">
-                                <button
-                                    className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
-                                    onClick={() => {
-                                        setStudentsSelectedForAddition([])
-                                    }}
-                                >Deselect All</button>
-                            </div>
-                        </div>
-                        <div className="pt-3">
-                            <button
-                                className="border bg-transparent hover:bg-red-400 dark:hover:bg-red-600 rounded-lg p-1"
-                                onClick={() => {
-                                    setAddStudentsModalOpen(false)
-                                }}
-                            >Close</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    try {
+      await Promise.all(
+        selectedTeachersForRemoval.map(teacherId =>
+          removeTeacherMutation.mutateAsync({
+            schoolId: parseInt(schoolId),
+            groupId: parseInt(groupId),
+            teacherId
+          })
         )
+      );
+      setSelectedTeachersForRemoval([]);
+    } catch (error) {
+      console.error('Failed to remove teachers:', error);
+      alert('Failed to remove teachers from group');
     }
+  };
 
-    const addChildGroup = async () => {
-        setLoadingState("Adding Child Group...");
-        setLoading(true);
-        await clientAddStudentGroup(parseInt(schoolId), newChildGroupName, groupData ? groupData.id : null)
-        setAddChildGroupModalOpen(false);
-        setNewChildGroupName("");
-        pullGroupData(parseInt(groupId));
-    }
+  const toggleStudentSelection = (studentId: number) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
 
-    const addChildGroupModal = () => {
-        return (
-            <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="w-1/2 max-h-full border rounded-lg p-3 bg-slate-300 dark:bg-slate-700">
-                    <div className="text-2xl">Add Child Group</div>
-                    <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                    <div className="pt-1">
-                        <input
-                            className="w-full p-3 my-1 dark:bg-slate-700 border border-gray-300 rounded-md dark:[color-scheme:dark]"
-                            type="text"
-                            placeholder="Group Name"
-                            onChange={e => setNewChildGroupName(e.target.value)}
-                        />
-                        <button
-                            className="w-full p-3 my-1 rounded-lg bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600"
-                            onClick={addChildGroup}
-                        >
-                            Confirm
-                        </button>
-                        <button
-                            className="w-full p-3 my-1 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
-                            onClick={() => {
-                                setAddChildGroupModalOpen(false)
-                                setNewChildGroupName("")
-                            }}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+  const toggleTeacherSelection = (teacherId: number) => {
+    setSelectedTeachers(prev => 
+      prev.includes(teacherId) 
+        ? prev.filter(id => id !== teacherId)
+        : [...prev, teacherId]
+    );
+  };
 
-    return (
-        <div className="animate-in w-full h-full overflow-y-scroll">
-            {addStudentsModalOpen && groupData && addStudentsModal(groupData)}
-            {addTeachersModalOpen && groupData && addTeachersModal(groupData)}
-            {addChildGroupModalOpen && addChildGroupModal()}
-            <div className="m-3">
-                <Link href={`/admin/school/${schoolId}/groups`}>
-                    <div className="w-fit px-3 py-1 bg-slate-300 dark:bg-slate-700 rounded-lg">{"< Back to Groups"}</div>
-                </Link>
-            </div>
-            <div className="px-2">
-                <div className="text-2xl">Editing Group: {groupData?.name}</div>
-                <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                {groupData && (
-                    <div className="pt-3 grid grid-cols-2 h-fit">
-                        <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
-                            <div className="flex gap-1 py-1">
-                                <div className="text-lg">Teachers</div>
-                                <button
-                                    className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
-                                    onClick={() => setAddTeachersModalOpen(true)}
-                                >Add</button>
-                            </div>
-                            <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                            <input
-                                className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                                type="text"
-                                placeholder="Search Teachers..."
-                                value={teacherSearchText}
-                                onChange={e => setTeacherSearchText(e.target.value)}
-                            />
-                            <div className="pt-1">
-                                <div className="grid grid-cols-3 border-b items-center bg-slate-300 dark:bg-slate-700">
-                                    <div>First Name</div>
-                                    <div>Last Name</div>
-                                    <button
-                                        className="w-full border bg-transparent hover:bg-red-500 rounded-lg p-1"
-                                        onClick={() => {
-                                            removeSelectedTeachersFromGroup(groupData.id)
-                                        }}
-                                        disabled={teachersSelectedForRemoval.length === 0}
-                                    >Remove Selected</button>
-                                </div>
-                                {groupData.teachers && groupData.teachers
-                                    .filter(teacher => teacher.firstName.toLowerCase().includes(teacherSearchText.toLowerCase()) || teacher.lastName.toLowerCase().includes(teacherSearchText.toLowerCase()))
-                                    .map(teacher => (
-                                        <div
-                                            className={`grid grid-cols-3 border-b items-center ${teachersSelectedForRemoval.includes(teacher.id) ? "bg-red-200 dark:bg-red-800" : ""}`}
-                                            key={teacher.id}
-                                        >
-                                            <div>{teacher.firstName}</div>
-                                            <div>{teacher.lastName}</div>
-                                            <input
-                                                className="dark:[color-scheme:dark]"
-                                                type="checkbox"
-                                                checked={teachersSelectedForRemoval.includes(teacher.id)}
-                                                onChange={() => {
-                                                    if (teachersSelectedForRemoval.includes(teacher.id)) {
-                                                        setTeachersSelectedForRemoval(teachersSelectedForRemoval.filter(id => id !== teacher.id))
-                                                    } else {
-                                                        setTeachersSelectedForRemoval([...teachersSelectedForRemoval, teacher.id])
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                        <div>
-                            {
-                                parentGroup ? (
-                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-fit w-full">
-                                        <div className="text-lg">Parent Group</div>
-                                        <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                                        <div className="pt-1">
-                                            <div className="px-2 py-1 w-fit bg-slate-200 dark:bg-slate-800 rounded-lg hover:bg-slate-500">
-                                                <Link href={`/admin/school/${schoolId}/editGroup/${parentGroup.id}`}>
-                                                    <div>{parentGroup.name}</div>
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="h-fit w-full flex justify-center align-middle border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800">
-                                        <div>
-                                            No Parent Group
-                                        </div>
-                                    </div>
-                                )
-                            }
-                            {
-                                groupData.childGroups && groupData.childGroups.length > 0 ? (
-                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-fit w-full">
-                                        <div className="flex gap-1">
-                                            <div className="text-lg">Child Groups [# Students]</div>
-                                            <button
-                                                className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
-                                                onClick={() => setAddChildGroupModalOpen(true)}
-                                            >Add</button>
-                                        </div>
-                                        <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                                        <div className="pt-1">
-                                            <div>
-                                                {recursiveChildGroupCard(groupData)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="border-2 rounded-lg p-1 bg-slate-200 dark:bg-slate-800 h-full w-full">
-                                        <div className="flex gap-1">
-                                            <div className="text-lg">No Child Groups</div>
-                                            <button
-                                                className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
-                                                onClick={() => setAddChildGroupModalOpen(true)}
-                                            >Add</button>
-                                        </div>
-                                    </div>
-                                )
-                            }
-                        </div>
-                        <div className="border-2 rounded-lg p-1 my-2 bg-slate-200 dark:bg-slate-800 w-full col-span-3">
-                            <div className="flex gap-1 py-1">
-                                <div className="text-lg">Students</div>
-                                <button
-                                    className="w-fit border bg-transparent hover:bg-green-400 dark:hover:bg-green-600 rounded-lg px-2"
-                                    onClick={() => setAddStudentsModalOpen(true)}
-                                >Add</button>
-                            </div>
-                            <div className="h-1 bg-slate-300 dark:bg-slate-700" />
-                            <input
-                                className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                                type="text"
-                                placeholder="Search Students..."
-                                value={studentSearchText}
-                                onChange={e => setStudentSearchText(e.target.value)}
-                            />
-                            <div className="text-red-500">Removing a student will also remove them from all child groups!</div>
-                            <div className="pt-1">
-                                <div className="grid grid-cols-4 border-b items-center bg-slate-300 dark:bg-slate-700">
-                                    <div className="">First Name</div>
-                                    <div>Last Name</div>
-                                    <div>Grade</div>
-                                    <button
-                                        className="w-full border bg-transparent hover:bg-red-500 rounded-lg p-1"
-                                        onClick={() => {
-                                            removeSelectedStudents(groupData)
-                                        }}
-                                        disabled={studentsSelectedForRemoval.length === 0}
-                                    >Remove Selected</button>
-                                </div>
-                                {groupData.students && groupData.students
-                                    .filter(student => student.firstName.toLowerCase().includes(studentSearchText.toLowerCase()) || student.lastName.toLowerCase().includes(studentSearchText.toLowerCase()))
-                                    .map(student => (
-                                        <div
-                                            className={`grid grid-cols-4 border-b items-center ${studentsSelectedForRemoval.includes(student.id) ? "bg-red-200 dark:bg-red-800" : ""}`}
-                                            key={student.id}
-                                        >
-                                            <div>{student.firstName}</div>
-                                            <div>{student.lastName}</div>
-                                            <div>{student.grade}</div>
-                                            <input
-                                                className="dark:[color-scheme:dark]"
-                                                type="checkbox"
-                                                checked={studentsSelectedForRemoval.includes(student.id)}
-                                                onChange={() => {
-                                                    if (studentsSelectedForRemoval.includes(student.id)) {
-                                                        setStudentsSelectedForRemoval(studentsSelectedForRemoval.filter(id => id !== student.id))
-                                                    } else {
-                                                        setStudentsSelectedForRemoval([...studentsSelectedForRemoval, student.id])
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+  const toggleStudentRemovalSelection = (studentId: number) => {
+    setSelectedStudentsForRemoval(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const toggleTeacherRemovalSelection = (teacherId: number) => {
+    setSelectedTeachersForRemoval(prev => 
+      prev.includes(teacherId) 
+        ? prev.filter(id => id !== teacherId)
+        : [...prev, teacherId]
+    );
+  };
+
+  const selectAllStudents = () => {
+    setSelectedStudents(filteredAvailableStudents.map(s => s.id));
+  };
+
+  const deselectAllStudents = () => {
+    setSelectedStudents([]);
+  };
+
+  const selectAllTeachers = () => {
+    setSelectedTeachers(filteredAvailableTeachers.map(t => t.id));
+  };
+
+  const deselectAllTeachers = () => {
+    setSelectedTeachers([]);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Link href={`/admin/school/${schoolId}/groups`}>
+            <MotionButton variant="outline" size="sm">
+              ← Back to Groups
+            </MotionButton>
+          </Link>
+          <h1 className="text-3xl font-bold mt-4">Edit Group</h1>
         </div>
-    )
+      </div>
+
+      <LoadingState
+        isLoading={isLoading}
+        error={error}
+        data={group}
+      >
+        {(groupData: GroupData) => (
+          <div className="space-y-6">
+            {/* Group Info */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card border rounded-lg p-6"
+            >
+              <h2 className="text-2xl font-semibold mb-4">{groupData.name}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{groupData.students.length}</div>
+                  <div className="text-sm text-muted-foreground">Students</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{groupData.teachers.length}</div>
+                  <div className="text-sm text-muted-foreground">Teachers</div>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{groupData.childGroups.length}</div>
+                  <div className="text-sm text-muted-foreground">Child Groups</div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Parent Group */}
+            {groupData.parentGroup && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card border rounded-lg p-6"
+              >
+                <h3 className="text-lg font-semibold mb-3">Parent Group</h3>
+                <Link href={`/admin/school/${schoolId}/editGroup/${groupData.parentGroup.id}`}>
+                  <MotionButton variant="outline" size="sm">
+                    {groupData.parentGroup.name}
+                  </MotionButton>
+                </Link>
+              </motion.div>
+            )}
+
+            {/* Child Groups */}
+            {groupData.childGroups.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card border rounded-lg p-6"
+              >
+                <h3 className="text-lg font-semibold mb-3">Child Groups</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {groupData.childGroups.map(childGroup => (
+                    <Link key={childGroup.id} href={`/admin/school/${schoolId}/editGroup/${childGroup.id}`}>
+                      <div className="p-4 border rounded-lg hover:bg-muted transition-colors cursor-pointer">
+                        <div className="font-medium">{childGroup.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {childGroup.studentCount} students, {childGroup.teacherCount} teachers
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Teachers Section */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-card border rounded-lg p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Teachers ({groupData.teachers.length})</h3>
+                  <MotionButton
+                    onClick={() => setShowAddTeachersModal(true)}
+                    size="sm"
+                  >
+                    Add Teachers
+                  </MotionButton>
+                </div>
+
+                <ThemeInput
+                  placeholder="Search teachers..."
+                  value={teacherSearchTerm}
+                  onChange={(e) => setTeacherSearchTerm(e.target.value)}
+                  className="mb-4"
+                />
+
+                {selectedTeachersForRemoval.length > 0 && (
+                  <div className="mb-4">
+                    <MotionButton
+                      onClick={handleRemoveTeachers}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Remove Selected ({selectedTeachersForRemoval.length})
+                    </MotionButton>
+                  </div>
+                )}
+
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {filteredTeachers.map(teacher => (
+                    <div
+                      key={teacher.id}
+                      className={`p-3 border rounded-lg flex items-center justify-between ${
+                        selectedTeachersForRemoval.includes(teacher.id) ? 'bg-destructive/10 border-destructive' : ''
+                      }`}
+                    >
+                      <div>
+                        <div className="font-medium">{teacher.firstName} {teacher.lastName}</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedTeachersForRemoval.includes(teacher.id)}
+                        onChange={() => toggleTeacherRemovalSelection(teacher.id)}
+                        className="rounded"
+                      />
+                    </div>
+                  ))}
+                  {filteredTeachers.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                      No teachers found
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Students Section */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-card border rounded-lg p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Students ({groupData.students.length})</h3>
+                  <MotionButton
+                    onClick={() => setShowAddStudentsModal(true)}
+                    size="sm"
+                  >
+                    Add Students
+                  </MotionButton>
+                </div>
+
+                <ThemeInput
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="mb-4"
+                />
+
+                {selectedStudentsForRemoval.length > 0 && (
+                  <div className="mb-4">
+                    <MotionButton
+                      onClick={handleRemoveStudents}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Remove Selected ({selectedStudentsForRemoval.length})
+                    </MotionButton>
+                  </div>
+                )}
+
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {filteredStudents.map(student => (
+                    <div
+                      key={student.id}
+                      className={`p-3 border rounded-lg flex items-center justify-between ${
+                        selectedStudentsForRemoval.includes(student.id) ? 'bg-destructive/10 border-destructive' : ''
+                      }`}
+                    >
+                      <div>
+                        <div className="font-medium">{student.firstName} {student.lastName}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Grade {student.grade}
+                          {student.powerschoolId && ` • ID: ${student.powerschoolId}`}
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedStudentsForRemoval.includes(student.id)}
+                        onChange={() => toggleStudentRemovalSelection(student.id)}
+                        className="rounded"
+                      />
+                    </div>
+                  ))}
+                  {filteredStudents.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                      No students found
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </LoadingState>
+
+      {/* Add Students Modal */}
+      <AnimatePresence>
+        {showAddStudentsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowAddStudentsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-background border border-border rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Add Students</h3>
+                <button
+                  onClick={() => setShowAddStudentsModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <ThemeInput
+                placeholder="Search students..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mb-4"
+              />
+
+              <div className="flex gap-2 mb-4">
+                <MotionButton onClick={selectAllStudents} variant="outline" size="sm">
+                  Select All
+                </MotionButton>
+                <MotionButton onClick={deselectAllStudents} variant="outline" size="sm">
+                  Deselect All
+                </MotionButton>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto mb-4">
+                {filteredAvailableStudents.map(student => (
+                  <div
+                    key={student.id}
+                    className={`p-3 border rounded-lg flex items-center justify-between ${
+                      selectedStudents.includes(student.id) ? 'bg-primary/10 border-primary' : ''
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium">{student.firstName} {student.lastName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Grade {student.grade}
+                        {student.powerschoolId && ` • ID: ${student.powerschoolId}`}
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedStudents.includes(student.id)}
+                      onChange={() => toggleStudentSelection(student.id)}
+                      className="rounded"
+                    />
+                  </div>
+                ))}
+                {filteredAvailableStudents.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    No available students found
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <MotionButton
+                  onClick={() => setShowAddStudentsModal(false)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Cancel
+                </MotionButton>
+                <MotionButton
+                  onClick={handleAddStudents}
+                  size="sm"
+                  disabled={selectedStudents.length === 0 || addStudentMutation.isPending}
+                >
+                  {addStudentMutation.isPending ? 'Adding...' : `Add ${selectedStudents.length} Student(s)`}
+                </MotionButton>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Teachers Modal */}
+      <AnimatePresence>
+        {showAddTeachersModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowAddTeachersModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-background border border-border rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Add Teachers</h3>
+                <button
+                  onClick={() => setShowAddTeachersModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <ThemeInput
+                placeholder="Search teachers..."
+                value={teacherSearchTerm}
+                onChange={(e) => setTeacherSearchTerm(e.target.value)}
+                className="mb-4"
+              />
+
+              <div className="flex gap-2 mb-4">
+                <MotionButton onClick={selectAllTeachers} variant="outline" size="sm">
+                  Select All
+                </MotionButton>
+                <MotionButton onClick={deselectAllTeachers} variant="outline" size="sm">
+                  Deselect All
+                </MotionButton>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto mb-4">
+                {filteredAvailableTeachers.map(teacher => (
+                  <div
+                    key={teacher.id}
+                    className={`p-3 border rounded-lg flex items-center justify-between ${
+                      selectedTeachers.includes(teacher.id) ? 'bg-primary/10 border-primary' : ''
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium">{teacher.firstName} {teacher.lastName}</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedTeachers.includes(teacher.id)}
+                      onChange={() => toggleTeacherSelection(teacher.id)}
+                      className="rounded"
+                    />
+                  </div>
+                ))}
+                {filteredAvailableTeachers.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    No available teachers found
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <MotionButton
+                  onClick={() => setShowAddTeachersModal(false)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Cancel
+                </MotionButton>
+                <MotionButton
+                  onClick={handleAddTeachers}
+                  size="sm"
+                  disabled={selectedTeachers.length === 0 || addTeacherMutation.isPending}
+                >
+                  {addTeacherMutation.isPending ? 'Adding...' : `Add ${selectedTeachers.length} Teacher(s)`}
+                </MotionButton>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
