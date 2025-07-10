@@ -7,14 +7,15 @@ import Color from "color";
 import { DateTime } from "luxon";
 import { useEffect, useState } from "react"
 import { Cell, Legend, Pie, PieChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useTimeframe } from "../../TimeframeProvider";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
 
     const [newStudentData, setNewStudentData] = useState<StudentPointsData | null>(null)
+    const { selectedTimeframeId } = useTimeframe();
 
     const getStudentData = async () => {
-
-        const newerStudentData = await getStudentPointStats(parseInt(studentId), null)
+        const newerStudentData = await getStudentPointStats(parseInt(studentId), selectedTimeframeId)
         console.log(newerStudentData)
         setNewStudentData(newerStudentData)
     }
@@ -30,7 +31,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
 
     useEffect(() => {
         getStudentData();
-    }, []);
+    }, [selectedTimeframeId]);
 
     return (
         <div className="animate-in h-full w-full">

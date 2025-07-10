@@ -4,7 +4,7 @@ import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis, BarC
 import Link from "next/link";
 import { Space_Mono, Quicksand } from "next/font/google"
 import { useQuery } from "@tanstack/react-query";
-import { getAdminSchoolDashboardData } from "@/api/admin";
+import { getAdminSchoolDashWithTimeframe } from "@/api/admin";
 import { useTheme } from "@/components/ThemeProvider";
 import ThemeInput from "@/components/ThemeInput";
 import ThemeSelect from "@/components/ThemeSelect";
@@ -12,6 +12,7 @@ import { LoadingState } from "@/components/LoadingLayout";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
 import { faUsers, faGraduationCap, faTrophy, faChartLine, faCalendarAlt, faCog, faUserGraduate, faUsersCog, faChartBar, faStar } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useTimeframe } from "./TimeframeProvider";
 
 const customFont = Space_Mono({
     weight: "400",
@@ -37,9 +38,11 @@ enum SortDirection {
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
     const { theme } = useTheme();
+    const { selectedTimeframeId } = useTimeframe();
+    
     const {data: adminDashData, isLoading, error} = useQuery({
-        queryKey: ["adminSchoolDash", schoolId],
-        queryFn: () => wrapServerAction(getAdminSchoolDashboardData)(parseInt(schoolId))
+        queryKey: ["adminSchoolDash", schoolId, selectedTimeframeId],
+        queryFn: () => wrapServerAction(getAdminSchoolDashWithTimeframe)(parseInt(schoolId), selectedTimeframeId)
     })
 
     const [studentSearch, setStudentSearch] = useState<string>("")
