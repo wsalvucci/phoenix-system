@@ -745,39 +745,74 @@ export async function getAdminStudentDataWithTimeframe(
     const gradeRank = sortedGradeStudents.findIndex(([id]) => id === studentId) + 1;
     const gradeOutOf = sortedGradeStudents.length;
 
-    // Get ranking group data
-    const { data: rankingGroups } = await serviceClient
-      .from('ranking_group')
+    // Get student groups and calculate rankings within each group
+    const { data: studentGroups } = await serviceClient
+      .from('student_group')
       .select(`
         id,
         name,
-        student_group!inner(
-          id,
-          name,
-          student!inner(
-            id
-          )
+        student!inner(
+          id
         )
       `)
       .eq('school_id', schoolId);
 
-    const rankingGroupRanks = rankingGroups?.map(rankingGroup => {
-      const studentIds = rankingGroup.student_group
-        .flatMap(group => group.student.map(s => s.id));
-      
-      if (!studentIds.includes(studentId)) {
-        return null;
-      }
+    const studentGroupRanks = await Promise.all(
+      studentGroups?.map(async (studentGroup) => {
+        const studentIds = studentGroup.student.map(s => s.id);
+        
+        if (!studentIds.includes(studentId)) {
+          return null;
+        }
 
-      // Calculate ranking within this ranking group
-      // This would need to be implemented based on your ranking logic
-      return {
-        groupId: rankingGroup.id,
-        name: rankingGroup.name,
-        rank: -1, // Placeholder - implement actual ranking logic
-        outOf: studentIds.length
-      };
-    }).filter((item): item is { groupId: number; name: string; rank: number; outOf: number } => item !== null) || [];
+        // Calculate total points for each student in this group within the timeframe
+        let groupRankQuery = serviceClient
+          .from('student_point')
+          .select(`
+            student_id,
+            point_value,
+            point_event!inner(
+              date,
+              student_group!inner(
+                school_id
+              )
+            )
+          `)
+          .in('student_id', studentIds)
+          .eq('point_event.student_group.school_id', schoolId);
+
+        if (timeframeStart && timeframeEnd) {
+          groupRankQuery = groupRankQuery
+            .gte('point_event.date', timeframeStart)
+            .lte('point_event.date', timeframeEnd);
+        }
+
+        const { data: groupPointData } = await groupRankQuery;
+        
+        // Calculate total points per student in this group
+        const groupStudentTotals = new Map();
+        groupPointData?.forEach(record => {
+          const studentId = record.student_id;
+          groupStudentTotals.set(studentId, (groupStudentTotals.get(studentId) || 0) + (record.point_value || 0));
+        });
+
+        // Sort students by points and find rank
+        const sortedGroupStudents = Array.from(groupStudentTotals.entries())
+          .sort(([, a], [, b]) => b - a);
+        
+        const groupRank = sortedGroupStudents.findIndex(([id]) => id === studentId) + 1;
+        const groupOutOf = sortedGroupStudents.length;
+
+        return {
+          groupId: studentGroup.id,
+          name: studentGroup.name,
+          rank: groupRank > 0 ? groupRank : -1,
+          outOf: groupOutOf
+        };
+      }) || []
+    );
+
+    const validStudentGroupRanks = studentGroupRanks.filter((item): item is { groupId: number; name: string; rank: number; outOf: number } => item !== null);
 
     // Format point events
     const pointEvents = pointData?.map(record => ({
@@ -866,7 +901,7 @@ export async function getAdminStudentDataWithTimeframe(
           rank: gradeRank > 0 ? gradeRank : -1,
           outOf: gradeOutOf
         },
-        rankByRankingGroup: rankingGroupRanks
+        rankByRankingGroup: validStudentGroupRanks
       },
       pointEvents
     };

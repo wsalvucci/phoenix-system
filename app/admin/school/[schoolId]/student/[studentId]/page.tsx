@@ -196,12 +196,12 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
             </div>
           </div>
 
-          {/* Ranking Groups */}
+          {/* Student Groups */}
           {data.student.rankByRankingGroup.length > 0 && (
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center gap-2 mb-4">
                 <FontAwesomeIcon icon={faUsers} className="text-indigo-500 text-xl" />
-                <h2 className="text-xl font-semibold text-foreground">Ranking Groups</h2>
+                <h2 className="text-xl font-semibold text-foreground">Student Groups</h2>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -211,7 +211,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                     className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faMedal} className="text-yellow-500" />
+                      <FontAwesomeIcon icon={faUsers} className="text-indigo-500" />
                       <div>
                         <div className="font-medium text-foreground">{group.name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -222,6 +222,9 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                     <div className="text-right">
                       <div className="font-semibold text-foreground">
                         {numberToOrdinal(group.rank)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        in group
                       </div>
                     </div>
                   </div>
