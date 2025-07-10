@@ -10,6 +10,7 @@ import { AdminStudentData } from '@/types/domain';
 import CSVReader from 'react-csv-reader';
 import { DateTime } from 'luxon';
 import { bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
+import Link from 'next/link';
 
 enum SortType {
   FirstName = 'firstName',
@@ -603,9 +604,11 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                   {filteredAndSortedStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {student.lastName}, {student.firstName}
-                        </div>
+                        <Link href={`/admin/school/${schoolId}/student/${student.id}`}>
+                          <div className="text-sm font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
+                            {student.lastName}, {student.firstName}
+                          </div>
+                        </Link>
                         <div className="text-sm text-slate-500 dark:text-slate-400">
                           {student.birthdate && new Date(student.birthdate).toLocaleDateString()}
                         </div>

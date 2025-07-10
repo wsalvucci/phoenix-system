@@ -13,6 +13,7 @@ import { getSchoolRankingGroups } from './admin/rankingGroups';
 import { getSchoolTimeframes } from './admin/timeframes';
 import { AdminService } from './service/admin';
 import { UserContextResolver } from './core/user-context';
+import { AdminStudentDashboardData } from '@/app/dataClasses';
 
 export async function getOwnAdminData(): Promise<Admin> {
   const logger = createServerLogger({ component: 'AdminAPI', action: 'getOwnAdminData' });
@@ -479,6 +480,414 @@ export async function getAdminSchoolDashWithTimeframe(schoolId: number, timefram
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, error instanceof Error ? error : undefined);
     throw new Error('Failed to load admin school dashboard');
+  }
+}
+
+export async function getAdminStudentDataWithTimeframe(
+  schoolId: number, 
+  studentId: number, 
+  timeframeId: number | null
+): Promise<AdminStudentDashboardData | null> {
+  const logger = createServerLogger({ 
+    component: 'AdminAPI', 
+    action: 'getAdminStudentDataWithTimeframe', 
+    schoolId,
+    studentId,
+    timeframeId: timeframeId?.toString() || 'active'
+  });
+  
+  try {
+    // Use the robust system
+    const authClient = createClient();
+    const serviceClient = await supabaseServiceClient();
+    const userContextResolver = new UserContextResolver(authClient, serviceClient);
+    const userContext = await userContextResolver.resolveUserContext();
+    
+    if (!userContext) {
+      logger.error('User context not found');
+      throw new Error('User not authenticated');
+    }
+
+    if (userContext.role !== 'admin') {
+      logger.error('User is not an admin', { userId: userContext.userId, role: userContext.role });
+      throw new Error('Access denied - admin role required');
+    }
+
+    // Validate school access
+    const hasAccess = await userContextResolver.validateSchoolAccess(schoolId);
+    if (!hasAccess) {
+      logger.error('Admin does not have access to this school', { 
+        adminId: userContext.adminId, 
+        schoolId 
+      });
+      throw new Error('Access denied - admin does not have access to this school');
+    }
+
+    // Get timeframe data for filtering
+    let timeframeStart = null;
+    let timeframeEnd = null;
+    
+    if (timeframeId !== null) {
+      const { data: timeframe, error: timeframeError } = await serviceClient
+        .from('school_timeframes')
+        .select('starts_at, ends_at')
+        .eq('id', timeframeId)
+        .eq('school_id', schoolId)
+        .single();
+
+      if (timeframeError || !timeframe) {
+        logger.error('Timeframe not found', { timeframeId, schoolId, timeframeError });
+        throw new Error('Timeframe not found');
+      }
+
+      timeframeStart = timeframe.starts_at;
+      timeframeEnd = timeframe.ends_at;
+    } else {
+      // Get active timeframe
+      const { data: activeTimeframe, error: timeframeError } = await serviceClient
+        .from('school_timeframes')
+        .select('starts_at, ends_at')
+        .eq('school_id', schoolId)
+        .eq('active', true)
+        .single();
+
+      if (timeframeError || !activeTimeframe) {
+        logger.warn('No active timeframe found, using all data', { schoolId, timeframeError });
+      } else {
+        timeframeStart = activeTimeframe.starts_at;
+        timeframeEnd = activeTimeframe.ends_at;
+      }
+    }
+
+    // Get student basic info
+    const { data: student, error: studentError } = await serviceClient
+      .from('student')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        grade,
+        school_id
+      `)
+      .eq('id', studentId)
+      .eq('school_id', schoolId)
+      .single();
+
+    if (studentError || !student) {
+      logger.error('Student not found', { studentId, schoolId, studentError });
+      throw new Error('Student not found');
+    }
+
+    // Get student points within timeframe
+    let pointQuery = serviceClient
+      .from('student_point')
+      .select(`
+        point_value,
+        input_score,
+        point_event!inner(
+          id,
+          name,
+          date,
+          max_input,
+          point_template!inner(
+            id,
+            name,
+            conversion_rule_value,
+            point_group!inner(
+              id,
+              name,
+              color
+            ),
+            point_conversion_rule_type!inner(
+              id,
+              name
+            )
+          ),
+          student_group!inner(
+            id,
+            name,
+            school_id
+          )
+        )
+      `)
+      .eq('student_id', studentId)
+      .eq('point_event.student_group.school_id', schoolId);
+
+    // Add timeframe filtering if timeframe is specified
+    if (timeframeStart && timeframeEnd) {
+      pointQuery = pointQuery
+        .gte('point_event.date', timeframeStart)
+        .lte('point_event.date', timeframeEnd);
+    }
+
+    const { data: pointData, error: pointError } = await pointQuery;
+
+    if (pointError) {
+      logger.error('Error fetching student points', { studentId, pointError });
+      throw new Error('Failed to load student points');
+    }
+
+    // Calculate total points
+    const totalPoints = pointData?.reduce((sum, record) => sum + (record.point_value || 0), 0) || 0;
+
+    // Group points by point group
+    const pointsByPointGroup = new Map();
+    pointData?.forEach(record => {
+      const pointGroupId = record.point_event.point_template.point_group.id;
+      if (!pointsByPointGroup.has(pointGroupId)) {
+        pointsByPointGroup.set(pointGroupId, {
+          groupId: pointGroupId,
+          name: record.point_event.point_template.point_group.name,
+          color: record.point_event.point_template.point_group.color,
+          points: 0,
+          rank: -1,
+          outOf: 0
+        });
+      }
+      pointsByPointGroup.get(pointGroupId).points += record.point_value || 0;
+    });
+
+    // Get rankings for point groups
+    const pointGroupRanks = await Promise.all(
+      Array.from(pointsByPointGroup.values()).map(async (pointGroup) => {
+        // Get all students' points for this point group in the timeframe
+        let rankQuery = serviceClient
+          .from('student_point')
+          .select(`
+            student_id,
+            point_value,
+            point_event!inner(
+              date,
+              point_template!inner(
+                point_group_id
+              ),
+              student_group!inner(
+                school_id
+              )
+            )
+          `)
+          .eq('point_event.point_template.point_group_id', pointGroup.groupId)
+          .eq('point_event.student_group.school_id', schoolId);
+
+        if (timeframeStart && timeframeEnd) {
+          rankQuery = rankQuery
+            .gte('point_event.date', timeframeStart)
+            .lte('point_event.date', timeframeEnd);
+        }
+
+        const { data: rankData } = await rankQuery;
+        
+        // Calculate total points per student for this point group
+        const studentTotals = new Map();
+        rankData?.forEach(record => {
+          const studentId = record.student_id;
+          studentTotals.set(studentId, (studentTotals.get(studentId) || 0) + (record.point_value || 0));
+        });
+
+        // Sort students by points and find rank
+        const sortedStudents = Array.from(studentTotals.entries())
+          .sort(([, a], [, b]) => b - a);
+        
+        const rank = sortedStudents.findIndex(([id]) => id === studentId) + 1;
+        const outOf = sortedStudents.length;
+
+        return {
+          ...pointGroup,
+          rank: rank > 0 ? rank : -1,
+          outOf
+        };
+      })
+    );
+
+    // Get grade ranking
+    const { data: gradeStudents } = await serviceClient
+      .from('student')
+      .select('id, grade')
+      .eq('school_id', schoolId)
+      .eq('grade', student.grade);
+
+    // Calculate grade ranking based on total points
+    const gradeStudentIds = gradeStudents?.map(s => s.id) || [];
+    let gradeRankQuery = serviceClient
+      .from('student_point')
+      .select(`
+        student_id,
+        point_value,
+        point_event!inner(
+          date,
+          student_group!inner(
+            school_id
+          )
+        )
+      `)
+      .in('student_id', gradeStudentIds)
+      .eq('point_event.student_group.school_id', schoolId);
+
+    if (timeframeStart && timeframeEnd) {
+      gradeRankQuery = gradeRankQuery
+        .gte('point_event.date', timeframeStart)
+        .lte('point_event.date', timeframeEnd);
+    }
+
+    const { data: gradePointData } = await gradeRankQuery;
+    
+    // Calculate total points per student in grade
+    const gradeStudentTotals = new Map();
+    gradePointData?.forEach(record => {
+      const studentId = record.student_id;
+      gradeStudentTotals.set(studentId, (gradeStudentTotals.get(studentId) || 0) + (record.point_value || 0));
+    });
+
+    // Sort grade students by points and find rank
+    const sortedGradeStudents = Array.from(gradeStudentTotals.entries())
+      .sort(([, a], [, b]) => b - a);
+    
+    const gradeRank = sortedGradeStudents.findIndex(([id]) => id === studentId) + 1;
+    const gradeOutOf = sortedGradeStudents.length;
+
+    // Get ranking group data
+    const { data: rankingGroups } = await serviceClient
+      .from('ranking_group')
+      .select(`
+        id,
+        name,
+        student_group!inner(
+          id,
+          name,
+          student!inner(
+            id
+          )
+        )
+      `)
+      .eq('school_id', schoolId);
+
+    const rankingGroupRanks = rankingGroups?.map(rankingGroup => {
+      const studentIds = rankingGroup.student_group
+        .flatMap(group => group.student.map(s => s.id));
+      
+      if (!studentIds.includes(studentId)) {
+        return null;
+      }
+
+      // Calculate ranking within this ranking group
+      // This would need to be implemented based on your ranking logic
+      return {
+        groupId: rankingGroup.id,
+        name: rankingGroup.name,
+        rank: -1, // Placeholder - implement actual ranking logic
+        outOf: studentIds.length
+      };
+    }).filter((item): item is { groupId: number; name: string; rank: number; outOf: number } => item !== null) || [];
+
+    // Format point events
+    const pointEvents = pointData?.map(record => ({
+      id: record.point_event.id,
+      name: record.point_event.name || '',
+      date: record.point_event.date || '',
+      pointGroup: {
+        id: record.point_event.point_template.point_group.id,
+        name: record.point_event.point_template.point_group.name,
+        color: record.point_event.point_template.point_group.color
+      },
+      pointTemplate: {
+        id: record.point_event.point_template.id,
+        name: record.point_event.point_template.name || '',
+        conversionRuleType: {
+          id: record.point_event.point_template.point_conversion_rule_type.id,
+          name: record.point_event.point_template.point_conversion_rule_type.name
+        },
+        conversionRuleValue: record.point_event.point_template.conversion_rule_value || 0
+      },
+      maxInput: record.point_event.max_input || 0,
+      pointsEarned: {
+        input: record.input_score || 0,
+        value: record.point_value || 0
+      }
+    })) || [];
+
+    // Sort point events by date (newest first)
+    pointEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Calculate overall ranking
+    const { data: allStudents } = await serviceClient
+      .from('student')
+      .select('id')
+      .eq('school_id', schoolId);
+
+    const allStudentIds = allStudents?.map(s => s.id) || [];
+    let overallRankQuery = serviceClient
+      .from('student_point')
+      .select(`
+        student_id,
+        point_value,
+        point_event!inner(
+          date,
+          student_group!inner(
+            school_id
+          )
+        )
+      `)
+      .in('student_id', allStudentIds)
+      .eq('point_event.student_group.school_id', schoolId);
+
+    if (timeframeStart && timeframeEnd) {
+      overallRankQuery = overallRankQuery
+        .gte('point_event.date', timeframeStart)
+        .lte('point_event.date', timeframeEnd);
+    }
+
+    const { data: overallPointData } = await overallRankQuery;
+    
+    // Calculate total points per student
+    const overallStudentTotals = new Map();
+    overallPointData?.forEach(record => {
+      const studentId = record.student_id;
+      overallStudentTotals.set(studentId, (overallStudentTotals.get(studentId) || 0) + (record.point_value || 0));
+    });
+
+    // Sort all students by points and find rank
+    const sortedAllStudents = Array.from(overallStudentTotals.entries())
+      .sort(([, a], [, b]) => b - a);
+    
+    const overallRank = sortedAllStudents.findIndex(([id]) => id === studentId) + 1;
+    const overallOutOf = sortedAllStudents.length;
+
+    const result: AdminStudentDashboardData = {
+      student: {
+        id: student.id,
+        name: `${student.last_name}, ${student.first_name}`,
+        grade: student.grade,
+        totalPoints,
+        rank: overallRank > 0 ? overallRank : -1,
+        outOf: overallOutOf,
+        rankByPointGroup: pointGroupRanks,
+        rankByGrade: {
+          grade: student.grade,
+          rank: gradeRank > 0 ? gradeRank : -1,
+          outOf: gradeOutOf
+        },
+        rankByRankingGroup: rankingGroupRanks
+      },
+      pointEvents
+    };
+
+    logger.info('Admin student data retrieved successfully', { 
+      schoolId, 
+      studentId,
+      timeframeId,
+      totalPoints,
+      pointEventCount: pointEvents.length
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Failed to load admin student data', { 
+      schoolId, 
+      studentId,
+      timeframeId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw new Error('Failed to load admin student data');
   }
 }
 

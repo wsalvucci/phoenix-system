@@ -1,132 +1,287 @@
 "use client";
-import { AdminStudentDashboardData, numberToOrdinal } from "@/app/dataClasses"
-import { getAdminStudentDashboardData } from "@/app/supaApi/server/admin/adminApi"
-import { getStudentPointStats } from "@/app/supaApi/universal/universalApi";
-import { StudentPointsData } from "@/app/supaApi/universal/utils/types";
-import Color from "color";
-import { DateTime } from "luxon";
-import { useEffect, useState } from "react"
-import { Cell, Legend, Pie, PieChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAdminStudentDataWithTimeframe } from "@/api/admin";
+import { AdminStudentDashboardData, numberToOrdinal } from "@/app/dataClasses";
 import { useTimeframe } from "../../TimeframeProvider";
+import { LoadingState } from "@/components/LoadingLayout";
+import { wrapServerAction } from "@/utils/serverActionWrapper";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers, faMedal } from "@fortawesome/free-solid-svg-icons";
+import { DateTime } from "luxon";
+import Color from "color";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
+  const { selectedTimeframeId } = useTimeframe();
+  
+  const { data: studentData, isLoading, error } = useQuery({
+    queryKey: ["adminStudentData", schoolId, studentId, selectedTimeframeId],
+    queryFn: () => wrapServerAction(getAdminStudentDataWithTimeframe)(parseInt(schoolId), parseInt(studentId), selectedTimeframeId)
+  });
 
-    const [newStudentData, setNewStudentData] = useState<StudentPointsData | null>(null)
-    const { selectedTimeframeId } = useTimeframe();
+  // Prepare chart data for point groups
+  const pointGroupChartData = studentData?.student.rankByPointGroup.map(group => ({
+    name: group.name,
+    points: group.points,
+    color: group.color,
+    rank: group.rank,
+    outOf: group.outOf
+  })) || [];
 
-    const getStudentData = async () => {
-        const newerStudentData = await getStudentPointStats(parseInt(studentId), selectedTimeframeId)
-        console.log(newerStudentData)
-        setNewStudentData(newerStudentData)
-    }
+  // Prepare recent points data
+  const recentPoints = studentData?.pointEvents.slice(0, 10) || [];
 
-    const pointBreakdown = newStudentData?.pointGroups?.map((pointGroup) => {
-        return {
-            id: pointGroup.id,
-            name: pointGroup.name,
-            points: pointGroup.points,
-            color: pointGroup.color,
-        }
-    })
-
-    useEffect(() => {
-        getStudentData();
-    }, [selectedTimeframeId]);
-
-    return (
-        <div className="animate-in h-full w-full">
-            <div className="text-4xl" style={{ height: '5%' }}>{newStudentData?.lastName + ", " + newStudentData?.firstName}</div>
-            <div className="text-4xl" style={{ height: '5%' }}>{newStudentData?.totalPoints.toLocaleString()}pts</div>
-            <div className="text-4xl" style={{ height: '5%' }}>Rank: {numberToOrdinal(newStudentData?.totalRank ?? -1)} / {newStudentData?.totalOutOf}</div>
-            <div className="grid grid-cols-2 gap-1" style={{ height: '45%' }}>
-                <div>
-                    <div className="h-1/2 text-center text-xl">
-                    <div className="grid grid-cols-5 border-b-2 my-1">
-                        <div>Point Group</div>
-                        <div>Rank</div>
-                        <div>Percentile</div>
-                        <div>Points</div>
-                        <div>% of Total</div>
-                    </div>
-                        {newStudentData?.pointGroups?.map(pointGroup => {
-                            return (
-                                <div key={pointGroup.id} className="grid grid-cols-5 border-2 rounded-lg my-1" style={{
-                                    borderColor: pointGroup.color,
-                                }}>
-                                    <div>{pointGroup.name}</div>
-                                    <div>{numberToOrdinal(pointGroup.rank ?? -1)}</div>
-                                    <div>{numberToOrdinal(Math.round((1 - pointGroup.rank / pointGroup.outOf) * 100))}</div>
-                                    <div>{pointGroup.points.toLocaleString()}</div>
-                                    <div>{Math.round(pointGroup.points / (newStudentData.totalPoints ?? 1) * 100)}%</div>
-                                </div>
-                            )
-                        })
-                        }
-                    </div>
-                    <div className="h-1/2 text-center text-xl">
-                        <div className="grid grid-cols-3 border-b-2 my-1">
-                            <div>Student Group</div>
-                            <div>Rank</div>
-                            <div>Percentile</div>
-                        </div>
-                        <div className="grid grid-cols-3 border-2 rounded-lg my-1">
-                            <div>{numberToOrdinal(newStudentData?.grade ?? 0)} Grade</div>
-                            <div>{numberToOrdinal(newStudentData?.gradeRank ?? -1)} / {newStudentData?.gradeOutOf}</div>
-                            <div>{numberToOrdinal(Math.round((1 - (newStudentData?.gradeRank ?? 0)/ (newStudentData?.gradeOutOf ?? 0)) * 100))}</div>
-                        </div>
-                        {
-                            newStudentData?.studentGroups.map(rankingGroup => {
-                                return (
-                                    <div key={rankingGroup.id} className="grid grid-cols-3 border-2 rounded-lg my-1">
-                                        <div>{rankingGroup.name}</div>
-                                        <div>{numberToOrdinal(rankingGroup.rank ?? -1)} / {rankingGroup.outOf}</div>
-                                        <div>{numberToOrdinal(Math.round((1 - (rankingGroup.rank ?? 0) / (rankingGroup.outOf ?? 0)) * 100))}</div>
-                                    </div>
-                                )
-                            })
-                        }
-                    </div>
-                </div>
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie data={pointBreakdown} name="Points" dataKey="points" nameKey="name">
-                            {pointBreakdown?.map(pointGroup => {
-                                return (
-                                    <Cell key={pointGroup.id} fill={Color(pointGroup.color).darken(0.25).toString()} />
-                                )
-                            })}
-                        </Pie>
-                        <Tooltip />
-                    </PieChart>
-                </ResponsiveContainer>
-            </div>
-            <div className="overflow-y-scroll" style={{ height: '40%' }}>
-                <div className="sticky top-0 left-0 w-full bg-slate-100">
-                    <div className="text-2xl">Recent Points</div>
-                    <div className="grid grid-cols-3 text-lg">
-                        <div>Event</div>
-                        <div>Points</div>
-                        <div>Date</div>
-                    </div>
-                </div>
-                <div>
-                    {
-                        newStudentData?.pointEvents
-                            .sort((a, b) => DateTime.fromISO(b.date).toUnixInteger() - DateTime.fromISO(a.date).toUnixInteger())
-                            .map((pointEvent, index) => {
-                                return (
-                                    <div key={pointEvent.id} className={`grid grid-cols-3 border-s-4 my-1 px-3 ${index % 2 === 0 ? 'bg-slate-100' : 'bg-slate-200'}`} style={{
-                                        borderColor: pointEvent.pointGroup.color,
-                                    }}>
-                                        <div>{pointEvent.name}</div>
-                                        <div>{pointEvent.points} <span className="text-gray-400"> / {pointEvent.maxPoints}</span></div>
-                                        <div>{DateTime.fromISO(pointEvent.date).toFormat('LLL dd')}</div>
-                                    </div>
-                                )
-                            })
-                    }
-                </div>
-            </div>
+  return (
+    <LoadingState
+      isLoading={isLoading}
+      error={error}
+      data={studentData}
+      errorFallback={(err) => (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-destructive text-2xl mb-4">⚠️</div>
+            <p className="text-destructive">Failed to load student data: {err.message}</p>
+          </div>
         </div>
-    )
+      )}
+    >
+      {(data) => (
+        <div className="animate-in w-full p-6 space-y-6">
+          {/* Header */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">
+                  {data.student.name}
+                </h1>
+                <p className="text-muted-foreground">
+                  Grade {data.student.grade} • Student Dashboard
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-bold text-primary">
+                  {data.student.totalPoints.toLocaleString()}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Points</div>
+              </div>
+            </div>
+            
+            {/* Overall Ranking */}
+            <div className="mt-4 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faTrophy} className="text-yellow-500 text-xl" />
+                <span className="text-lg font-semibold text-foreground">
+                  Rank: {numberToOrdinal(data.student.rank)} / {data.student.outOf}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faGraduationCap} className="text-blue-500 text-xl" />
+                <span className="text-lg font-semibold text-foreground">
+                  Grade Rank: {numberToOrdinal(data.student.rankByGrade.rank)} / {data.student.rankByGrade.outOf}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Point Groups Breakdown */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FontAwesomeIcon icon={faChartPie} className="text-purple-500 text-xl" />
+                <h2 className="text-xl font-semibold text-foreground">Points by Category</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Chart */}
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pointGroupChartData}
+                        dataKey="points"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, points }) => `${name}: ${points.toLocaleString()}`}
+                      >
+                        {pointGroupChartData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={Color(entry.color).darken(0.25).toString()} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: any) => [value.toLocaleString(), 'Points']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Rankings */}
+                <div className="space-y-3">
+                  {data.student.rankByPointGroup.map((group) => (
+                    <div 
+                      key={group.groupId} 
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                      style={{ borderLeftColor: group.color, borderLeftWidth: '4px' }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        <div>
+                          <div className="font-medium text-foreground">{group.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {group.points.toLocaleString()} points
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-foreground">
+                          {numberToOrdinal(group.rank)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          of {group.outOf}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FontAwesomeIcon icon={faCalendarAlt} className="text-green-500 text-xl" />
+                <h2 className="text-xl font-semibold text-foreground">Recent Activity</h2>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {recentPoints.length > 0 ? (
+                  recentPoints.map((event) => (
+                    <div 
+                      key={event.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                      style={{ borderLeftColor: event.pointGroup.color, borderLeftWidth: '4px' }}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-foreground">{event.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {DateTime.fromISO(event.date).toFormat('MMM dd, yyyy')}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-foreground">
+                          +{event.pointsEarned.value}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {event.pointsEarned.input}/{event.maxInput}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FontAwesomeIcon icon={faCalendarAlt} className="text-4xl mb-4 opacity-50" />
+                    <p>No recent activity</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking Groups */}
+          {data.student.rankByRankingGroup.length > 0 && (
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FontAwesomeIcon icon={faUsers} className="text-indigo-500 text-xl" />
+                <h2 className="text-xl font-semibold text-foreground">Ranking Groups</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.student.rankByRankingGroup.map((group) => (
+                  <div 
+                    key={group.groupId}
+                    className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FontAwesomeIcon icon={faMedal} className="text-yellow-500" />
+                      <div>
+                        <div className="font-medium text-foreground">{group.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {group.outOf} students
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-foreground">
+                        {numberToOrdinal(group.rank)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Detailed Point Events */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <FontAwesomeIcon icon={faStar} className="text-orange-500 text-xl" />
+              <h2 className="text-xl font-semibold text-foreground">All Point Events</h2>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Event</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Category</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Date</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Score</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Points</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data.pointEvents.map((event) => (
+                    <tr key={event.id} className="hover:bg-accent/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-foreground">{event.name}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: event.pointGroup.color }}
+                          />
+                          <span className="text-foreground">{event.pointGroup.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {DateTime.fromISO(event.date).toFormat('MMM dd, yyyy')}
+                      </td>
+                      <td className="px-4 py-3 text-foreground">
+                        {event.pointsEarned.input}/{event.maxInput}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-primary">
+                          +{event.pointsEarned.value}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </LoadingState>
+  );
 }

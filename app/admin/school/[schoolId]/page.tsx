@@ -198,7 +198,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                         labelFormatter={(label) => `Student: ${label}`}
                                     />
                                     <Scatter 
-                                        data={showAllStudents ? pointsDistribution : pointsDistribution.slice(0, 20)}
+                                        data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
                                         shape={(props: any) => {
                                             const { cx, cy, payload } = props;
                                             const isHovered = payload.id === studentHover;
