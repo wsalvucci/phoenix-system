@@ -363,7 +363,9 @@ export async function getAdminStudentDashboardData(
                         pointsEarned: {
                             input: studentPoint.input_score || 0,
                             value: pointValue
-                        }
+                        },
+                        rank: 1, // Default rank for individual point events
+                        outOf: 1 // Default outOf for individual point events
                     })
                 } else {
                     formattedData.push({
@@ -420,7 +422,9 @@ export async function getAdminStudentDashboardData(
                                 pointsEarned: {
                                     input: studentPoint.input_score || 0,
                                     value: pointValue
-                                }
+                                },
+                                rank: 1, // Default rank for individual point events
+                                outOf: 1 // Default outOf for individual point events
                             }
                         ]
                     })
@@ -482,7 +486,9 @@ export async function getAdminStudentDashboardData(
             pointsEarned: {
                 input: number,
                 value: number
-            }
+            },
+            rank: number,
+            outOf: number
         }[]
     }[])
 
