@@ -230,3 +230,65 @@ export type Timeframe = {
     active: boolean,
     schoolId: number,
 }
+
+// Admin API Data Types
+export type AdminStudentData = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  grade: number;
+  birthdate?: string | null;
+  gender?: string | null;
+  powerschoolId?: number;
+  groupIds?: number[];
+  totalPoints?: number;
+};
+
+export type AdminTeacherData = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  groupIds?: number[];
+};
+
+export type AdminGroupData = {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  studentCount?: number;
+  teacherCount?: number;
+  childGroups?: AdminGroupData[];
+};
+
+export type AdminPointTypeData = {
+  id: number;
+  name: string;
+  color: string;
+  parentId?: number | null;
+  ranked?: boolean;
+};
+
+export type AdminRankingGroupData = {
+  id: number;
+  name: string;
+  schoolId: number;
+  studentGroupIds: number[];
+};
+
+export type AdminPointGroupData = {
+  id: number;
+  name: string;
+  color: string;
+  ranked: boolean;
+  parentId?: number | null;
+  childGroups?: AdminPointGroupData[];
+};
+
+export type AdminTimeframeData = {
+  id: number;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  active: boolean;
+  schoolId: number;
+};

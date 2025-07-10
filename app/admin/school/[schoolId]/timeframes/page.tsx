@@ -1,324 +1,395 @@
 "use client";
 
-import { SchoolTimeframe } from "@/app/dataClasses";
-import { activateSchoolTimeframe, addSchoolTimeframe, deleteSchoolTimeframe, editSchoolTimeframe, getSchoolTimeframes } from "@/app/supaApi/server/admin/adminApi";
-import { DateTime } from "luxon";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { 
+  useSchoolTimeframes, 
+  useCreateTimeframe, 
+  useUpdateTimeframe, 
+  useDeleteTimeframe, 
+  useActivateTimeframe
+} from "@/app/hooks/useAdminQueries";
+import { AdminTimeframeData } from "@/types/domain";
 
-type NewTimeframe = {
-    name: string,
-    startsAt: string,
-    endsAt: string
-}
+export default function TimeframesNewPage() {
+  const params = useParams();
+  const schoolId = parseInt(params.schoolId as string);
 
-type EditedTimeframe = {
-    id: number,
-    name: string,
-    startsAt: string,
-    endsAt: string
-}
+  const [newTimeframeName, setNewTimeframeName] = useState("");
+  const [newTimeframeStartsAt, setNewTimeframeStartsAt] = useState("");
+  const [newTimeframeEndsAt, setNewTimeframeEndsAt] = useState("");
+  const [isAddTimeframeDialogOpen, setIsAddTimeframeDialogOpen] = useState(false);
+  const [editingTimeframe, setEditingTimeframe] = useState<AdminTimeframeData | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-type TimeframeToDelete = {
-    id: number,
-    name: string
-}
+  // Queries
+  const { 
+    data: timeframes = [], 
+    isLoading: isLoadingTimeframes, 
+    error: timeframesError 
+  } = useSchoolTimeframes(schoolId);
 
-export default function TimeframesDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
+  // Mutations
+  const createTimeframeMutation = useCreateTimeframe();
+  const updateTimeframeMutation = useUpdateTimeframe();
+  const deleteTimeframeMutation = useDeleteTimeframe();
+  const activateTimeframeMutation = useActivateTimeframe();
 
-    const [timeframes, setTimeframes] = useState<SchoolTimeframe[]>([])
-
-    const [showNewTimeframeDialog, setShowNewTimeframeDialog] = useState<boolean>(false)
-    const [newTimeframe, setNewTimeframe] = useState<NewTimeframe>({
-        name: '',
-        startsAt: '',
-        endsAt: ''
-    })
-
-    const [showEditTimeframeDialog, setShowEditTimeframeDialog] = useState<boolean>(false)
-    const [editedTimeframe, setEditedTimeframe] = useState<EditedTimeframe | null>(null)
-
-    const [showDeleteTimeframeDialog, setShowDeleteTimeframeDialog] = useState<boolean>(false)
-    const [timeframeToDelete, setTimeframeToDelete] = useState<TimeframeToDelete | null>(null)
-
-    async function getTimeframeData() {
-        const data = await getSchoolTimeframes(parseInt(schoolId))
-        setTimeframes(data)
+  const handleCreateTimeframe = async () => {
+    if (!newTimeframeName.trim() || !newTimeframeStartsAt || !newTimeframeEndsAt) {
+      alert("Please fill in all fields");
+      return;
     }
 
-    async function saveNewTimeframe() {
-        setShowNewTimeframeDialog(false)
-        await addSchoolTimeframe(
-            parseInt(schoolId),
-            newTimeframe.startsAt,
-            newTimeframe.endsAt,
-            newTimeframe.name
-        )
-        getTimeframeData()
+    if (new Date(newTimeframeStartsAt) >= new Date(newTimeframeEndsAt)) {
+      alert("End date must be after start date");
+      return;
     }
 
-    async function updateTimeframe() {
-        setShowEditTimeframeDialog(false)
-        if (editedTimeframe === null) return
-        await editSchoolTimeframe(
-            parseInt(schoolId),
-            editedTimeframe.id,
-            editedTimeframe.startsAt,
-            editedTimeframe.endsAt,
-            editedTimeframe.name
-        )
-        getTimeframeData()
+    try {
+      await createTimeframeMutation.mutateAsync({
+        schoolId,
+        timeframeData: {
+          name: newTimeframeName.trim(),
+          startsAt: newTimeframeStartsAt,
+          endsAt: newTimeframeEndsAt
+        }
+      });
+      
+      setNewTimeframeName("");
+      setNewTimeframeStartsAt("");
+      setNewTimeframeEndsAt("");
+      setIsAddTimeframeDialogOpen(false);
+      alert("Timeframe created successfully");
+    } catch (error) {
+      alert("Failed to create timeframe");
+      console.error("Error creating timeframe:", error);
+    }
+  };
+
+  const handleUpdateTimeframe = async () => {
+    if (!editingTimeframe) return;
+
+    if (!editingTimeframe.name.trim() || !editingTimeframe.startsAt || !editingTimeframe.endsAt) {
+      alert("Please fill in all fields");
+      return;
     }
 
-    async function deleteTimeframe() {
-        setShowDeleteTimeframeDialog(false)
-        if (timeframeToDelete === null) return
-        await deleteSchoolTimeframe(
-            parseInt(schoolId),
-            timeframeToDelete.id
-        )
-        getTimeframeData()
+    if (new Date(editingTimeframe.startsAt) >= new Date(editingTimeframe.endsAt)) {
+      alert("End date must be after start date");
+      return;
     }
 
-    async function activateTimeframe(timeframeId: number) {
-        await activateSchoolTimeframe(
-            parseInt(schoolId),
-            timeframeId
-        )
-        getTimeframeData()
+    try {
+      await updateTimeframeMutation.mutateAsync({
+        timeframeId: editingTimeframe.id,
+        timeframeData: {
+          name: editingTimeframe.name,
+          startsAt: editingTimeframe.startsAt,
+          endsAt: editingTimeframe.endsAt
+        }
+      });
+      
+      setEditingTimeframe(null);
+      setIsEditDialogOpen(false);
+      alert("Timeframe updated successfully");
+    } catch (error) {
+      alert("Failed to update timeframe");
+      console.error("Error updating timeframe:", error);
+    }
+  };
+
+  const handleDeleteTimeframe = async (timeframeId: number, timeframeName: string) => {
+    if (!confirm(`Are you sure you want to delete "${timeframeName}"? This action cannot be undone.`)) {
+      return;
     }
 
-    useEffect(() => {
-        getTimeframeData()
-    }, [])
-
-    function editTimeframeDialog() {
-        return (
-            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
-                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-fit">
-                    <div className="text-xl pb-5">
-                        Edit timeframe: {editedTimeframe?.name}
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-5">
-                        <input
-                            className="p-3 my-1 col-span-2"
-                            type='text'
-                            placeholder="Name"
-                            defaultValue={editedTimeframe?.name}
-                            onChange={(e) => setEditedTimeframe((oldState => {
-                                if (oldState === null) return oldState
-                                return {
-                                    ...oldState,
-                                    name: e.target.value
-                                }
-                            }))}
-                        />
-                        Starts At
-                        <input
-                            className="p-3 my-1"
-                            type='datetime-local'
-                            defaultValue={DateTime.fromISO(editedTimeframe?.startsAt ?? '').toISO({ includeOffset: false }) ?? ''}
-                            onChange={(e) => setEditedTimeframe((oldState => {
-                                if (oldState === null) return oldState
-                                return {
-                                    ...oldState,
-                                    startsAt: e.target.value
-                                }
-                            }))}
-                        />
-                        Ends At
-                        <input
-                            className="p-3 my-1"
-                            type='datetime-local'
-                            defaultValue={DateTime.fromISO(editedTimeframe?.endsAt ?? '').toISO({ includeOffset: false }) ?? ''}
-                            onChange={(e) => setEditedTimeframe((oldState => {
-                                if (oldState === null) return oldState
-                                return {
-                                    ...oldState,
-                                    endsAt: e.target.value
-                                }
-                            }))}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-5">
-                        <div
-                            className="bg-green-200 dark:bg-green-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                updateTimeframe()
-                            }}>
-                            Save
-                        </div>
-                        <div
-                            className="bg-red-200 dark:bg-red-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                setShowEditTimeframeDialog(false)
-                            }}
-                        >Cancel</div>
-                    </div>
-                </div>
-            </div>
-        )
+    try {
+      await deleteTimeframeMutation.mutateAsync(timeframeId);
+      alert("Timeframe deleted successfully");
+    } catch (error) {
+      alert("Failed to delete timeframe");
+      console.error("Error deleting timeframe:", error);
     }
+  };
 
-    function addTimeframeDialog() {
-        return (
-            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
-                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-fit">
-                    <div className="text-xl pb-5">
-                        Add new timeframe
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-5">
-                        <input
-                            className="p-3 my-1 col-span-2"
-                            type='text'
-                            placeholder="Name"
-                            onChange={(e) => setNewTimeframe((oldState => {
-                                return {
-                                    ...oldState,
-                                    name: e.target.value
-                                }
-                            }))}
-                        />
-                        Starts At
-                        <input
-                            className="p-3 my-1"
-                            type='datetime-local'
-                            onChange={(e) => setNewTimeframe((oldState => {
-                                return {
-                                    ...oldState,
-                                    startsAt: e.target.value
-                                }
-                            }))}
-                        />
-                        Ends At
-                        <input
-                            className="p-3 my-1"
-                            type='datetime-local'
-                            onChange={(e) => setNewTimeframe((oldState => {
-                                return {
-                                    ...oldState,
-                                    endsAt: e.target.value
-                                }
-                            }))}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-5">
-                        <div
-                            className="bg-green-200 dark:bg-green-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                saveNewTimeframe()
-                            }}>
-                            Save
-                        </div>
-                        <div
-                            className="bg-red-200 dark:bg-red-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                setShowNewTimeframeDialog(false)
-                            }}
-                        >Cancel</div>
-                    </div>
-                </div>
-            </div>
-        )
+  const handleActivateTimeframe = async (timeframeId: number) => {
+    try {
+      await activateTimeframeMutation.mutateAsync(timeframeId);
+      alert("Timeframe activated successfully");
+    } catch (error) {
+      alert("Failed to activate timeframe");
+      console.error("Error activating timeframe:", error);
     }
+  };
 
-    function deleteTimeframeDialog() {
-        return (
-            <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
-                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-fit h-fit">
-                    <div>Are you sure you want to delete this timeframe?</div>
-                    <div className="text-2xl">{timeframeToDelete?.name}</div>
-                    <div className="grid grid-col-2 gap-5">
-                        <div
-                            className="bg-green-200 dark:bg-green-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                setShowDeleteTimeframeDialog(false)
-                            }}>
-                            No
-                        </div>
-                        <div
-                            className="bg-red-200 dark:bg-red-800 px-3 py-1 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                deleteTimeframe()
-                            }}
-                        >Yes, delete it</div>
-                    </div>
-                </div>
-            </div>
-        )
+  const openEditDialog = (timeframe: AdminTimeframeData) => {
+    setEditingTimeframe({ ...timeframe });
+    setIsEditDialogOpen(true);
+  };
+
+  const formatDateTime = (dateTimeString: string) => {
+    return new Date(dateTimeString).toLocaleString();
+  };
+
+  const getTimeframeStatus = (timeframe: AdminTimeframeData) => {
+    const now = new Date();
+    const startDate = new Date(timeframe.startsAt);
+    const endDate = new Date(timeframe.endsAt);
+
+    if (timeframe.active) {
+      return { status: "Active", color: "bg-green-100 text-green-800" };
+    } else if (now < startDate) {
+      return { status: "Upcoming", color: "bg-blue-100 text-blue-800" };
+    } else if (now >= startDate && now <= endDate) {
+      return { status: "In Progress", color: "bg-yellow-100 text-yellow-800" };
+    } else {
+      return { status: "Ended", color: "bg-gray-100 text-gray-800" };
     }
+  };
 
+  if (isLoadingTimeframes) {
     return (
-        <div>
-            {showNewTimeframeDialog && addTimeframeDialog()}
-            {showEditTimeframeDialog && editTimeframeDialog()}
-            {showDeleteTimeframeDialog && deleteTimeframeDialog()}
-            <div
-                className="w-fit py-1 px-3 rounded-lg m-3 bg-blue-300 dark:bg-blue-700 cursor-pointer"
-                onClick={(e) => {
-                    setShowNewTimeframeDialog(true)
-                }}
-            >
-                ADD NEW TIMEFRAME
-            </div>
-            <div className="px-3 text-sm text-slate-600 dark:text-slate-400">
-                <div>The timeframe currently active is highlighted in green</div>
-                <div>The active timeframe controls what students see and acts as the default view for all teacher scorebooks and dashboard data</div>
-            </div>
-            <div className="grid grid-cols-1 m-3">
-                <div className="py-3 px-1 grid grid-cols-6">
-                    <div>Name</div>
-                    <div>Starts At</div>
-                    <div>Ends At</div>
-                </div>
-                {
-                    timeframes
-                        .sort((a, b) => DateTime.fromISO(a.startsAt).toSeconds() - DateTime.fromISO(b.startsAt).toSeconds())
-                        .map((timeframe, index) => (
-                            <div className={`py-3 px-1 grid grid-cols-6 gap-x-3 ${timeframe.active ? `bg-green-300 dark:bg-green-700` : index % 2 === 0 ? `bg-slate-200 dark:bg-slate-800` : `bg-slate-300 dark:bg-slate-700`}`}>
-                                <div>
-                                    {timeframe.name}
-                                </div>
-                                <div>
-                                    {DateTime.fromISO(timeframe.startsAt).toFormat('LLL dd, yyyy HH:mm')}
-                                </div>
-                                <div>
-                                    {DateTime.fromISO(timeframe.endsAt).toFormat('LLL dd, yyyy HH:mm')}
-                                </div>
-                                <div
-                                    className="bg-orange-200 dark:bg-orange-800 px-3 py-1 rounded-lg cursor-pointer flex justify-center"
-                                    onClick={(e) => {
-                                        setEditedTimeframe({ ...timeframe })
-                                        setShowEditTimeframeDialog(true)
-                                    }}
-                                >
-                                    Edit
-                                </div>
-                                <div>
-                                    {
-                                        !timeframe.active && <div className="bg-amber-200 dark:bg-amber-800 px-3 py-1 rounded-lg cursor-pointer flex justify-center"
-                                            onClick={(e) => {
-                                                activateTimeframe(timeframe.id)
-                                            }}>SET ACTIVE</div>
-                                    }
-                                </div>
-                                <div>
-                                    {
-                                        !timeframe.active && <div
-                                            className="bg-red-200 dark:bg-red-800 px-3 py-1 rounded-lg cursor-pointer flex justify-center"
-                                            onClick={(e) => {
-                                                setTimeframeToDelete({
-                                                    id: timeframe.id,
-                                                    name: timeframe.name
-                                                })
-                                                setShowDeleteTimeframeDialog(true)
-                                            }}
-                                        >DELETE</div>
-                                    }
-                                </div>
-                            </div>
-                        ))
-                }
-            </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading timeframes...</p>
         </div>
-    )
-}
+      </div>
+    );
+  }
+
+  if (timeframesError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-destructive text-2xl mb-4">⚠️</div>
+          <p className="text-destructive">Failed to load timeframes</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Timeframes</h1>
+          <p className="text-muted-foreground">
+            Manage timeframes for organizing competitions and events
+          </p>
+        </div>
+        
+        <button
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+          onClick={() => setIsAddTimeframeDialogOpen(true)}
+        >
+          + Add Timeframe
+        </button>
+      </div>
+
+      {timeframes.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-12 text-center">
+          <div className="text-4xl mb-4">⏰</div>
+          <h3 className="text-lg font-semibold mb-2 text-foreground">No timeframes yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Create your first timeframe to start organizing competitions and events.
+          </p>
+          <button 
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            onClick={() => setIsAddTimeframeDialogOpen(true)}
+          >
+            + Create First Timeframe
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {timeframes.map((timeframe) => {
+            const status = getTimeframeStatus(timeframe);
+            return (
+              <div key={timeframe.id} className="bg-card border border-border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-foreground">{timeframe.name}</h3>
+                    <span className={`text-xs px-2 py-1 rounded ${status.color}`}>
+                      {status.status}
+                    </span>
+                    {timeframe.active && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                        Currently Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!timeframe.active && (
+                      <button
+                        className="text-green-600 hover:bg-green-50 px-2 py-1 rounded text-sm transition-colors"
+                        onClick={() => handleActivateTimeframe(timeframe.id)}
+                      >
+                        Activate
+                      </button>
+                    )}
+                    <button
+                      className="text-primary hover:bg-primary/10 px-2 py-1 rounded text-sm transition-colors"
+                      onClick={() => openEditDialog(timeframe)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-destructive hover:bg-destructive/10 px-2 py-1 rounded text-sm transition-colors"
+                      onClick={() => handleDeleteTimeframe(timeframe.id, timeframe.name)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div>
+                    <span className="font-medium text-foreground">Starts:</span> {formatDateTime(timeframe.startsAt)}
+                  </div>
+                  <div>
+                    <span className="font-medium text-foreground">Ends:</span> {formatDateTime(timeframe.endsAt)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add Timeframe Dialog */}
+      {isAddTimeframeDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg p-6 w-96">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Create New Timeframe</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Timeframe Name
+                </label>
+                <input
+                  type="text"
+                  value={newTimeframeName}
+                  onChange={(e) => setNewTimeframeName(e.target.value)}
+                  placeholder="Enter timeframe name"
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newTimeframeStartsAt}
+                  onChange={(e) => setNewTimeframeStartsAt(e.target.value)}
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newTimeframeEndsAt}
+                  onChange={(e) => setNewTimeframeEndsAt(e.target.value)}
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <button 
+                  className="border border-border px-4 py-2 rounded hover:bg-accent transition-colors"
+                  onClick={() => {
+                    setIsAddTimeframeDialogOpen(false);
+                    setNewTimeframeName("");
+                    setNewTimeframeStartsAt("");
+                    setNewTimeframeEndsAt("");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 transition-colors"
+                  onClick={handleCreateTimeframe}
+                  disabled={createTimeframeMutation.isPending}
+                >
+                  {createTimeframeMutation.isPending ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Timeframe Dialog */}
+      {isEditDialogOpen && editingTimeframe && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg p-6 w-96">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Edit Timeframe</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Timeframe Name
+                </label>
+                <input
+                  type="text"
+                  value={editingTimeframe.name}
+                  onChange={(e) => setEditingTimeframe({ ...editingTimeframe, name: e.target.value })}
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editingTimeframe.startsAt.slice(0, 16)}
+                  onChange={(e) => setEditingTimeframe({ ...editingTimeframe, startsAt: e.target.value })}
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editingTimeframe.endsAt.slice(0, 24)}
+                  onChange={(e) => setEditingTimeframe({ ...editingTimeframe, endsAt: e.target.value })}
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <button 
+                  className="border border-border px-4 py-2 rounded hover:bg-accent transition-colors"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingTimeframe(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 transition-colors"
+                  onClick={handleUpdateTimeframe}
+                  disabled={updateTimeframeMutation.isPending}
+                >
+                  {updateTimeframeMutation.isPending ? "Updating..." : "Update"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 

@@ -1,588 +1,671 @@
 "use client";
 
-import { useEffect, useState } from 'react'
-import CSVReader from 'react-csv-reader'
-import { Student } from '@/app/dataClasses';
-import { clientGetSchoolStudents } from '@/app/supaApi/client/admin/students/adminStudentsApi';
+import { useState } from 'react';
+import { useSchoolStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useSchoolGroups } from '@/app/hooks/useAdminQueries';
+import { LoadingState } from '@/components/LoadingLayout';
+import ThemeInput from '@/components/ThemeInput';
+import ThemeSelect from '@/components/ThemeSelect';
+import MotionButton from '@/components/MotionButton';
+import { AdminStudentData } from '@/types/domain';
+import CSVReader from 'react-csv-reader';
 import { DateTime } from 'luxon';
-import { addStudentToSchool, bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
+import { bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
 
-enum SortDirections {
-    ASC = "ASC",
-    DESC = "DESC"
+enum SortType {
+  FirstName = 'firstName',
+  LastName = 'lastName',
+  Grade = 'grade',
+  PowerschoolId = 'powerschoolId'
 }
 
-enum SortFilterOptions {
-    ID = "ID",
-    POWERSCHOOL_ID = "POWERSCHOOL_ID",
-    LAST_NAME = "LAST_NAME",
-    FIRST_NAME = "FIRST_NAME",
-    GRADE = "GRADE",
-    BIRTHDATE = "BIRTHDATE",
-    GENDER = "GENDER"
+enum SortDirection {
+  Ascending = 'asc',
+  Descending = 'desc'
 }
 
-class StudentFilters {
-    searchString: string;
-    birthdateMin: Date | null;
-    birthdateMax: Date | null;
-    gradeMin: number | null;
-    gradeMax: number | null;
+// Types for bulk import
+type PreviewStudent = {
+  powerschoolId: number;
+  firstName: string;
+  lastName: string;
+  grade: number;
+  birthdate: DateTime;
+  gender: string;
+};
 
-    constructor(
-        searchString: string,
-        birthdateMin: Date | null,
-        birthdateMax: Date | null,
-        gradeMin: number | null,
-        gradeMax: number | null,
-    ) {
-        this.searchString = searchString;
-        this.birthdateMin = birthdateMin;
-        this.birthdateMax = birthdateMax;
-        this.gradeMin = gradeMin;
-        this.gradeMax = gradeMax;
+export default function StudentsManagementPage({ params: { schoolId } }: { params: { schoolId: string } }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<SortType>(SortType.LastName);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(SortDirection.Ascending);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<AdminStudentData | null>(null);
+
+  // Bulk import state
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [previewStudents, setPreviewStudents] = useState<PreviewStudent[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [bulkImportError, setBulkImportError] = useState<string | null>(null);
+
+  // Queries
+  const { data: students, isLoading, error, refetch } = useSchoolStudents(parseInt(schoolId));
+  const { data: groups, isLoading: groupsLoading } = useSchoolGroups(parseInt(schoolId));
+  const createStudentMutation = useCreateStudent();
+  const updateStudentMutation = useUpdateStudent();
+  const deleteStudentMutation = useDeleteStudent();
+
+  // Create form state
+  const [createForm, setCreateForm] = useState({
+    firstName: '',
+    lastName: '',
+    grade: '',
+    birthdate: '',
+    gender: '',
+    powerschoolId: '',
+    groupIds: [] as number[]
+  });
+
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    grade: '',
+    birthdate: '',
+    gender: '',
+    powerschoolId: '',
+    groupIds: [] as number[]
+  });
+
+  // Filter and sort students
+  const filteredAndSortedStudents = students?.filter(student =>
+    student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.powerschoolId?.toString() || '').includes(searchTerm)
+  ).sort((a, b) => {
+    let comparison = 0;
+    switch (sortBy) {
+      case SortType.FirstName:
+        comparison = a.firstName.localeCompare(b.firstName);
+        break;
+      case SortType.LastName:
+        comparison = a.lastName.localeCompare(b.lastName);
+        break;
+      case SortType.Grade:
+        comparison = a.grade - b.grade;
+        break;
+      case SortType.PowerschoolId:
+        comparison = (a.powerschoolId ?? 0) - (b.powerschoolId ?? 0);
+        break;
     }
-}
+    return sortDirection === SortDirection.Ascending ? comparison : -comparison;
+  }) || [];
 
-class PreviewStudent {
-    powerschoolId: number;
-    firstName: string;
-    lastName: string;
-    grade: number;
-    birthdate: DateTime;
-    gender: string;
-
-    constructor(
-        powerschoolId: number,
-        firstName: string,
-        lastName: string,
-        grade: number,
-        birthdate: DateTime,
-        gender: string,
-    ) {
-        this.powerschoolId = powerschoolId;
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.grade = grade;
-        this.birthdate = birthdate;
-        this.gender = gender;
+  // Handle create student
+  const handleCreateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.firstName || !createForm.lastName || !createForm.grade || !createForm.powerschoolId) {
+      alert('Please fill in all required fields');
+      return;
     }
-}
 
-type ManuallyAddStudentData = {
-    schoolId: number,
-    powerSchoolId: number,
-    firstName: string,
-    lastName: string,
-    birthday: DateTime,
-    grade: number,
-    gender: string
-}
-
-export default function StudentsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
-
-    const [bulkAddStudentsDialogueOpen, setBulkAddStudentsDialogueOpen] = useState<boolean>(false)
-    const [previewStudents, setPreviewStudents] = useState<PreviewStudent[]>([])
-    const [initialStudents, setInitialStudents] = useState<Student[]>([])
-    const [students, setStudents] = useState<Student[]>([])
-    const [studentSearchString, setStudentSearchString] = useState<string>("")
-
-    const [activelyBulkAddingStudents, setActivelyBulkAddingStudents] = useState<boolean>(false)
-
-    const [currentSortDirection, setCurrentSortDirection] = useState<SortDirections>(SortDirections.ASC)
-    const [currentSortFilter, setCurrentSortFilter] = useState<SortFilterOptions>(SortFilterOptions.ID)
-
-    const [studentFilters, setStudentFilters] = useState<StudentFilters>(new StudentFilters("", null, null, null, null))
-
-    const [manuallyAddStudentDialogueVisible, setManuallyAddStudentDialogueVisible] = useState<boolean>(false)
-    const [currentManuallyAddedStudent, setCurrentManuallyAddedStudent] = useState<ManuallyAddStudentData>({
+    try {
+      await createStudentMutation.mutateAsync({
         schoolId: parseInt(schoolId),
-        powerSchoolId: -1,
-        firstName: "",
-        lastName: "",
-        birthday: DateTime.now(),
-        grade: -1,
-        gender: ""
-    })
-
-    const fetchStudents = async () => {
-        const fetchedStudents = await clientGetSchoolStudents(parseInt(schoolId))
-        if (fetchedStudents === null) {
-            console.error("Error fetching students")
-        } else {
-            setStudents(fetchedStudents.map((student: Student) => ({ ...student })))
-            setInitialStudents(fetchedStudents.map((student: Student) => ({ ...student })))
+        studentData: {
+          firstName: createForm.firstName,
+          lastName: createForm.lastName,
+          grade: parseInt(createForm.grade),
+          birthdate: createForm.birthdate || undefined,
+          gender: createForm.gender || undefined,
+          powerschoolId: parseInt(createForm.powerschoolId),
+          groupIds: createForm.groupIds
         }
+      });
+
+      // Reset form
+      setCreateForm({
+        firstName: '',
+        lastName: '',
+        grade: '',
+        birthdate: '',
+        gender: '',
+        powerschoolId: '',
+        groupIds: []
+      });
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Failed to create student:', error);
+      alert('Failed to create student');
     }
+  };
 
-    useEffect(() => {
-        fetchStudents();
-    }, []);
+  // Handle update student
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
 
-    const updateStudentFilterState = async () => {
-        setStudentFilters(new StudentFilters(
-            studentFilters.searchString,
-            studentFilters.birthdateMin,
-            studentFilters.birthdateMax,
-            studentFilters.gradeMin,
-            studentFilters.gradeMax,
-        ))
-    }
-
-    const bulkAddStudents = async (students: PreviewStudent[]) => {
-        if (activelyBulkAddingStudents) {
-            return
+    try {
+      await updateStudentMutation.mutateAsync({
+        studentId: editingStudent.id,
+        studentData: {
+          firstName: editForm.firstName || undefined,
+          lastName: editForm.lastName || undefined,
+          grade: editForm.grade ? parseInt(editForm.grade) : undefined,
+          birthdate: editForm.birthdate || undefined,
+          gender: editForm.gender || undefined,
+          powerschoolId: editForm.powerschoolId ? parseInt(editForm.powerschoolId) : undefined,
+          groupIds: editForm.groupIds
         }
-        setActivelyBulkAddingStudents(true)
-        bulkAddStudentsToSchool(
-            students.map((student: PreviewStudent) => ({
-                powerschoolId: student.powerschoolId,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                grade: student.grade,
-                birthdate: student.birthdate.toISODate() ?? "",
-                gender: student.gender,
-                schoolId: parseInt(schoolId)
-            })),
-            parseInt(schoolId)
-        )
-        setActivelyBulkAddingStudents(false)
-        console.log("Successfully bulk added students")
-        setPreviewStudents([])
-        setBulkAddStudentsDialogueOpen(false)
-        fetchStudents()
+      });
+
+      setEditingStudent(null);
+      setEditForm({
+        firstName: '',
+        lastName: '',
+        grade: '',
+        birthdate: '',
+        gender: '',
+        powerschoolId: '',
+        groupIds: []
+      });
+    } catch (error) {
+      console.error('Failed to update student:', error);
+      alert('Failed to update student');
+    }
+  };
+
+  // Handle delete student
+  const handleDeleteStudent = async (studentId: number, studentName: string) => {
+    if (!confirm(`Are you sure you want to delete ${studentName}?`)) {
+      return;
     }
 
-    const tableHeader = ({
-        title,
-        sortFilter,
-    }: {
-        title: string,
-        sortFilter: SortFilterOptions | null,
-    }) => {
-        return (
-            <div className="text-md">
-                <div className="w-full flex justify-center">
-                    {title}
-                </div>
-                {sortFilter !== null &&
-                    <div className="w-full">
-                        <button
-                            className="w-full p-1 bg-slate-600 hover:bg-slate-500 rounded-t-lg"
-                            onClick={
-                                () => {
-                                    setCurrentSortFilter(sortFilter)
-                                    setCurrentSortDirection(currentSortDirection === SortDirections.ASC ? SortDirections.DESC : SortDirections.ASC)
-                                }
-                            }
-                        >
-                            Sort: {sortFilter === currentSortFilter ? currentSortDirection : "---"}
-                        </button>
-                    </div>}
-            </div>
-        )
+    try {
+      await deleteStudentMutation.mutateAsync(studentId);
+    } catch (error) {
+      console.error('Failed to delete student:', error);
+      alert('Failed to delete student');
+    }
+  };
+
+  // Start editing a student
+  const startEditing = (student: AdminStudentData) => {
+    setEditingStudent(student);
+    setEditForm({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      grade: student.grade.toString(),
+      birthdate: student.birthdate || '',
+      gender: student.gender || '',
+      powerschoolId: student.powerschoolId?.toString() || '',
+      groupIds: student.groupIds || []
+    });
+  };
+
+  // Bulk import functions
+  const handleCSVUpload = (data: any[]) => {
+    setBulkImportError(null);
+    setPreviewStudents([]);
+    
+    if (!data || data.length === 0) {
+      setBulkImportError('No data found in CSV file');
+      return;
     }
 
-    const manuallyAddStudent = () => {
-        addStudentToSchool(
-            currentManuallyAddedStudent.schoolId,
-            currentManuallyAddedStudent.powerSchoolId,
-            currentManuallyAddedStudent.firstName,
-            currentManuallyAddedStudent.lastName,
-            currentManuallyAddedStudent.birthday.toJSDate(),
-            currentManuallyAddedStudent.grade,
-            currentManuallyAddedStudent.gender
-        ).then(() => {
-            setManuallyAddStudentDialogueVisible(false)
-            fetchStudents()
-        })
-            .catch((error) => console.log(error))
+    const processedStudents: PreviewStudent[] = [];
+    
+    data.forEach((row, index) => {
+      // Skip empty rows
+      if (!row.Id || row.Id === '' || row.Id === null || row.Id === undefined) {
+        return;
+      }
+
+      try {
+        // Parse name (assuming format: "LastName, FirstName")
+        const nameParts = row.Name?.split(',') || [];
+        if (nameParts.length < 2) {
+          console.warn(`Row ${index + 1}: Invalid name format - ${row.Name}`);
+          return;
+        }
+
+        const lastName = nameParts[0]?.trim() || '';
+        const firstName = nameParts[1]?.trim() || '';
+
+        if (!lastName || !firstName) {
+          console.warn(`Row ${index + 1}: Missing first or last name`);
+          return;
+        }
+
+        // Parse grade
+        const grade = parseInt(row.Grade);
+        if (isNaN(grade) || grade < 9 || grade > 12) {
+          console.warn(`Row ${index + 1}: Invalid grade - ${row.Grade}`);
+          return;
+        }
+
+        // Parse birthdate
+        let birthdate: DateTime;
+        try {
+          birthdate = DateTime.fromFormat(row.Birthday, "MM/dd/yy");
+          if (!birthdate.isValid) {
+            console.warn(`Row ${index + 1}: Invalid birthdate format - ${row.Birthday}`);
+            return;
+          }
+        } catch (error) {
+          console.warn(`Row ${index + 1}: Could not parse birthdate - ${row.Birthday}`);
+          return;
+        }
+
+        // Validate gender
+        const gender = row.Gender?.toUpperCase();
+        if (!['M', 'F', 'O'].includes(gender)) {
+          console.warn(`Row ${index + 1}: Invalid gender - ${row.Gender}`);
+          return;
+        }
+
+        processedStudents.push({
+          powerschoolId: parseInt(row.Id),
+          firstName,
+          lastName,
+          grade,
+          birthdate,
+          gender
+        });
+      } catch (error) {
+        console.warn(`Row ${index + 1}: Error processing row`, error);
+      }
+    });
+
+    if (processedStudents.length === 0) {
+      setBulkImportError('No valid student data found in CSV file');
+      return;
     }
 
-    const manuallyAddStudentDialogue = () => {
-        return (
-            <div className="bg-slate-200 dark:bg-slate-800 p-5 rounded-lg w-fit absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="text-xl">Manually Enter a New Student</div>
-                <div className='grid grid-cols-1'>
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="number"
-                        placeholder="Powerschool Id"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            powerSchoolId: parseInt(e.target.value)
-                        }
-                        )}
-                    />
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="text"
-                        placeholder="First Name"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            firstName: e.target.value
-                        }
-                        )}
-                    />
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="text"
-                        placeholder="Last Name"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            lastName: e.target.value
-                        }
-                        )}
-                    />
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="date"
-                        placeholder="Birthday"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            birthday: DateTime.fromFormat(e.target.value, 'yyyy-LL-dd')
-                        }
-                        )}
-                    />
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="number"
-                        placeholder="Grade"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            grade: parseInt(e.target.value)
-                        }
-                        )}
-                    />
-                    <input
-                        className="w-fit border rounded-lg p-1 my-1 dark:[color-scheme:dark]"
-                        type="text"
-                        placeholder="Gender"
-                        onChange={e => setCurrentManuallyAddedStudent({
-                            ...currentManuallyAddedStudent,
-                            gender: e.target.value
-                        }
-                        )}
-                    />
-                </div>
-                <div className='grid grid-cols-2'>
-                    <button
-                        className='rounded-full text-white bg-green-300 dark:bg-green-700'
-                        onClick={() => {
-                            manuallyAddStudent()
-                        }}
-                    >Submit</button>
-                    <button
-                        className='rounded-full text-white bg-red-300 dark:bg-red-700'
-                        onClick={() => {
-                            setManuallyAddStudentDialogueVisible(false)
-                        }}>
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        )
-    }
+    setPreviewStudents(processedStudents);
+  };
 
-    const bulkAddStudentsDialogue = () => {
-        return (
-            <div className="bg-slate-200 dark:bg-slate-800 p-5 rounded-lg w-1/2 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div>
-                    Import a CSV file from Powerschool of your students and you will see a preview of the data below.
-                </div>
-                <CSVReader
-                    parserOptions={{
-                        header: true
-                    }}
-                    onFileLoaded={(data: any) => {
-                        setPreviewStudents([])
-                        var studentData: PreviewStudent[] = []
-                        data.forEach((student: any) => {
-                            if (student.Id === "" || student.Id === null || student.Id === undefined) {
-                                return
-                            }
-                            console.log(student)
-                            studentData.push(new PreviewStudent(
-                                student.Id,
-                                student.Name.split(",")[1],
-                                student.Name.split(",")[0],
-                                student.Grade,
-                                DateTime.fromFormat(student.Birthday, "MM/dd/yy"),
-                                student.Gender
-                            ))
-                        })
-                        setPreviewStudents(studentData)
-                    }}
-                />
-                <div className="flex justify-center content-center">
-                    <button
-                        className="p-1 m-1 w-1/3 rounded-lg bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600"
-                        onClick={() => bulkAddStudents(previewStudents)}
-                    >
-                        {activelyBulkAddingStudents ? "Adding..." : "Bulk Add"}
-                    </button>
-                    <button
-                        className="p-1 m-1 w-1/3 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
-                        onClick={() => setBulkAddStudentsDialogueOpen(false)}
-                    >
-                        Cancel
-                    </button>
-                </div>
-                <div className=" max-h-60 overflow-y-scroll">
-                    <table className="my-5 border-collapse border border-slate-500 w-full">
-                        <thead>
-                            <tr>
-                                <th className="border border-slate-500">Powerschool ID</th>
-                                <th className="border border-slate-500">Last Name</th>
-                                <th className="border border-slate-500">First Name</th>
-                                <th className="border border-slate-500">Grade</th>
-                                <th className="border border-slate-500">Birthday</th>
-                                <th className="border border-slate-500">Gender</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {
-                                previewStudents
-                                    .map((student: PreviewStudent) => {
-                                        return (
-                                            <tr key={student.powerschoolId}>
-                                                <td className="border border-slate-500">{student.powerschoolId}</td>
-                                                <td className="border border-slate-500">{student.lastName}</td>
-                                                <td className="border border-slate-500">{student.firstName}</td>
-                                                <td className="border border-slate-500">{student.grade}</td>
-                                                <td className="border border-slate-500">{student.birthdate.toFormat("MMM dd yyyy")}</td>
-                                                <td className="border border-slate-500">{student.gender}</td>
-                                            </tr>
-                                        )
-                                    })
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        )
-    }
+  const handleBulkImport = async () => {
+    if (isBulkImporting || previewStudents.length === 0) return;
 
-    return (
-        <div className="animate-in h-full w-full">
-            <div className="h-1/6">
-                <div className='flex justify-around'>
-                    <div>
-                        <div>
-                            {/* <button className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
-                        Add Student
-                    </button> */}
-                            <button
-                                className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                onClick={() => {
-                                    setManuallyAddStudentDialogueVisible(!manuallyAddStudentDialogueVisible)
-                                }}
-                            >
-                                Manually Add Student
-                            </button>
-                            <button
-                                className="p-3 m-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                onClick={() => {
-                                    setBulkAddStudentsDialogueOpen(!bulkAddStudentsDialogueOpen)
-                                    setPreviewStudents([])
-                                }}
-                            >
-                                Bulk Add Students (CSV)
-                            </button>
-                        </div>
-                        <div>
-                            <input
-                                className="w-full p-3 m-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                type="text"
-                                placeholder="Search Students"
-                                onChange={(e) => setStudentSearchString(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        {/* Filter on birthdate using date range */}
-                        <div>
-                            Filter by Birthdate Range
-                            <div>
-                                <div className="flex w-full my-1">
-                                    <div className="w-1/4">
-                                        Min
-                                    </div>
-                                    <input
-                                        className="w-full mx-1 p-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        type="date"
-                                        onChange={(e) => {
-                                            studentFilters.birthdateMin = new Date(e.target.value)
-                                            updateStudentFilterState()
-                                        }}
-                                    />
-                                </div>
-                                <div className="flex w-full my-1">
-                                    <div className="w-1/4">
-                                        Max
-                                    </div>
-                                    <input
-                                        className="w-full mx-1 p-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        type="date"
-                                        onChange={(e) => {
-                                            studentFilters.birthdateMax = new Date(e.target.value)
-                                            updateStudentFilterState()
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        {/* Filter on grade range */}
-                        <div>
-                            Filter by Grade Range
-                            <div>
-                                <div className="flex w-full my-1">
-                                    <div className="w-1/4">
-                                        Min
-                                    </div>
-                                    <input
-                                        className="w-full mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        type="number"
-                                        placeholder="Min Grade"
-                                        min={9}
-                                        max={12}
-                                        onChange={(e) => {
-                                            studentFilters.gradeMin = parseInt(e.target.value)
-                                            updateStudentFilterState()
-                                        }}
-                                    />
-                                </div>
-                                <div className="flex w-full my-1">
-                                    <div className="w-1/4">
-                                        Max
-                                    </div>
-                                    <input
-                                        className="w-full mx-1 p-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                        type="number"
-                                        placeholder="Max Grade"
-                                        min={9}
-                                        max={12}
-                                        onChange={(e) => {
-                                            studentFilters.gradeMax = parseInt(e.target.value)
-                                            updateStudentFilterState()
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="w-full h-5/6 overflow-y-scroll">
-                <div className="w-full grid grid-cols-8">
-                    {tableHeader({
-                        title: "ID",
-                        sortFilter: SortFilterOptions.ID,
-                    })}
-                    {tableHeader({
-                        title: "Powerschool ID",
-                        sortFilter: SortFilterOptions.POWERSCHOOL_ID,
-                    })}
-                    {tableHeader({
-                        title: "Last Name",
-                        sortFilter: SortFilterOptions.LAST_NAME,
-                    })}
-                    {tableHeader({
-                        title: "First Name",
-                        sortFilter: SortFilterOptions.FIRST_NAME,
-                    })}
-                    {tableHeader({
-                        title: "Grade",
-                        sortFilter: SortFilterOptions.GRADE,
-                    })}
-                    {tableHeader({
-                        title: "Birthdate",
-                        sortFilter: SortFilterOptions.BIRTHDATE,
-                    })}
-                    {tableHeader({
-                        title: "Gender",
-                        sortFilter: SortFilterOptions.GENDER,
-                    })}
-                    {tableHeader({
-                        title: "Link Code",
-                        sortFilter: null,
-                    })}
-                    {
-                        students
-                            .filter((student: Student) => {
-                                return student.lastName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
-                                    student.firstName.toLowerCase().includes(studentSearchString.toLowerCase()) ||
-                                    studentSearchString === ""
-                            })
-                            .filter((student: Student) => {
-                                return (studentFilters.birthdateMin === null || (student.birthdate ?? new Date(0)) >= studentFilters.birthdateMin)
-                                    && (studentFilters.birthdateMax === null || (student.birthdate ?? new Date(0)) <= studentFilters.birthdateMax)
-                                    && (studentFilters.gradeMin === null || student.grade >= studentFilters.gradeMin)
-                                    && (studentFilters.gradeMax === null || student.grade <= studentFilters.gradeMax)
-                            })
-                            .sort((a: Student, b: Student) => {
-                                if (currentSortDirection === SortDirections.ASC) {
-                                    if (currentSortFilter === SortFilterOptions.ID) {
-                                        return (a.id || 0) - (b.id || 0)
-                                    } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
-                                        return a.powerSchoolId - b.powerSchoolId
-                                    } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
-                                        return a.lastName.localeCompare(b.lastName)
-                                    } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
-                                        return a.firstName.localeCompare(b.firstName)
-                                    } else if (currentSortFilter === SortFilterOptions.GRADE) {
-                                        return a.grade - b.grade
-                                    } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
-                                        return (a.birthdate ? a.birthdate.getTime() : 0) - (b.birthdate ? b.birthdate.getTime() : 0)
-                                    } else if (currentSortFilter === SortFilterOptions.GENDER) {
-                                        return (a.gender ?? "").localeCompare(b.gender ?? "")
-                                    } else {
-                                        return 0
-                                    }
-                                } else {
-                                    if (currentSortFilter === SortFilterOptions.ID) {
-                                        return (b.id || 0) - (a.id || 0)
-                                    } else if (currentSortFilter === SortFilterOptions.POWERSCHOOL_ID) {
-                                        return b.powerSchoolId - a.powerSchoolId
-                                    } else if (currentSortFilter === SortFilterOptions.LAST_NAME) {
-                                        return b.lastName.localeCompare(a.lastName)
-                                    } else if (currentSortFilter === SortFilterOptions.FIRST_NAME) {
-                                        return b.firstName.localeCompare(a.firstName)
-                                    } else if (currentSortFilter === SortFilterOptions.GRADE) {
-                                        return b.grade - a.grade
-                                    } else if (currentSortFilter === SortFilterOptions.BIRTHDATE) {
-                                        return (b.birthdate ? b.birthdate.getTime() : 0) - (a.birthdate ? a.birthdate.getTime() : 0)
-                                    } else if (currentSortFilter === SortFilterOptions.GENDER) {
-                                        return (b.gender ?? "").localeCompare(a.gender ?? "")
-                                    } else {
-                                        return 0
-                                    }
-                                }
-                            })
-                            .map((student: Student) => {
-                                return (
-                                    <div
-                                        className='grid col-span-8 grid-cols-8 hover:bg-slate-200 dark:hover:bg-slate-800'
-                                        key={student.id}
-                                    >
-                                        <div>{student.id}</div>
-                                        <div>{student.powerSchoolId}</div>
-                                        <div>{student.lastName}</div>
-                                        <div>{student.firstName}</div>
-                                        <div>{student.grade}</div>
-                                        <div>{student.birthdate?.toISOString().split("T")[0]}</div>
-                                        <div>{student.gender}</div>
-                                        <div>{student.linkCode}</div>
-                                    </div>
-                                )
-                            })
-                    }
-                </div>
-            </div>
-            {bulkAddStudentsDialogueOpen && bulkAddStudentsDialogue()}
-            {manuallyAddStudentDialogueVisible && manuallyAddStudentDialogue()}
+    setIsBulkImporting(true);
+    setBulkImportError(null);
+
+    try {
+      const success = await bulkAddStudentsToSchool(
+        previewStudents.map(student => ({
+          powerschoolId: student.powerschoolId,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          grade: student.grade,
+          birthdate: student.birthdate.toISODate() || '',
+          gender: student.gender,
+        })),
+        parseInt(schoolId)
+      );
+
+      if (success) {
+        setShowBulkImport(false);
+        setPreviewStudents([]);
+        refetch(); // Refresh the students list
+      } else {
+        setBulkImportError('Failed to import students. Please try again.');
+      }
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      setBulkImportError('An error occurred while importing students.');
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
+  return (
+    <div className="h-full overflow-y-auto p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Students Management</h1>
+        <div className="flex gap-2">
+          <MotionButton
+            onClick={() => setShowBulkImport(!showBulkImport)}
+            variant="secondary"
+          >
+            {showBulkImport ? 'Cancel Import' : 'Bulk Import CSV'}
+          </MotionButton>
+          <MotionButton
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            variant="primary"
+          >
+            {showCreateForm ? 'Cancel' : 'Add Student'}
+          </MotionButton>
         </div>
-    )
-}
+      </div>
+
+      {/* Bulk Import Section */}
+      {showBulkImport && (
+        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold mb-4">Bulk Import Students</h2>
+          <div className="mb-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              Import a CSV file from PowerSchool. Expected columns: Id, Name (LastName, FirstName), Grade, Birthday (MM/dd/yy), Gender (M/F/O)
+            </p>
+            <CSVReader
+              parserOptions={{ header: true }}
+              onFileLoaded={handleCSVUpload}
+              onError={(error) => setBulkImportError(`CSV Error: ${error.message}`)}
+            />
+          </div>
+
+          {bulkImportError && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg">
+              {bulkImportError}
+            </div>
+          )}
+
+          {previewStudents.length > 0 && (
+            <>
+              <div className="mb-4">
+                <h3 className="text-lg font-medium mb-2">
+                  Preview ({previewStudents.length} students)
+                </h3>
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="w-full border-collapse border border-slate-300 dark:border-slate-600">
+                    <thead className="bg-slate-50 dark:bg-slate-700">
+                      <tr>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">PowerSchool ID</th>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">Last Name</th>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">First Name</th>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">Grade</th>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">Birthday</th>
+                        <th className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-left text-xs font-medium">Gender</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewStudents.map((student, index) => (
+                        <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.powerschoolId}</td>
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.lastName}</td>
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.firstName}</td>
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.grade}</td>
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.birthdate.toFormat("MMM dd yyyy")}</td>
+                          <td className="border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">{student.gender}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <MotionButton
+                  onClick={handleBulkImport}
+                  variant="primary"
+                  disabled={isBulkImporting}
+                >
+                  {isBulkImporting ? 'Importing...' : `Import ${previewStudents.length} Students`}
+                </MotionButton>
+                <MotionButton
+                  onClick={() => {
+                    setShowBulkImport(false);
+                    setPreviewStudents([]);
+                    setBulkImportError(null);
+                  }}
+                  variant="secondary"
+                >
+                  Cancel
+                </MotionButton>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Create Student Form */}
+      {showCreateForm && (
+        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold mb-4">Add New Student</h2>
+          <form onSubmit={handleCreateStudent} className="grid grid-cols-2 gap-4">
+            <ThemeInput
+              placeholder="First Name *"
+              value={createForm.firstName}
+              onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+              required
+            />
+            <ThemeInput
+              placeholder="Last Name *"
+              value={createForm.lastName}
+              onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
+              required
+            />
+            <ThemeInput
+              placeholder="Grade *"
+              type="number"
+              value={createForm.grade}
+              onChange={(e) => setCreateForm({ ...createForm, grade: e.target.value })}
+              required
+            />
+            <ThemeInput
+              placeholder="PowerSchool ID *"
+              type="number"
+              value={createForm.powerschoolId}
+              onChange={(e) => setCreateForm({ ...createForm, powerschoolId: e.target.value })}
+              required
+            />
+            <ThemeInput
+              placeholder="Birthdate"
+              type="date"
+              value={createForm.birthdate}
+              onChange={(e) => setCreateForm({ ...createForm, birthdate: e.target.value })}
+            />
+            <ThemeSelect
+              value={createForm.gender}
+              onChange={(e) => setCreateForm({ ...createForm, gender: e.target.value })}
+            >
+              <option value="">Select Gender</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+              <option value="O">Other</option>
+            </ThemeSelect>
+            <div className="col-span-2 flex gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={createStudentMutation.isPending}
+              >
+                {createStudentMutation.isPending ? 'Creating...' : 'Create Student'}
+              </button>
+              <MotionButton
+                variant="secondary"
+                onClick={() => setShowCreateForm(false)}
+              >
+                Cancel
+              </MotionButton>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg max-w-2xl w-full mx-4">
+            <h2 className="text-xl font-semibold mb-4">Edit Student</h2>
+            <form onSubmit={handleUpdateStudent} className="grid grid-cols-2 gap-4">
+              <ThemeInput
+                placeholder="First Name"
+                value={editForm.firstName}
+                onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+              />
+              <ThemeInput
+                placeholder="Last Name"
+                value={editForm.lastName}
+                onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+              />
+              <ThemeInput
+                placeholder="Grade"
+                type="number"
+                value={editForm.grade}
+                onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
+              />
+              <ThemeInput
+                placeholder="PowerSchool ID"
+                type="number"
+                value={editForm.powerschoolId}
+                onChange={(e) => setEditForm({ ...editForm, powerschoolId: e.target.value })}
+              />
+              <ThemeInput
+                placeholder="Birthdate"
+                type="date"
+                value={editForm.birthdate}
+                onChange={(e) => setEditForm({ ...editForm, birthdate: e.target.value })}
+              />
+              <ThemeSelect
+                value={editForm.gender}
+                onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+              >
+                <option value="">Select Gender</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+              </ThemeSelect>
+              <div className="col-span-2 flex gap-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={updateStudentMutation.isPending}
+                >
+                  {updateStudentMutation.isPending ? 'Updating...' : 'Update Student'}
+                </button>
+                <MotionButton
+                  variant="secondary"
+                  onClick={() => setEditingStudent(null)}
+                >
+                  Cancel
+                </MotionButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Sort Controls */}
+      <div className="flex gap-4 mb-6">
+        <ThemeInput
+          placeholder="Search students..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1"
+        />
+        <ThemeSelect
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortType)}
+        >
+          <option value={SortType.LastName}>Last Name</option>
+          <option value={SortType.FirstName}>First Name</option>
+          <option value={SortType.Grade}>Grade</option>
+          <option value={SortType.PowerschoolId}>PowerSchool ID</option>
+        </ThemeSelect>
+        <ThemeSelect
+          value={sortDirection}
+          onChange={(e) => setSortDirection(e.target.value as SortDirection)}
+        >
+          <option value={SortDirection.Ascending}>Ascending</option>
+          <option value={SortDirection.Descending}>Descending</option>
+        </ThemeSelect>
+      </div>
+
+      {/* Students Table */}
+      <LoadingState
+        isLoading={isLoading}
+        error={error}
+        data={students}
+        errorFallback={(err) => <div>Error loading students: {err.message}</div>}
+      >
+        {(data) => (
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 dark:bg-slate-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      Grade
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      PowerSchool ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      Groups
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  {filteredAndSortedStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {student.lastName}, {student.firstName}
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          {student.birthdate && new Date(student.birthdate).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                        {student.grade}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                        {student.powerschoolId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                        <div className="flex flex-wrap gap-1">
+                          {student.groupIds && student.groupIds.length > 0 ? (
+                            student.groupIds.map((groupId) => {
+                              const group = groups?.find(g => g.id === groupId);
+                              return (
+                                <span
+                                  key={groupId}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                >
+                                  {group ? group.name : `Group #${groupId}`}
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-slate-400 text-xs">No groups</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex gap-2">
+                          <MotionButton
+                            onClick={() => startEditing(student)}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Edit
+                          </MotionButton>
+                          <button
+                            onClick={() => handleDeleteStudent(student.id, `${student.firstName} ${student.lastName}`)}
+                            className="px-3 py-2 bg-red-600 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={deleteStudentMutation.isPending}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </LoadingState>
+
+      {/* Summary */}
+      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
+        Showing {filteredAndSortedStudents.length} of {students?.length || 0} students
+      </div>
+    </div>
+  );
+} 

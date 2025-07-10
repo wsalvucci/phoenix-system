@@ -9,6 +9,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import ThemeInput from "@/components/ThemeInput";
 import ThemeSelect from "@/components/ThemeSelect";
 import { LoadingState } from "@/components/LoadingLayout";
+import { wrapServerAction } from "@/utils/serverActionWrapper";
 
 const customFont = Space_Mono({
     weight: "400",
@@ -30,8 +31,8 @@ enum SortDirection {
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
     const { theme } = useTheme();
     const {data: adminDashData, isLoading, error} = useQuery({
-        queryKey: ["adminSchoolDash"],
-        queryFn: () => getAdminSchoolDash(parseInt(schoolId))
+        queryKey: ["adminSchoolDash", schoolId],
+        queryFn: () => wrapServerAction(getAdminSchoolDash)(parseInt(schoolId))
     })
 
     const [studentSearch, setStudentSearch] = useState<string>("")

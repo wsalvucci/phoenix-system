@@ -1,323 +1,317 @@
 "use client";
-import { createClient } from "@/utils/supabase/client"
-import { PointGroup } from "@/app/dataClasses";
-import { useEffect, useState } from "react";
-import { clientGetSchoolPointGroups } from "@/app/supaApi/client/admin/pointGroups/adminPointGroupsApi";
-import { addPointGroupToSchool } from "@/app/supaApi/server/admin/adminApi";
 
-export default function PointGroups({ params: { schoolId } }: { params: { schoolId: string } }) {
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { 
+  useSchoolPointGroups, 
+  useCreatePointGroup, 
+  useUpdatePointGroup
+} from "@/app/hooks/useAdminQueries";
+import { AdminPointGroupData } from "@/types/domain";
 
-    const supabase = createClient();
+export default function PointGroupsNewPage() {
+  const params = useParams();
+  const schoolId = parseInt(params.schoolId as string);
 
-    const [pointGroups, setPointGroups] = useState<PointGroup[]>([]);
-    const [tempPointGroups, setTempPointGroups] = useState<PointGroup[]>([]);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupColor, setNewGroupColor] = useState("#3B82F6");
+  const [newGroupRanked, setNewGroupRanked] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
+  const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<AdminPointGroupData | null>(null);
 
-    const fetchPointGroups = async () => {
-        const pointGroups = await clientGetSchoolPointGroups(parseInt(schoolId)) ?? [];
-        setPointGroups(pointGroups);
-        setTempPointGroups(pointGroups);
+  // Queries
+  const { 
+    data: pointGroups = [], 
+    isLoading: isLoadingPointGroups, 
+    error: pointGroupsError 
+  } = useSchoolPointGroups(schoolId);
+
+  // Mutations
+  const createPointGroupMutation = useCreatePointGroup();
+  const updatePointGroupMutation = useUpdatePointGroup();
+
+  const handleCreatePointGroup = async () => {
+    if (!newGroupName.trim()) {
+      alert("Please enter a group name");
+      return;
     }
 
-    useEffect(() => {
-        fetchPointGroups();
-    }, []);
-
-    const recursivelySavePointGroup = async (pointGroup: PointGroup) => {
-        const { data, error } = await supabase.from("point_group").update({
-            name: pointGroup.name,
-            ranked: pointGroup.ranked,
-            color: pointGroup.color
-        }).eq("id", pointGroup.id);
-        if (error) {
-            console.error("Error updating point group", error);
-        } else {
-            console.log("Point group updated");
+    try {
+      await createPointGroupMutation.mutateAsync({
+        schoolId,
+        groupData: { 
+          name: newGroupName.trim(),
+          color: newGroupColor,
+          ranked: newGroupRanked,
+          parentId: selectedParentId || undefined
         }
-        if (pointGroup.childGroups !== null) {
-            await Promise.all(pointGroup.childGroups.map(async (childGroup) => {
-                await recursivelySavePointGroup(childGroup);
-            })
-            )
-        }
+      });
+      
+      setNewGroupName("");
+      setNewGroupColor("#3B82F6");
+      setNewGroupRanked(false);
+      setSelectedParentId(null);
+      setIsAddGroupDialogOpen(false);
+      alert("Point group created successfully");
+    } catch (error) {
+      alert("Failed to create point group");
+      console.error("Error creating point group:", error);
     }
+  };
 
-    const saveChanges = async () => {
-        const pointGroupChanges = tempPointGroups.filter((tempGroup) => currentlyDiff(tempGroup));
-        await Promise.all(pointGroupChanges.map(async (pointGroup) => {
-            await recursivelySavePointGroup(pointGroup);
-        }))
-        setPointGroups(tempPointGroups);
+  const handleUpdatePointGroup = async (groupId: number, updates: {
+    name?: string;
+    color?: string;
+    ranked?: boolean;
+  }) => {
+    try {
+      await updatePointGroupMutation.mutateAsync({
+        pointGroupId: groupId,
+        groupData: updates
+      });
+      
+      setEditingGroup(null);
+      alert("Point group updated successfully");
+    } catch (error) {
+      alert("Failed to update point group");
+      console.error("Error updating point group:", error);
     }
+  };
 
-    const resetChanges = () => {
-        setTempPointGroups(pointGroups);
-    }
-
-    const anyDiff = (): boolean => {
-        // Recursively find any point group that is different from the original
-        const recursiveDiff = (pointGroup: PointGroup): boolean => {
-            if (currentlyDiff(pointGroup)) {
-                return true;
-            } else if (pointGroup.childGroups !== null) {
-                return pointGroup.childGroups.some((childGroup) => recursiveDiff(childGroup));
-            } else {
-                return false;
-            }
-        }
-        for (const pointGroup of tempPointGroups) {
-            if (recursiveDiff(pointGroup)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    const currentlyDiff = (pointGroup: PointGroup): boolean => {
-        // Recursively find the point group using recursiveFindPointGroup
-        const currentGroup = recursivelyFindPointGroup(pointGroup.id);
-        if (currentGroup === undefined) {
-            return false;
-        } else {
-            return pointGroup.name !== currentGroup?.name || pointGroup.ranked !== currentGroup?.ranked || pointGroup.color !== currentGroup?.color;
-        }
-    }
-
-    const recursivelyFindPointGroup = (id: number): PointGroup | null => {
-        const recursiveFind = (pointGroup: PointGroup): PointGroup | null => {
-            if (pointGroup.id === id) {
-                return pointGroup;
-            } else if (pointGroup.childGroups !== null) {
-                for (const childGroup of pointGroup.childGroups) {
-                    const foundGroup = recursiveFind(childGroup);
-                    if (foundGroup !== null) {
-                        return foundGroup;
+  const renderPointGroupHierarchy = (groups: AdminPointGroupData[], level: number = 0): JSX.Element[] => {
+    return groups
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(group => (
+        <div key={group.id} className="space-y-2">
+          <div 
+            className={`flex items-center gap-4 p-3 rounded-lg border border-border bg-card ${
+              level > 0 ? 'ml-4' : ''
+            }`}
+            style={{ borderLeftColor: group.color, borderLeftWidth: '4px' }}
+          >
+            <div className="flex-1">
+              {editingGroup?.id === group.id ? (
+                <input
+                  type="text"
+                  value={editingGroup.name}
+                  onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })}
+                  className="w-full p-1 border rounded"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleUpdatePointGroup(group.id, { name: editingGroup.name });
+                    } else if (e.key === 'Escape') {
+                      setEditingGroup(null);
                     }
-                }
-                return null;
-            } else {
-                return null;
-            }
-        }
-        for (const pointGroup of pointGroups) {
-            var foundGroup = recursiveFind(pointGroup);
-            if (foundGroup !== null) {
-                return foundGroup;
-            }
-        }
-        return null;
-    }
-
-    const updateTempPointGroupState = (newPointGroup: PointGroup) => {
-        // Recursively search through tempPointGroups to find the point group with the given id and update it
-        const recursiveUpdate = (pointGroup: PointGroup): PointGroup => {
-            if (pointGroup.id === newPointGroup.id) {
-                return newPointGroup;
-            } else if (pointGroup.childGroups !== null) {
-                return {
-                    ...pointGroup,
-                    childGroups: pointGroup.childGroups.map((childGroup) => recursiveUpdate(childGroup))
-                }
-            } else {
-                return pointGroup;
-            }
-        }
-        setTempPointGroups(tempPointGroups.map((pointGroup) => recursiveUpdate(pointGroup)));
-    }
-
-    const recursivePointGroupCard = (pointGroup: PointGroup, level: number) => {
-        return (
-            <div
-                key={pointGroup.id}
-                className={`rounded-lg bg-slate-300 dark:bg-slate-700`}>
-                {
-                    level > 0 && <div className="col-span-3 h-1 bg-slate-400 dark:bg-slate-600" style={{ marginInlineStart: level * 15 }}></div>
-                }
-                <div className={`rounded-lg my-1 py-1 grid grid-cols-3 ${currentlyDiff(pointGroup) ? "bg-orange-200 dark:bg-orange-800" : "bg-slate-300 dark:bg-slate-700"}`}>
-                    <div style={{ marginInlineStart: level * 15 }}>
-                        <input
-                            className="w-full h-fit p-1 rounded-t-lg text-lg dark:[color-scheme:dark]"
-                            type="text"
-                            value={pointGroup.name}
-                            // Make use of findPointGroup to update the correct point group
-                            onChange={(e) => {
-                                updateTempPointGroupState({
-                                    ...pointGroup,
-                                    name: e.target.value
-                                });
-                            }}
-                        />
-                        <button
-                            className="border rounded-b-lg px-2 py-1 hover:bg-green-300 dark:hover:bg-green-700"
-                            onClick={() => {
-                                setNewPointGroupParentId(pointGroup.id)
-                                setShowAddPointGroupDialog(true)
-                            }}
-                        >
-                            Add Child Group
-                        </button>
-                    </div>
-                    <div className="flex align-middle justify-center gap-1">
-                        <input className="dark:[color-scheme:dark] w-10 h-10" type="checkbox" checked={pointGroup.ranked}
-                            onChange={(e) => {
-                                updateTempPointGroupState({
-                                    ...pointGroup,
-                                    ranked: e.target.checked
-                                });
-                            }} />
-                    </div>
-                    <div className="flex align-middle justify-center gap-1">
-                        <input
-                            className="dark:[color-scheme:dark] w-10 h-10 rounded-lg"
-                            type="color"
-                            value={pointGroup.color}
-                            onChange={(e) => {
-                                updateTempPointGroupState({
-                                    ...pointGroup,
-                                    color: e.target.value
-                                });
-                            }}
-                        />
-                    </div>
+                  }}
+                  onBlur={() => handleUpdatePointGroup(group.id, { name: editingGroup.name })}
+                  autoFocus
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="w-4 h-4 rounded"
+                    style={{ backgroundColor: group.color }}
+                  ></span>
+                  <span className="font-medium text-foreground">{group.name}</span>
+                  {group.ranked && (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      Ranked
+                    </span>
+                  )}
                 </div>
-                {
-                    pointGroup.childGroups !== null && pointGroup.childGroups.length > 0 ? (
-                        <div className="col-span-3">
-                            {
-                                pointGroup.childGroups
-                                    .sort((a, b) => a.name.localeCompare(b.name))
-                                    .map((childGroup, childIndex) => {
-                                        return recursivePointGroupCard(childGroup, ++level);
-                                    })
-                            }
-                        </div>
-                    ) : null
-                }
+              )}
             </div>
-        )
-    }
-
-    const addNewPointGroup = async (parent_id: number | null = null) => {
-        await addPointGroupToSchool(
-            parseInt(schoolId),
-            newPointGroupName,
-            parent_id,
-            newPointGroupRanked,
-            newPointGroupColor
-        ).then(() => {
-            fetchPointGroups();
-        }).catch((error) => {
-            console.log(error)
-        })
-    }
-
-    const [showAddPointGroupDialog, setShowAddPointGroupDialog] = useState<boolean>(false)
-    const [newPointGroupName, setNewPointGroupName] = useState<string>("")
-    const [newPointGroupRanked, setNewPointGroupRanked] = useState<boolean>(false)
-    const [newPointGroupColor, setNewPointGroupColor] = useState<string>("#000000")
-    const [newPointGroupParentId, setNewPointGroupParentId] = useState<number | null>(null)
-    const addPointGroupDialog = () => {
-        return (
-            <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="bg-slate-300 dark:bg-slate-700 rounded-lg p-3">
-                    <div className="text-lg font-bold">Add New Point Group</div>
-                    <div className="grid grid-cols-2 gap-1">
-                        <div className="flex justify-center">Group Name</div>
-                        <input
-                            className="w-40 h-5 p-1 rounded-lg dark:[color-scheme:dark]"
-                            type="text"
-                            onChange={(e) => setNewPointGroupName(e.target.value)}
-                        />
-                        <div className="flex justify-center">Ranked</div>
-                        <input
-                            className="dark:[color-scheme:dark]"
-                            type="checkbox"
-                            onChange={(e) => setNewPointGroupRanked(e.target.checked)}
-                        />
-                        <div className="flex justify-center">Color</div>
-                        <input
-                            className="w-full h-5 dark:[color-scheme:dark]"
-                            type="color"
-                            onChange={(e) => setNewPointGroupColor(e.target.value)}
-                        />
-                        <button
-                            className="border rounded-lg px-2 py-1 hover:bg-green-300 dark:hover:bg-green-700"
-                            onClick={() => {
-                                setShowAddPointGroupDialog(false)
-                                addNewPointGroup(newPointGroupParentId)
-                                setNewPointGroupParentId(null)
-                            }}
-                            disabled={newPointGroupName.length < 3}
-                        >
-                            Save
-                        </button>
-                        <button
-                            className="border rounded-lg px-2 py-1 hover:bg-red-300 dark:hover:bg-red-700"
-                            onClick={() => {
-                                setShowAddPointGroupDialog(false)
-                                setNewPointGroupParentId(null)
-                            }}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
+            
+            <div className="flex items-center gap-2">
+              {editingGroup?.id === group.id ? (
+                <>
+                  <input
+                    type="color"
+                    value={editingGroup.color}
+                    onChange={(e) => setEditingGroup({ ...editingGroup, color: e.target.value })}
+                    className="w-8 h-8 border rounded"
+                  />
+                  <input
+                    type="checkbox"
+                    checked={editingGroup.ranked}
+                    onChange={(e) => setEditingGroup({ ...editingGroup, ranked: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                </>
+              ) : (
+                <>
+                  <button
+                    className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
+                    onClick={() => setEditingGroup(group)}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="text-green-600 hover:bg-green-50 p-1 rounded transition-colors"
+                    onClick={() => {
+                      setSelectedParentId(group.id);
+                      setIsAddGroupDialogOpen(true);
+                    }}
+                  >
+                    ➕
+                  </button>
+                </>
+              )}
             </div>
-        )
-    }
-
-    return (
-        <div className="animate-in h-full w-full p-5 overflow-y-scroll">
-            {showAddPointGroupDialog && addPointGroupDialog()}
-            <div>
-                <div className="text-2xl font-bold">Point Groups</div>
-                <div className="flex justify-between align-middle">
-                    <button
-                        className="bg-green-300 dark:bg-green-700 rounded-lg px-3 py-1"
-                        onClick={() => setShowAddPointGroupDialog(!showAddPointGroupDialog)}
-                    >
-                        Add New Point Group
-                    </button>
-                    <div className="flex gap-1">
-                        {
-                            anyDiff() && <button
-                                className="bg-orange-200 dark:bg-orange-800 rounded-lg px-3 py-1"
-                                onClick={() => saveChanges()}
-                            >
-                                Save Changes
-                            </button>
-                        }
-                        {
-                            anyDiff() && <button
-                                className="bg-red-300 dark:bg-red-700 rounded-lg px-3 py-1"
-                                onClick={() => resetChanges()}
-                            >
-                                Reset Changes
-                            </button>
-                        }
-                    </div>
-                </div>
-                {
-                    anyDiff() && <div className="text-orange-600 dark:text-orange-400">Components highlighted orange have unsaved changes!</div>
-                }
+          </div>
+          
+          {group.childGroups && group.childGroups.length > 0 && (
+            <div className="ml-4">
+              {renderPointGroupHierarchy(group.childGroups, level + 1)}
             </div>
-            <div className="pt-3 grid grid-cols-1 gap-3">
-                <div className="grid grid-cols-3">
-                    <div className="flex justify-center align-middle">Group</div>
-                    <div className="flex justify-center align-middle">Ranked</div>
-                    <div className="flex justify-center align-middle">Color</div>
-                </div>
-                {
-                    tempPointGroups
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((pointGroup, index) => {
-                            return (
-                                <div className="bg-slate-300 dark:bg-slate-700 px-3 rounded-lg">
-                                    {recursivePointGroupCard(pointGroup, 0)}
-                                </div>
-                            )
-                        })
-                }
-            </div>
+          )}
         </div>
-    )
-}
+      ));
+  };
+
+  if (isLoadingPointGroups) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading point groups...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pointGroupsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-destructive text-2xl mb-4">⚠️</div>
+          <p className="text-destructive">Failed to load point groups</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Point Groups</h1>
+          <p className="text-muted-foreground">
+            Manage point groups and their hierarchy for organizing different types of points
+          </p>
+        </div>
+        
+        <button
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+          onClick={() => {
+            setSelectedParentId(null);
+            setIsAddGroupDialogOpen(true);
+          }}
+        >
+          + Add Point Group
+        </button>
+      </div>
+
+      {pointGroups.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-12 text-center">
+          <div className="text-4xl mb-4">🎯</div>
+          <h3 className="text-lg font-semibold mb-2 text-foreground">No point groups yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Create your first point group to start organizing different types of points and achievements.
+          </p>
+          <button 
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            onClick={() => {
+              setSelectedParentId(null);
+              setIsAddGroupDialogOpen(true);
+            }}
+          >
+            + Create First Point Group
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {renderPointGroupHierarchy(pointGroups)}
+        </div>
+      )}
+
+      {/* Add Group Dialog */}
+      {isAddGroupDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg p-6 w-96">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">
+              {selectedParentId ? 'Create Child Point Group' : 'Create New Point Group'}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Group Name
+                </label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter point group name"
+                  className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreatePointGroup();
+                    }
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">
+                  Color
+                </label>
+                <input
+                  type="color"
+                  value={newGroupColor}
+                  onChange={(e) => setNewGroupColor(e.target.value)}
+                  className="w-full h-10 border border-input rounded"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="ranked"
+                  checked={newGroupRanked}
+                  onChange={(e) => setNewGroupRanked(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="ranked" className="text-sm font-medium text-foreground">
+                  Ranked (affects leaderboards)
+                </label>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <button 
+                  className="border border-border px-4 py-2 rounded hover:bg-accent transition-colors"
+                  onClick={() => {
+                    setIsAddGroupDialogOpen(false);
+                    setNewGroupName("");
+                    setNewGroupColor("#3B82F6");
+                    setNewGroupRanked(false);
+                    setSelectedParentId(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90 transition-colors"
+                  onClick={handleCreatePointGroup}
+                  disabled={createPointGroupMutation.isPending}
+                >
+                  {createPointGroupMutation.isPending ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 

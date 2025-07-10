@@ -1,183 +1,276 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
-import Link from "next/link";
-import { StudentGroup } from "@/app/dataClasses";
-import { clientAddStudentGroup, clientGetStudentGroups } from "@/app/supaApi/client/admin/studentGroups/adminStudentGroupsApi";
+import { useState } from 'react';
+import { useSchoolGroupsWithCounts, useCreateGroup } from '@/app/hooks/useAdminQueries';
+import { LoadingState } from '@/components/LoadingLayout';
+import ThemeInput from '@/components/ThemeInput';
+import MotionButton from '@/components/MotionButton';
+import { AdminGroupWithCountsData } from '@/api/admin/groups';
+import Link from 'next/link';
 
-export default function GroupsDashboard({ params: { schoolId } }: { params: { schoolId: string } }) {
+export default function StudentGroupsManagementPage({ params: { schoolId } }: { params: { schoolId: string } }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newGroupParent, setNewGroupParent] = useState<AdminGroupWithCountsData | null>(null);
 
-    const [loading, setLoading] = useState<boolean>(true);
+  // Queries
+  const { data: groups, isLoading, error, refetch } = useSchoolGroupsWithCounts(parseInt(schoolId));
+  const createGroupMutation = useCreateGroup();
 
-    const [groups, setGroups] = useState<StudentGroup[]>([]);
-    const [addGroupDialogOpen, setAddGroupDialogOpen] = useState<boolean>(false);
-    const [groupNameTooShortError, setGroupNameTooShortError] = useState<boolean>(true);
-    const [newGroupName, setNewGroupName] = useState<string>("");
-    const [groupSearchText, setGroupSearchText] = useState<string>("");
+  // Create form state
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    parentId: undefined as number | undefined
+  });
 
-    const [newGroupParent, setNewGroupParent] = useState<StudentGroup | null>(null);
-
-    async function fetchGroups() {
-        const groupData = await clientGetStudentGroups(parseInt(schoolId));
-        setGroups(groupData ? groupData : []);
-        setLoading(false);
-    }
-
-    useEffect(() => {
-        fetchGroups();
-    }, []);
-
-    const submitNewGroupName = async (groupName: string) => {
-        if (groupName.length > 3) {
-            await clientAddStudentGroup(parseInt(schoolId), groupName, null);
-            await fetchGroups();
-            setLoading(false);
+  // Filter groups recursively
+  const filterGroupsRecursively = (groups: AdminGroupWithCountsData[], searchTerm: string): AdminGroupWithCountsData[] => {
+    return groups
+      .map(group => {
+        const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const childMatches = group.childGroups ? filterGroupsRecursively(group.childGroups, searchTerm) : [];
+        
+        if (matchesSearch || childMatches.length > 0) {
+          return {
+            ...group,
+            childGroups: childMatches
+          };
         }
+        return null;
+      })
+      .filter((group): group is NonNullable<typeof group> => group !== null);
+  };
+
+  const filteredGroups = groups ? filterGroupsRecursively(groups, searchTerm) : [];
+
+  // Handle create group
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.name.trim()) {
+      alert('Please enter a group name');
+      return;
     }
 
-    const addGroupDialog = () => {
-        return (
-            <div className="px-4 py-2 dark:bg-slate-700 border border-gray-300 rounded-md w-1/2 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div>
-                    Add New Group {newGroupParent && `to ${newGroupParent.name}`}
-                </div>
-                <input
-                    className="w-full p-3 my-1 dark:bg-slate-700 border border-gray-300 rounded-md"
-                    type="text"
-                    placeholder="Class Name"
-                    onChange={(e) => {
-                        if (e.target.value.length < 3) {
-                            setGroupNameTooShortError(true);
-                        } else {
-                            setGroupNameTooShortError(false);
-                            setNewGroupName(e.target.value);
-                        }
-                    }}
-                />
-                <button
-                    className="w-1/2 p-3 my-1 rounded-lg bg-green-300 dark:bg-green-700 hover:bg-green-400 dark:hover:bg-green-600"
-                    onClick={() => {
-                        setLoading(true);
-                        setAddGroupDialogOpen(false);
-                        submitNewGroupName(newGroupName)
-                    }}
-                >
-                    Confirm
-                </button>
-                <button
-                    className="w-1/2 p-3 my-1 rounded-lg bg-red-300 dark:bg-red-700 hover:bg-red-400 dark:hover:bg-red-600"
-                    onClick={() => setAddGroupDialogOpen(!addGroupDialogOpen)}
-                >
-                    Cancel
-                </button>
-                <div
-                    className="w-full text-red-500"
-                >
-                    {groupNameTooShortError && "Group name must be at least 3 characters long"}
-                </div>
-            </div>
-        )
+    if (createForm.name.length < 3) {
+      alert('Group name must be at least 3 characters long');
+      return;
     }
 
-    function groupContainsText(groupData: StudentGroup, text: string): boolean {
-        if (groupData.name.toLowerCase().includes(text.toLowerCase())) {
-            return true;
+    try {
+      await createGroupMutation.mutateAsync({
+        schoolId: parseInt(schoolId),
+        groupData: {
+          name: createForm.name.trim(),
+          parentId: createForm.parentId
         }
-        if (groupData.childGroups !== null) {
-            for (let i = 0; i < groupData.childGroups.length; i++) {
-                if (groupContainsText(groupData.childGroups[i], text)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+      });
 
-    function groupEditButton(groupData: StudentGroup) {
-        return (
-            <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`}>
-                <button className="w-full rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600">
-                    Edit
-                </button>
-            </Link>
-        )
+      // Reset form
+      setCreateForm({
+        name: '',
+        parentId: undefined
+      });
+      setShowCreateForm(false);
+      setNewGroupParent(null);
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      alert('Failed to create group');
     }
+  };
 
-    function levelToBorderColor(level: number): string {
-        // Pastel colors
-        const colors = ["#FFC0CB", "#FFD700", "#98FB98", "#87CEEB", "#FFA07A", "#DDA0DD", "#87CEFA", "#FF69B4", "#FF6347", "#F0E68C", "#FFA500", "#20B2AA", "#00FF7F", "#7B68EE", "#FF4500", "#9370DB", "#32CD32", "#40E0D0", "#FF1493", "#00BFFF", "#FFD700", "#FF69B4", "#FF6347", "#F0E68C", "#FFA500", "#20B2AA", "#00FF7F", "#7B68EE", "#FF4500", "#9370DB", "#32CD32", "#40E0D0", "#FF1493", "#00BFFF"];
-        return colors[level % colors.length];
-    }
+  // Generate border color based on level
+  const getLevelColor = (level: number): string => {
+    const colors = [
+      '#FFC0CB', '#FFD700', '#98FB98', '#87CEEB', '#FFA07A', 
+      '#DDA0DD', '#87CEFA', '#FF69B4', '#FF6347', '#F0E68C', 
+      '#FFA500', '#20B2AA', '#00FF7F', '#7B68EE', '#FF4500', 
+      '#9370DB', '#32CD32', '#40E0D0', '#FF1493', '#00BFFF'
+    ];
+    return colors[level % colors.length];
+  };
 
-    function groupTableRow(groupData: StudentGroup, level: number = 1) {
-        return (
-            <Link href={`/admin/school/${schoolId}/editGroup/${groupData.id}`} className={`col-span-3 grid grid-cols-3 hover:bg-slate-200 dark:hover:bg-slate-800 ${level === 1 ? "mt-3" : ""}`}>
-                <div key={groupData.id} className={`text-lg border-l-8 `} style={{ paddingInlineStart: level * 20, borderColor: levelToBorderColor(level) }}>{groupData.name}</div>
-                <div>{groupData.teachers?.length}</div>
-                <div>{groupData.students?.length}</div>
-            </Link>
-        )
-    }
-
-    function recursiveGroupTableRow(groupData: StudentGroup, level: number = 1) {
-        return (
-            <Fragment>
-                {groupTableRow(groupData, level)}
-                {groupData.childGroups
-                    ?.sort((a: StudentGroup, b: StudentGroup) => a.name.localeCompare(b.name))
-                    ?.map((childGroup: StudentGroup) => recursiveGroupTableRow(childGroup, level + 1))}
-            </Fragment>
-        )
-    }
-
-    // Semi-transparent overlay to indicate loading
-    const loadingOverlay = () => {
-        return (
-            <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="text-3xl text-white">Loading...</div>
-            </div>
-        )
-    }
-
+  // Render group row recursively
+  const renderGroupRow = (group: AdminGroupWithCountsData, level: number = 0) => {
+    const indentStyle = {
+      paddingLeft: `${level * 24 + 16}px`,
+      borderLeft: `4px solid ${getLevelColor(level)}`
+    };
 
     return (
-        <div className="animate-in h-full w-full">
-            {loading && loadingOverlay()}
-            <div className="h-1/6 p-3">
-                <div className="flex justify-between items-center">
-                    <button
-                        className="p-3 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                        onClick={() => {
-                            setNewGroupParent(null)
-                            setAddGroupDialogOpen(!addGroupDialogOpen)
-                        }}
-                    >
-                        Add Group
-                    </button>
-                </div>
-                <input
-                    className="w-1/4 p-3 my-1 dark:bg-slate-700 border border-gray-300 rounded-md"
-                    type="text"
-                    placeholder="Search Groups"
-                    onChange={(e) => setGroupSearchText(e.target.value)}
-                />
+      <div key={group.id}>
+        <Link 
+          href={`/admin/school/${schoolId}/editGroup/${group.id}`}
+          className="block hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+        >
+          <div className="grid grid-cols-4 gap-4 py-3 px-6 border-b border-slate-200 dark:border-slate-600">
+            <div className="flex items-center" style={indentStyle}>
+              <span className="font-medium text-slate-900 dark:text-slate-100">
+                {group.name}
+              </span>
             </div>
-            <div className="h-5/6 overflow-y-scroll">
-                <div className="m-5">
-                    <div className="w-full grid grid-cols-3">
-                        <div className="text-2xl border-b">Group Name</div>
-                        <div className="text-2xl border-b"># Teachers</div>
-                        <div className="text-2xl border-b"># Students</div>
-                        {
-                            groups
-                                .filter((groupData: StudentGroup) => groupSearchText === "" || groupContainsText(groupData, groupSearchText))
-                                .sort((a: StudentGroup, b: StudentGroup) => a.name.localeCompare(b.name))
-                                .map((groupData: StudentGroup) => recursiveGroupTableRow(groupData))
-                        }
-                    </div>
-                </div>
+            <div className="flex items-center justify-center">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                {group.teacherCount}
+              </span>
             </div>
-            {addGroupDialogOpen && addGroupDialog()}
+            <div className="flex items-center justify-center">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                {group.studentCount}
+              </span>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setNewGroupParent(group);
+                  setCreateForm({ ...createForm, parentId: group.id });
+                  setShowCreateForm(true);
+                }}
+                className="px-3 py-2 bg-gray-600 text-white rounded-lg font-medium text-sm hover:bg-gray-500 transition-colors"
+              >
+                Add Child
+              </button>
+            </div>
+          </div>
+        </Link>
+        
+        {/* Render child groups */}
+        {group.childGroups && group.childGroups.length > 0 && (
+          <div>
+            {group.childGroups.map(childGroup => renderGroupRow(childGroup, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="h-full overflow-y-auto p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Student Groups Management</h1>
+        <div className="flex gap-2">
+          <MotionButton
+            onClick={() => {
+              setNewGroupParent(null);
+              setCreateForm({ name: '', parentId: undefined });
+              setShowCreateForm(!showCreateForm);
+            }}
+            variant="primary"
+          >
+            {showCreateForm ? 'Cancel' : 'Add Group'}
+          </MotionButton>
         </div>
-    )
-}
+      </div>
+
+      {/* Create Group Form */}
+      {showCreateForm && (
+        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Add New Group
+            {newGroupParent && (
+              <span className="text-slate-600 dark:text-slate-400 font-normal">
+                {' '}to "{newGroupParent.name}"
+              </span>
+            )}
+          </h2>
+          <form onSubmit={handleCreateGroup} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Group Name *
+              </label>
+              <ThemeInput
+                placeholder="Enter group name (minimum 3 characters)"
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                required
+                minLength={3}
+              />
+              {createForm.name.length > 0 && createForm.name.length < 3 && (
+                <p className="text-red-500 text-sm mt-1">
+                  Group name must be at least 3 characters long
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={createGroupMutation.isPending || createForm.name.length < 3}
+              >
+                {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
+              </button>
+                              <MotionButton
+                  variant="secondary"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewGroupParent(null);
+                    setCreateForm({ name: '', parentId: undefined });
+                  }}
+                >
+                Cancel
+              </MotionButton>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="mb-6">
+        <ThemeInput
+          placeholder="Search groups..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
+
+      {/* Groups Table */}
+      <LoadingState
+        isLoading={isLoading}
+        error={error}
+        data={groups}
+        errorFallback={(err) => <div>Error loading groups: {err.message}</div>}
+      >
+        {(data) => (
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
+            {/* Table Header */}
+            <div className="grid grid-cols-4 gap-4 py-4 px-6 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+              <div className="font-semibold text-slate-900 dark:text-slate-100">
+                Group Name
+              </div>
+              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+                Teachers
+              </div>
+              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+                Students
+              </div>
+              <div className="font-semibold text-slate-900 dark:text-slate-100 text-right">
+                Actions
+              </div>
+            </div>
+
+            {/* Table Body */}
+            <div className="divide-y divide-slate-200 dark:divide-slate-600">
+              {filteredGroups.length > 0 ? (
+                filteredGroups.map(group => renderGroupRow(group))
+              ) : (
+                <div className="py-8 text-center text-slate-500 dark:text-slate-400">
+                  {searchTerm ? 'No groups found matching your search.' : 'No groups found.'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </LoadingState>
+
+      {/* Summary */}
+      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
+        {searchTerm ? (
+          `Showing ${filteredGroups.length} of ${groups?.length || 0} groups`
+        ) : (
+          `Total: ${groups?.length || 0} groups`
+        )}
+      </div>
+    </div>
+  );
+} 

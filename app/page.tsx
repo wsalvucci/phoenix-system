@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import LinkTeacher from "./components/LinkTeacher";
 import LinkStudent from "./components/LinkStudent";
 import AdminPortal from "./components/AdminPortal";
-import getOwnAdminData from "./supaApi/client/admin/getOwnAdminData";
+
 import { getOwnStudentData } from "./supaApi/server/student/studentApi";
 import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
 import InstallPrompt from "./components/InstallPrompt";

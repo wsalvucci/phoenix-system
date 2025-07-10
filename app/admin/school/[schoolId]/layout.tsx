@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import React from "react";
 import getOwnUserData from "@/app/supaApi/server/getOwnUserData";
-import getOwnAdminData from "@/app/supaApi/client/admin/getOwnAdminData";
+import { getOwnAdminData } from "@/api/admin";
 
 export default async function AdminLayout({ children, params: { schoolId } }: { children: React.ReactNode, params: { schoolId: string } }) {
 
