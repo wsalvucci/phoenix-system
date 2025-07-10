@@ -2,7 +2,8 @@
 import { getTopScrollingDashboard } from "@/api/dashboard";
 import { numberToOrdinal, rankToColor } from "@/app/dataClasses";
 import { LoadingState } from "@/components/LoadingLayout";
-import { percentileToRating, TopScrollingDashboard, Timeframe } from "@/types/domain";
+import { percentileToRating, Timeframe } from "@/types/domain";
+import { SimpleDashboardData } from "@/api/service/dashboard";
 import { useQuery } from "@tanstack/react-query";
 import Color from "color";
 import { motion } from "framer-motion";
@@ -17,9 +18,6 @@ export default function TopCards() {
     })
 
     console.log(data?.students)
-    const groupIds = data?.students.map(s => s.pointsByType.map(p => p.id)).flat();
-
-    console.log(groupIds);
 
     const pinnedItemRef = useRef<HTMLDivElement>(null);
     const [pinnedItemHeight, setPinnedItemHeight] = useState(0);
@@ -51,7 +49,7 @@ export default function TopCards() {
         );
     };
 
-    const StudentCard = ({ student }: { student: TopScrollingDashboard["students"][0] }) => {
+    const StudentCard = ({ student }: { student: SimpleDashboardData["students"][0] }) => {
         // Function to create gradient text
         const createGradientText = (color: string, rating: string) => {
             // Special holographic effect for S ranks
@@ -101,16 +99,16 @@ export default function TopCards() {
                     <div className="h-full flex items-center justify-start" style={{
                         fontSize: "2.5rem",
                         fontWeight: "bold",
-                        color: Color(rankToColor(student.totalRank)).lighten(0.5).toString()
+                        color: Color(rankToColor(student.rank)).lighten(0.5).toString()
                     }}>
-                        {numberToOrdinal(student.totalRank)}
+                        {numberToOrdinal(student.rank)}
                     </div>
                     <div className="h-full flex flex-col justify-center">
                         <div style={{
                             fontSize: "2rem",
                             fontWeight: "bold"
                         }}>
-                            {student.firstName} {student.lastName}
+                            {student.student.first_name} {student.student.last_name}
                         </div>
                         <div style={{
                             fontSize: "2.5rem",
@@ -119,42 +117,10 @@ export default function TopCards() {
                             {student.totalPoints.toLocaleString()}pts
                         </div>
                     </div>
-                    <div className="grid h-full rounded-lg gap-3 p-1" style={{
-                        gridTemplateColumns: `repeat(${student.pointsByType?.length || 1}, 1fr)`
-                    }}>
-                        {
-                            student.pointsByType?.length > 0 ? 
-                                student.pointsByType.map(pt => (
-                                    <div className="w-full border-off-white border rounded-lg bg-secondary" key={pt.id} style={{
-                                        fontSize: "1.25rem",
-                                        textAlign: "center",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        justifyContent: "center"
-                                    }}>
-                                        <div className="w-full text-off-white" style={{
-                                            fontSize: "1rem",
-                                            fontWeight: "bold"
-                                        }}>{pt.name}</div>
-                                        <div className="grid bg-off-black w-full p-2 rounded-lg" style={{
-                                            gridTemplateColumns: `1fr 1fr`
-                                        }}>
-                                            <div className="flex items-center justify-start" style={{
-                                                fontSize: "2.5rem",
-                                                fontWeight: "bold",
-                                                ...createGradientText(pt.rating.color, pt.rating.letter)
-                                            }}>{pt.rating.letter}</div>
-                                            <div className="flex items-center justify-end" style={{
-                                                fontSize: "2.5rem",
-                                                fontWeight: "bold"
-                                            }}>{pt.points.toLocaleString()}</div>
-                                        </div>
-                                    </div>
-                                ))
-                                : 
-                                "No point types"
-                        }
+                    <div className="h-full flex items-center justify-center">
+                        <div className="text-off-white text-lg">
+                            Grade {student.student.grade}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -215,7 +181,7 @@ export default function TopCards() {
                             >
                                 {scrollingItems.map((student, index) => (
                                     <motion.div
-                                        key={`${student.id}-${index}`}
+                                        key={`${student.studentId}-${index}`}
                                         initial={{ opacity: 0, y: 50 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.05 }}

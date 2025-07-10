@@ -1,5 +1,5 @@
 "use client";
-import { getOwnStudentData } from "@/api/student";
+import { getStudentDataWithContext } from "@/api/student";
 import { Student } from "@/types/domain";
 import { faArrowRight, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -14,7 +14,7 @@ export default function StudentChip() {
     useEffect(() => {
         const fetchStudentData = async () => {
             try {
-                const studentData = await getOwnStudentData();
+                const studentData = await getStudentDataWithContext();
                 setStudent(studentData);
             } catch (error) {
                 console.error("Error fetching student data:", error);

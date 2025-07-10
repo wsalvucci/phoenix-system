@@ -3,10 +3,12 @@ import { UserContext, UserRole } from './types';
 import { createServerLogger } from '@/utils/serverLogger';
 
 export class UserContextResolver {
-  private supabase: SupabaseClient;
+  private authClient: SupabaseClient;
+  private dbClient: SupabaseClient;
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(authClient: SupabaseClient, dbClient?: SupabaseClient) {
+    this.authClient = authClient;
+    this.dbClient = dbClient || authClient;
   }
 
   /**
@@ -21,8 +23,8 @@ export class UserContextResolver {
     try {
       logger.debug('Starting user context resolution');
       
-      // Use the passed Supabase client instead of creating a new one
-      const { data: { user: supabaseUser }, error: authError } = await this.supabase.auth.getUser();
+      // Use the auth client for authentication
+      const { data: { user: supabaseUser }, error: authError } = await this.authClient.auth.getUser();
       
       logger.debug('Auth getUser result', { 
         hasUser: !!supabaseUser, 
@@ -43,7 +45,7 @@ export class UserContextResolver {
       logger.debug('Fetching user data from database', { supabaseUserId: supabaseUser.id });
 
       // Get user data with all relationships
-      const { data: userData, error: userError } = await this.supabase
+      const { data: userData, error: userError } = await this.dbClient
         .from('user')
         .select(`
           id,
@@ -129,7 +131,7 @@ export class UserContextResolver {
       if (adminSchools && adminSchools.length > 0) {
         // For now, use the first school - in the future, you might want to handle multiple schools
         return {
-          userId: userData.id,
+          userId: userData.supabase_id,
           role: 'admin' as UserRole,
           schoolId: adminSchools[0].school_id,
           adminId: userData.admin_id
@@ -140,7 +142,7 @@ export class UserContextResolver {
     // Check if user is a teacher
     if (userData.teacher_id && userData.teacher) {
       return {
-        userId: userData.id,
+        userId: userData.supabase_id,
         role: 'teacher' as UserRole,
         schoolId: userData.teacher.school_id,
         teacherId: userData.teacher_id
@@ -153,14 +155,14 @@ export class UserContextResolver {
       const studentPair = userData.user_student_pair?.[0];
       if (studentPair?.student) {
         // Check if this student is also a group leader
-        const { data: leaderGroups } = await this.supabase
+        const { data: leaderGroups } = await this.dbClient
           .from('student_group_leaders')
           .select('group_id')
           .eq('student_id', userData.student_id);
 
         if (leaderGroups && leaderGroups.length > 0) {
           return {
-            userId: userData.id,
+            userId: userData.supabase_id,
             role: 'groupLeader' as UserRole,
             schoolId: studentPair.student.school_id,
             studentId: userData.student_id,
@@ -170,7 +172,7 @@ export class UserContextResolver {
         }
 
         return {
-          userId: userData.id,
+          userId: userData.supabase_id,
           role: 'student' as UserRole,
           schoolId: studentPair.student.school_id,
           studentId: userData.student_id
@@ -183,7 +185,7 @@ export class UserContextResolver {
       const studentPair = userData.user_student_pair[0];
       if (studentPair?.student) {
         return {
-          userId: userData.id,
+          userId: userData.supabase_id,
           role: 'parent' as UserRole,
           schoolId: studentPair.student.school_id
         };
@@ -202,9 +204,9 @@ export class UserContextResolver {
       return false;
     }
 
-    // Admins can access any school they're paired with
-    if (context.role === 'admin') {
-      const { data: adminSchools, error } = await this.supabase
+          // Admins can access any school they're paired with
+      if (context.role === 'admin') {
+        const { data: adminSchools, error } = await this.dbClient
         .from('admin_school_pair')
         .select('school_id')
         .eq('admin_id', context.adminId)
@@ -239,7 +241,7 @@ export class UserContextResolver {
     }
 
     if (context.role === 'admin') {
-      const { data: adminSchools, error } = await this.supabase
+              const { data: adminSchools, error } = await this.dbClient
         .from('admin_school_pair')
         .select(`
           school_id,
@@ -261,7 +263,7 @@ export class UserContextResolver {
     }
 
     // For other roles, return their single school
-    const { data: school, error } = await this.supabase
+            const { data: school, error } = await this.dbClient
       .from('school')
       .select('id, name')
       .eq('id', context.schoolId)

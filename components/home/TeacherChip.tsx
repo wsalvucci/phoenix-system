@@ -1,5 +1,5 @@
 "use client";
-import { getOwnTeacherData } from "@/api/teacher";
+import { getTeacherDataWithContext } from "@/api/teacher";
 import { useState } from "react";
 import { Teacher } from "@/types/domain";
 import { useEffect } from "react";
@@ -13,7 +13,7 @@ export default function TeacherChip() {
 
     useEffect(() => {
         const fetchTeacherData = async () => {
-            const teacherData = await getOwnTeacherData();
+            const teacherData = await getTeacherDataWithContext();
             console.log(teacherData);
             setTeacher(teacherData);
             setIsLoading(false);

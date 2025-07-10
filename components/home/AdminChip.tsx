@@ -1,12 +1,12 @@
 "use client";
 
 import { Admin } from "@/types/domain";
-import { getOwnAdminData } from "@/api/admin";
+import { getAdminDataWithContext } from "@/api/admin";
 import { useState, useEffect } from "react";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import MotionButton from "@/components/MotionButton";
-import { wrapServerAction } from "@/utils/serverActionWrapper";
+
 
 export default function AdminChip() {
     const [isLoading, setIsLoading] = useState(true);
@@ -16,7 +16,7 @@ export default function AdminChip() {
     useEffect(() => {
         const fetchAdminData = async () => {
             try {
-                const adminData = await wrapServerAction(getOwnAdminData)();
+                const adminData = await getAdminDataWithContext();
                 setAdmin(adminData);
                 setError(null);
             } catch (err) {

@@ -1,5 +1,6 @@
 "use server";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
+import { createClient } from "@/utils/supabase/server";
 import { ApiService } from "../core/api-service";
 import { UserContextResolver } from "../core/user-context";
 import { QueryFilters } from "../core/types";
@@ -16,10 +17,11 @@ export async function getGroupLeaderDashboard(schoolId: number, timeframeId?: nu
   });
 
   try {
+    const authClient = createClient();
     const supabase = await supabaseServiceClient();
     
     // Resolve user context
-    const contextResolver = new UserContextResolver(supabase);
+    const contextResolver = new UserContextResolver(authClient, supabase);
     const userContext = await contextResolver.resolveUserContext();
     
     if (!userContext) {
@@ -88,10 +90,11 @@ export async function getGroupLeaderStudentDetails(
   });
 
   try {
+    const authClient = createClient();
     const supabase = await supabaseServiceClient();
     
     // Resolve user context
-    const contextResolver = new UserContextResolver(supabase);
+    const contextResolver = new UserContextResolver(authClient, supabase);
     const userContext = await contextResolver.resolveUserContext();
     
     if (!userContext) {
@@ -149,7 +152,7 @@ export async function getGroupLeaderStudentDetails(
     const studentData = await apiService.getStudentPointsWithRanking(filters, 'group');
 
     // Find the specific student
-    const targetStudent = (studentData as any[]).find(student => student.studentId === studentId);
+    const targetStudent = studentData.students.find(student => student.studentId === studentId);
 
     if (!targetStudent) {
       throw new Error('Student data not found');
@@ -188,10 +191,11 @@ export async function getGroupLeaderNearbyRanking(
   });
 
   try {
+    const authClient = createClient();
     const supabase = await supabaseServiceClient();
     
     // Resolve user context
-    const contextResolver = new UserContextResolver(supabase);
+    const contextResolver = new UserContextResolver(authClient, supabase);
     const userContext = await contextResolver.resolveUserContext();
     
     if (!userContext) {
@@ -267,10 +271,11 @@ export async function getGroupLeaderTopStudents(
   });
 
   try {
+    const authClient = createClient();
     const supabase = await supabaseServiceClient();
     
     // Resolve user context
-    const contextResolver = new UserContextResolver(supabase);
+    const contextResolver = new UserContextResolver(authClient, supabase);
     const userContext = await contextResolver.resolveUserContext();
     
     if (!userContext) {

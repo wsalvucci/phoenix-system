@@ -113,18 +113,14 @@ export default function RankingGroupsNewPage() {
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground">{group.name}</span>
               <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded">
-                {group.studentCount || 0} students, {group.teacherCount || 0} teachers
+                Student Group
               </span>
             </div>
             <button className="p-1 hover:bg-accent/50 rounded transition-colors">
               +
             </button>
           </div>
-          {group.childGroups && group.childGroups.length > 0 && (
-            <div className="ml-4">
-              {renderStudentGroupHierarchy(group.childGroups, level + 1)}
-            </div>
-          )}
+          {/* Note: AdminGroupData doesn't include childGroups in the current type definition */}
         </div>
       ));
   };
@@ -233,9 +229,7 @@ export default function RankingGroupsNewPage() {
                             </button>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            <span>👥 {studentGroup.studentCount || 0} students</span>
-                            <span className="mx-2">•</span>
-                            <span>👨‍🏫 {studentGroup.teacherCount || 0} teachers</span>
+                            <span>👥 Student Group</span>
                           </div>
                         </div>
                       );

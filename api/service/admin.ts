@@ -13,7 +13,7 @@ import { AdminQueryBuilder,
 } from '../query/admin';
 import { UserContext } from '../core/types';
 import { AccessControlService } from '../core/access-control';
-import { createServerLogger } from '@/utils/serverLogger';
+import { createServerLogger } from '../../utils/serverLogger';
 
 export class AdminService {
   private queryBuilder: AdminQueryBuilder;
@@ -26,17 +26,15 @@ export class AdminService {
 
   /**
    * Validates that the user has admin access to the specified school
+   * Note: This validation is now handled at the API level before calling AdminService
    */
   private validateSchoolAccess(schoolId: number): void {
     if (this.userContext.role !== 'admin') {
       throw new Error('Access denied - admin role required');
     }
 
-    // For now, we assume admins have access to all schools they're paired with
-    // In the future, you might want to check specific school access
-    if (this.userContext.schoolId !== schoolId) {
-      throw new Error('Access denied to this school');
-    }
+    // School access validation is handled at the API level using userContextResolver.validateSchoolAccess()
+    // This method is kept for role validation only
   }
 
   /**
@@ -386,7 +384,7 @@ export class AdminService {
     try {
       // Get teacher to validate school access
       const teachers = await this.queryBuilder.getSchoolTeachers(1); // We'll need to get the actual school ID
-      const teacher = teachers.find(t => t.id === teacherId);
+      const teacher = teachers.find((t: AdminTeacherData) => t.id === teacherId);
       if (!teacher) {
         throw new Error('Teacher not found');
       }

@@ -7,7 +7,12 @@ import {
   QueryFilters, 
   NearbyRankParams, 
   TopStudentsParams,
-  AccessLevel 
+  AccessLevel,
+  TopStudentsResponse,
+  NearbyRankingResponse,
+  DashboardResponse,
+  StudentPointsWithRankingResponse,
+  StudentData
 } from './types';
 import { createServerLogger } from '@/utils/serverLogger';
 
@@ -23,7 +28,7 @@ export class ApiService {
   /**
    * Gets student points with ranking, respecting access controls
    */
-  async getStudentPointsWithRanking(filters: QueryFilters, accessLevel: AccessLevel = 'own') {
+  async getStudentPointsWithRanking(filters: QueryFilters, accessLevel: AccessLevel = 'own'): Promise<StudentPointsWithRankingResponse> {
     const startTime = Date.now();
     const logger = createServerLogger({
       component: 'ApiService',
@@ -47,7 +52,7 @@ export class ApiService {
       accessLevel
     });
 
-    const cached = CacheManager.get(cacheKey);
+    const cached = CacheManager.get<StudentPointsWithRankingResponse>(cacheKey);
     if (cached) {
       logger.info('Cache hit for student points query', { 
         schoolId: filters.schoolId,
@@ -62,13 +67,25 @@ export class ApiService {
       
       // Apply field filtering based on access level
       const accessConfig = AccessControlService.getAccessConfig(this.userContext, accessLevel);
-      const filteredData = accessConfig 
+      const filteredStudents = accessConfig 
         ? data.map(student => AccessControlService.filterAllowedFields(student, accessConfig.allowedFields))
         : data;
 
+      // Calculate totals
+      const totalCount = filteredStudents.length;
+      const averagePoints = totalCount > 0 
+        ? filteredStudents.reduce((sum, student) => sum + (student.totalPoints || 0), 0) / totalCount 
+        : 0;
+
+      const result: StudentPointsWithRankingResponse = {
+        students: filteredStudents as StudentData[],
+        totalCount,
+        averagePoints
+      };
+
       // Cache the result
       const ttl = CacheManager.getTTL('studentData');
-      CacheManager.set(cacheKey, filteredData, ttl);
+      CacheManager.set(cacheKey, result, ttl);
 
       const executionTime = Date.now() - startTime;
       CacheManager.recordExecutionTime(cacheKey, executionTime);
@@ -76,10 +93,10 @@ export class ApiService {
       logger.info('Student points query completed', { 
         schoolId: filters.schoolId,
         executionTime,
-        resultCount: filteredData.length
+        resultCount: filteredStudents.length
       });
 
-      return filteredData;
+      return result;
     } catch (error) {
       logger.error('Failed to get student points', { 
         schoolId: filters.schoolId 
@@ -91,7 +108,7 @@ export class ApiService {
   /**
    * Gets nearby ranking data for a student
    */
-  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters) {
+  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters): Promise<NearbyRankingResponse> {
     const startTime = Date.now();
     const logger = createServerLogger({
       component: 'ApiService',
@@ -116,7 +133,7 @@ export class ApiService {
       role: this.userContext.role
     });
 
-    const cached = CacheManager.get(cacheKey);
+    const cached = CacheManager.get<NearbyRankingResponse>(cacheKey);
     if (cached) {
       logger.info('Cache hit for nearby ranking query', { 
         studentId: params.studentId,
@@ -136,7 +153,7 @@ export class ApiService {
             ...data,
             nearbyStudents: data.nearbyStudents.map(student => 
               AccessControlService.filterAllowedFields(student, accessConfig.allowedFields)
-            )
+            ) as StudentData[]
           }
         : data;
 
@@ -165,7 +182,7 @@ export class ApiService {
   /**
    * Gets top students data
    */
-  async getTopStudents(params: TopStudentsParams, filters: QueryFilters) {
+  async getTopStudents(params: TopStudentsParams, filters: QueryFilters): Promise<TopStudentsResponse> {
     const startTime = Date.now();
     const logger = createServerLogger({
       component: 'ApiService',
@@ -189,7 +206,7 @@ export class ApiService {
       role: this.userContext.role
     });
 
-    const cached = CacheManager.get(cacheKey);
+    const cached = CacheManager.get<TopStudentsResponse>(cacheKey);
     if (cached) {
       logger.info('Cache hit for top students query', { 
         schoolId: filters.schoolId,
@@ -209,7 +226,7 @@ export class ApiService {
             ...data,
             students: data.students.map(student => 
               AccessControlService.filterAllowedFields(student, accessConfig.allowedFields)
-            )
+            ) as StudentData[]
           }
         : data;
 
@@ -238,7 +255,7 @@ export class ApiService {
   /**
    * Gets dashboard data
    */
-  async getDashboardData(filters: QueryFilters) {
+  async getDashboardData(filters: QueryFilters): Promise<DashboardResponse> {
     const startTime = Date.now();
     const logger = createServerLogger({
       component: 'ApiService',
@@ -261,7 +278,7 @@ export class ApiService {
       role: this.userContext.role
     });
 
-    const cached = CacheManager.get(cacheKey);
+    const cached = CacheManager.get<DashboardResponse>(cacheKey);
     if (cached) {
       logger.info('Cache hit for dashboard query', { 
         schoolId: filters.schoolId,
@@ -281,10 +298,10 @@ export class ApiService {
             ...data,
             students: data.students.map(student => 
               AccessControlService.filterAllowedFields(student, accessConfig.allowedFields)
-            ),
+            ) as StudentData[],
             topStudents: data.topStudents.map(student => 
               AccessControlService.filterAllowedFields(student, accessConfig.allowedFields)
-            )
+            ) as StudentData[]
           }
         : data;
 

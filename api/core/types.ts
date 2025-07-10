@@ -67,4 +67,48 @@ export interface QueryMetadata {
   lastExecuted: number;
   executionCount: number;
   averageExecutionTime: number;
+}
+
+// Student data structure
+export interface StudentData {
+  studentId: number;
+  totalPoints: number;
+  student: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    grade: number;
+    school_id: number;
+  };
+  rank: number;
+}
+
+// Top students response
+export interface TopStudentsResponse {
+  students: StudentData[];
+  limit: number;
+  totalCount: number;
+}
+
+// Nearby ranking response
+export interface NearbyRankingResponse {
+  targetStudent: StudentData;
+  nearbyStudents: StudentData[];
+  rankWindow: number;
+}
+
+// Dashboard response
+export interface DashboardResponse {
+  students: StudentData[];
+  totalStudents: number;
+  averagePoints: number;
+  topStudents: StudentData[];
+  filters: QueryFilters;
+}
+
+// Student points with ranking response
+export interface StudentPointsWithRankingResponse {
+  students: StudentData[];
+  totalCount: number;
+  averagePoints: number;
 } 

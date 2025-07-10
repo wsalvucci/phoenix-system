@@ -2,6 +2,7 @@
 
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
+
 import { AdminHomeDashboard, AdminSchoolDash, Admin } from '@/types/domain';
 import { createServerLogger } from '@/utils/serverLogger';
 import { getSchoolStudents } from './admin/students';
@@ -10,6 +11,8 @@ import { getSchoolTeachers } from './admin/teachers';
 import { getSchoolPointGroups } from './admin/pointGroups';
 import { getSchoolRankingGroups } from './admin/rankingGroups';
 import { getSchoolTimeframes } from './admin/timeframes';
+import { AdminService } from './service/admin';
+import { UserContextResolver } from './core/user-context';
 
 export async function getOwnAdminData(): Promise<Admin> {
   const logger = createServerLogger({ component: 'AdminAPI', action: 'getOwnAdminData' });
@@ -20,6 +23,9 @@ export async function getOwnAdminData(): Promise<Admin> {
     // Get current user from regular client (with cookies)
     const supabase = createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+
+
+
     
     logger.debug('Auth getUser result', { 
       hasUser: !!supabaseUser, 
@@ -90,56 +96,35 @@ export async function getAdminSchoolDash(schoolId: number): Promise<AdminSchoolD
   const logger = createServerLogger({ component: 'AdminAPI', action: 'getAdminSchoolDash', schoolId });
   
   try {
-    // Get current user from regular client
-    const supabase = createClient();
-    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    // Use the robust system
+    const authClient = createClient();
+    const serviceClient = await supabaseServiceClient();
+    const userContextResolver = new UserContextResolver(authClient, serviceClient);
+    const userContext = await userContextResolver.resolveUserContext();
     
-    if (authError || !supabaseUser) {
-      logger.error('User not authenticated', { authError });
+    if (!userContext) {
+      logger.error('User context not found');
       throw new Error('User not authenticated');
     }
 
-    // Use service client for database operations
-    const serviceClient = await supabaseServiceClient();
-    
-    // Get user data and verify admin access
-    const { data: userData, error: userError } = await serviceClient
-      .from('user')
-      .select(`
-        id,
-        admin_id,
-        admin (
-          admin_school_pair (
-            school_id
-          )
-        )
-      `)
-      .eq('supabase_id', supabaseUser.id)
-      .single();
-
-    if (userError || !userData) {
-      logger.error('Error fetching user data', { userId: supabaseUser.id }, new Error(userError?.message || 'User not found'));
-      throw new Error('Failed to load user data');
-    }
-
-    if (!userData.admin_id) {
-      logger.error('User is not an admin', { userId: supabaseUser.id });
+    if (userContext.role !== 'admin') {
+      logger.error('User is not an admin', { userId: userContext.userId, role: userContext.role });
       throw new Error('Access denied - admin role required');
     }
 
-    // Verify admin has access to this school
-    const adminSchools = userData.admin?.admin_school_pair || [];
-    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
-    
+    // Validate school access
+    const hasAccess = await userContextResolver.validateSchoolAccess(schoolId);
     if (!hasAccess) {
-      logger.error('Access denied - admin does not have access to this school', { 
-        adminId: userData.admin_id, 
-        schoolId,
-        adminSchools: adminSchools.map(p => p.school_id)
+      logger.error('Admin does not have access to this school', { 
+        adminId: userContext.adminId, 
+        schoolId 
       });
       throw new Error('Access denied - admin does not have access to this school');
     }
 
+    // Use the AdminService for data operations
+    const adminService = new AdminService(serviceClient, userContext);
+    
     // Get school info
     const { data: school, error: schoolError } = await serviceClient
       .from('school')
@@ -152,25 +137,9 @@ export async function getAdminSchoolDash(schoolId: number): Promise<AdminSchoolD
       throw new Error('School not found');
     }
 
-    // Get students with their total points
-    const { data: students, error: studentsError } = await serviceClient
-      .from('student')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        grade,
-        student_point (
-          point_value
-        )
-      `)
-      .eq('school_id', schoolId);
-
-    if (studentsError) {
-      logger.error('Error fetching students', { schoolId, studentsError });
-      throw new Error('Failed to load students');
-    }
-
+    // Get students using the service
+    const students = await adminService.getSchoolStudents(schoolId);
+    
     // Get student groups
     const { data: studentGroups, error: groupsError } = await serviceClient
       .from('student_group')
@@ -201,50 +170,67 @@ export async function getAdminSchoolDash(schoolId: number): Promise<AdminSchoolD
       throw new Error('Failed to load point groups');
     }
 
-    // Calculate total points for each student by summing their point_value
-    const studentsWithPoints = students?.map(student => {
-      const totalPoints = student.student_point?.reduce((acc, point) => acc + (point.point_value || 0), 0) || 0;
-      
-      return {
-        id: student.id,
-        firstName: student.first_name,
-        lastName: student.last_name,
-        grade: student.grade,
-        totalPoints: totalPoints
-      };
-    }) || [];
+    // Calculate total points for each student
+    const studentsWithPoints = await Promise.all(
+      students.map(async (student) => {
+        // Get total points for this student
+        const { data: pointData, error: pointError } = await serviceClient
+          .from('student_point')
+          .select('point_value')
+          .eq('student_id', student.id);
 
-    logger.info('Admin school dashboard data retrieved successfully', { 
-      schoolId, 
-      studentCount: studentsWithPoints.length,
-      groupCount: studentGroups?.length || 0,
-      pointGroupCount: pointGroups?.length || 0,
-      totalPointsCalculated: studentsWithPoints.reduce((acc, student) => acc + student.totalPoints, 0)
-    });
+        if (pointError) {
+          logger.warn('Error fetching points for student', { studentId: student.id, pointError });
+        }
 
-    return {
+        const totalPoints = pointData?.reduce((sum, record) => sum + (record.point_value || 0), 0) || 0;
+
+        return {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          grade: student.grade,
+          totalPoints
+        };
+      })
+    );
+
+    const transformedGroups = studentGroups?.map(group => ({
+      id: group.id,
+      name: group.name,
+      parentId: group.parent_id
+    })) || [];
+
+    const transformedPointTypes = pointGroups?.map(pointGroup => ({
+      id: pointGroup.id,
+      name: pointGroup.name,
+      color: pointGroup.color
+    })) || [];
+
+    const result: AdminSchoolDash = {
       school: {
         id: school.id,
         name: school.name
       },
       students: studentsWithPoints,
-      studentGroups: studentGroups?.map(group => ({
-        id: group.id,
-        name: group.name,
-        parentId: group.parent_id
-      })) || [],
-      pointTypes: pointGroups?.map(group => ({
-        id: group.id,
-        name: group.name,
-        color: group.color || '#000000'
-      })) || []
+      studentGroups: transformedGroups,
+      pointTypes: transformedPointTypes
     };
+
+    logger.info('Admin school dashboard data retrieved successfully', { 
+      schoolId, 
+      studentCount: studentsWithPoints.length,
+      groupCount: transformedGroups.length,
+      pointTypeCount: transformedPointTypes.length
+    });
+
+    return result;
   } catch (error) {
-    logger.error('Failed to load school dashboard', { 
+    logger.error('Failed to load admin school dashboard', { 
       schoolId, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, error instanceof Error ? error : undefined);
-    throw new Error('Failed to load school dashboard');
+    throw new Error('Failed to load admin school dashboard');
   }
 }
 
@@ -252,247 +238,80 @@ export async function getAdminHomeDashboard(): Promise<AdminHomeDashboard> {
   const logger = createServerLogger({ component: 'AdminAPI', action: 'getAdminHomeDashboard' });
   
   try {
-    // Get current user from regular client
-    const supabase = createClient();
-    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    // Use the robust system
+    const authClient = createClient();
+    const serviceClient = await supabaseServiceClient();
+    const userContextResolver = new UserContextResolver(authClient, serviceClient);
+    const userContext = await userContextResolver.resolveUserContext();
     
-    if (authError || !supabaseUser) {
-      logger.error('User not authenticated', { authError });
+    if (!userContext) {
+      logger.error('User context not found');
       throw new Error('User not authenticated');
     }
 
-    // Use service client for database operations
-    const serviceClient = await supabaseServiceClient();
-    
-    // Get user data and verify admin access
-    const { data: userData, error: userError } = await serviceClient
-      .from('user')
-      .select(`
-        id,
-        admin_id
-      `)
-      .eq('supabase_id', supabaseUser.id)
-      .single();
-
-    if (userError || !userData) {
-      logger.error('Error fetching user data', { userId: supabaseUser.id }, new Error(userError?.message || 'User not found'));
-      throw new Error('Failed to load user data');
-    }
-
-    if (!userData.admin_id) {
-      logger.error('User is not an admin', { userId: supabaseUser.id });
+    if (userContext.role !== 'admin') {
+      logger.error('User is not an admin', { userId: userContext.userId, role: userContext.role });
       throw new Error('Access denied - admin role required');
     }
 
-    // Get the admin's schools from the admin_school_pair table
-    const { data: adminSchoolPairs, error: pairsError } = await serviceClient
-      .from('admin_school_pair')
-      .select(`
-        school_id,
-        school (
-          id,
-          name
-        )
-      `)
-      .eq('admin_id', userData.admin_id);
+    // Get all schools the admin has access to
+    const schools = await userContextResolver.getUserSchools();
 
-    if (pairsError) {
-      logger.error('Error fetching admin school pairs', { 
-        adminId: userData.admin_id, 
-        pairsError 
-      });
-      throw new Error('Failed to load admin schools');
-    }
-    
-    if (!adminSchoolPairs || adminSchoolPairs.length === 0) {
-      logger.warn('No schools found for admin', { adminId: userData.admin_id });
-    }
-    
-    // Transform the data to match the expected format
-    const schools = adminSchoolPairs?.map(pair => ({
-      id: pair.school?.id || 0,
-      name: pair.school?.name || 'Unknown School'
-    })).filter(school => school.id !== 0) || [];
-
-    logger.info('Admin home dashboard data retrieved successfully', { 
-      adminId: userData.admin_id, 
-      schoolCount: schools.length 
-    });
-
-    return {
-      id: userData.admin_id,
+    const result: AdminHomeDashboard = {
+      id: userContext.adminId!,
       schools: schools
     };
+
+    logger.info('Admin home dashboard retrieved successfully', { 
+      adminId: userContext.adminId,
+      schoolCount: schools.length
+    });
+
+    return result;
   } catch (error) {
-    logger.error('Failed to load admin dashboard', { 
+    logger.error('Failed to load admin home dashboard', { 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, error instanceof Error ? error : undefined);
-    throw new Error('Failed to load admin dashboard');
+    throw new Error('Failed to load admin home dashboard');
   }
-} 
+}
 
-/**
- * Get comprehensive school dashboard data using the robust admin APIs
- */
 export async function getAdminSchoolDashboardData(schoolId: number): Promise<AdminSchoolDash> {
-  const logger = createServerLogger({ component: 'AdminAPI', action: 'getAdminSchoolDashboardData', schoolId });
+  // This function is now an alias for getAdminSchoolDash for backward compatibility
+  return getAdminSchoolDash(schoolId);
+}
+
+// Client-side callable version
+export async function getAdminDataWithContext(): Promise<Admin> {
+  const logger = createServerLogger({ component: 'AdminAPI', action: 'getAdminDataWithContext' });
   
   try {
-    // Get current user from regular client
-    const supabase = createClient();
-    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    logger.debug('Starting getAdminDataWithContext');
     
-    if (authError || !supabaseUser) {
-      logger.error('User not authenticated', { authError });
+    // Use the robust system
+    const authClient = createClient();
+    const serviceClient = await supabaseServiceClient();
+    const userContextResolver = new UserContextResolver(authClient, serviceClient);
+    const userContext = await userContextResolver.resolveUserContext();
+    
+    if (!userContext) {
+      logger.error('User context not found');
       throw new Error('User not authenticated');
     }
 
-    // Use service client for database operations
-    const serviceClient = await supabaseServiceClient();
-    
-    // Get user data and verify admin access
-    const { data: userData, error: userError } = await serviceClient
-      .from('user')
-      .select(`
-        id,
-        admin_id,
-        admin (
-          admin_school_pair (
-            school_id
-          )
-        )
-      `)
-      .eq('supabase_id', supabaseUser.id)
-      .single();
-
-    if (userError || !userData) {
-      logger.error('Error fetching user data', { userId: supabaseUser.id }, new Error(userError?.message || 'User not found'));
-      throw new Error('Failed to load user data');
-    }
-
-    if (!userData.admin_id) {
-      logger.error('User is not an admin', { userId: supabaseUser.id });
+    if (userContext.role !== 'admin') {
+      logger.warn('User is not an admin', { role: userContext.role });
       throw new Error('Access denied - admin role required');
     }
 
-    // Verify admin has access to this school
-    const adminSchools = userData.admin?.admin_school_pair || [];
-    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
-    
-    if (!hasAccess) {
-      logger.error('Access denied - admin does not have access to this school', { 
-        adminId: userData.admin_id, 
-        schoolId,
-        adminSchools: adminSchools.map(p => p.school_id)
-      });
-      throw new Error('Access denied - admin does not have access to this school');
-    }
-
-    // Get school info
-    const { data: school, error: schoolError } = await serviceClient
-      .from('school')
-      .select('id, name')
-      .eq('id', schoolId)
-      .single();
-
-    if (schoolError || !school) {
-      logger.error('School not found', { schoolId, schoolError });
-      throw new Error('School not found');
-    }
-
-    // Use the robust admin APIs to get comprehensive data
-    const [students, groups, teachers, pointGroups, rankingGroups, timeframes] = await Promise.all([
-      getSchoolStudents(schoolId),
-      getSchoolGroupsWithCounts(schoolId),
-      getSchoolTeachers(schoolId),
-      getSchoolPointGroups(schoolId),
-      getSchoolRankingGroups(schoolId),
-      getSchoolTimeframes(schoolId)
-    ]);
-
-    // Get students with their total points using the robust point calculation
-    const { data: studentsWithPoints, error: studentsError } = await serviceClient
-      .from('student')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        grade,
-        student_point (
-          point_value,
-          input_score,
-          point_event (
-            point_template (
-              point_conversion_rule_type (
-                name
-              ),
-              conversion_rule_value
-            )
-          )
-        )
-      `)
-      .eq('school_id', schoolId);
-
-    if (studentsError) {
-      logger.error('Error fetching students with points', { schoolId, studentsError });
-      throw new Error('Failed to load students with points');
-    }
-
-    // Calculate total points for each student using the robust conversion system
-    const studentsWithCalculatedPoints = studentsWithPoints?.map(student => {
-      const totalPoints = student.student_point?.reduce((acc, point) => {
-        // Use the point_value directly as it should already be calculated with conversion rules
-        return acc + (point.point_value || 0);
-      }, 0) || 0;
-      
-      return {
-        id: student.id,
-        firstName: student.first_name,
-        lastName: student.last_name,
-        grade: student.grade,
-        totalPoints: totalPoints
-      };
-    }) || [];
-
-    // Transform groups to match the expected format
-    const transformedGroups = groups.map(group => ({
-      id: group.id,
-      name: group.name,
-      parentId: group.parentId || null
-    }));
-
-    // Transform point groups to match the expected format
-    const transformedPointGroups = pointGroups.map(pointGroup => ({
-      id: pointGroup.id,
-      name: pointGroup.name,
-      color: pointGroup.color || '#000000'
-    }));
-
-    logger.info('Admin school dashboard data retrieved successfully using robust APIs', { 
-      schoolId, 
-      studentCount: studentsWithCalculatedPoints.length,
-      groupCount: transformedGroups.length,
-      pointGroupCount: transformedPointGroups.length,
-      teacherCount: teachers.length,
-      rankingGroupCount: rankingGroups.length,
-      timeframeCount: timeframes.length,
-      totalPointsCalculated: studentsWithCalculatedPoints.reduce((acc, student) => acc + student.totalPoints, 0)
-    });
-
+    logger.info('Admin data retrieved successfully', { adminId: userContext.adminId });
     return {
-      school: {
-        id: school.id,
-        name: school.name
-      },
-      students: studentsWithCalculatedPoints,
-      studentGroups: transformedGroups,
-      pointTypes: transformedPointGroups
+      id: userContext.adminId!
     };
   } catch (error) {
-    logger.error('Failed to load school dashboard using robust APIs', { 
-      schoolId, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    logger.error('Failed to load admin data', { 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, error instanceof Error ? error : undefined);
-    throw new Error('Failed to load school dashboard');
+    throw error;
   }
 } 
