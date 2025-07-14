@@ -16,9 +16,9 @@ export default function Dashboard() {
     desc,
     endpoint
   }: {
-    title: String,
-    desc: String,
-    endpoint: String
+    title: string,
+    desc: string,
+    endpoint: string
   }) => (
     <div className="w-full bg-slate-300 dark:bg-slate-700 px-10 py-5 my-5 hover:shadow-lg">
       <Link

@@ -148,7 +148,7 @@ export default function TopStudents(
     }
   ).subscribe();
 
-  var orderedStudents = featuredDashData.topOverall
+  let orderedStudents = featuredDashData.topOverall
 
   if (curGroupFocusId !== null) {
     orderedStudents = featuredDashData.topByPointGroup.at(curGroupFocusId)?.students ?? orderedStudents

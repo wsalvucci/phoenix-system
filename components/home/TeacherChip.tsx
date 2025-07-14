@@ -1,8 +1,7 @@
 "use client";
 import { getTeacherDataWithContext } from "@/api/teacher";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Teacher } from "@/types/domain";
-import { useEffect } from "react";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import MotionButton from "@/components/MotionButton";
@@ -10,25 +9,45 @@ import MotionButton from "@/components/MotionButton";
 export default function TeacherChip() {
     const [isLoading, setIsLoading] = useState(true);
     const [teacher, setTeacher] = useState<Teacher | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchTeacherData = async () => {
-            const teacherData = await getTeacherDataWithContext();
-            console.log(teacherData);
-            setTeacher(teacherData);
-            setIsLoading(false);
+            try {
+                const teacherData = await getTeacherDataWithContext();
+                setTeacher(teacherData);
+                setError(null);
+            } catch (err) {
+                console.error('Failed to load teacher data:', err);
+                setError(err instanceof Error ? err.message : 'Unknown error');
+                setTeacher(null);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         fetchTeacherData();
     }, []);
 
     if (isLoading) {
-
         return (
             <div className="w-full bg-gray-200 rounded-lg px-4 py-6 animate-pulse">
                 Loading...
             </div>
         );
+    }
+
+    if (error) {
+        // In development, show the error for debugging
+        if (process.env.NODE_ENV === 'development') {
+            return (
+                <div className="w-full bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong>Teacher Error:</strong> {error}
+                </div>
+            );
+        }
+        // In production, don't show anything
+        return null;
     }
 
     if (teacher === null) {

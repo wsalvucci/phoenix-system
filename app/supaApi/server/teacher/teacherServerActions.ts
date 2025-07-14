@@ -1,11 +1,11 @@
 "use server";
 
-import { ClassConfigurationData, ImportedScorebook, NewScorebookData, NewScorebookPointEvent, RankingGroup, RankingGroupData, RankingGroupScorebookData, ScorebookData, ScorebookPointEvent } from "@/app/dataClasses";
-import supabaseServiceClient from "../supabaseServiceClient";
-import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { Database } from "@/types/supabase";
-import getOwnTeacherData from "./getOwnTeacherData";
+import supabaseServiceClient from "../supabaseServiceClient";
+import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, RankingGroupData, RankingGroupScorebookData, ImportedScorebook, TeacherTimeframe } from "@/types/domain";
 import { DateTime } from "luxon";
+import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
+import getOwnTeacherData from "./getOwnTeacherData";
 
 export async function createPointEvent(
         studentGroupId: number,
@@ -112,196 +112,89 @@ export async function deletePointEvent(pointEventId: number): Promise<boolean> {
         return true;
 }
 
-export async function newGetScorebookData(studentGroupId: number): Promise<NewScorebookData> {
-        const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
-
-        if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
-
-        const supabase = await supabaseServiceClient();
-
-        const {
-                data: studentGroupData,
-                error: studentGroupDataError
-        } = await supabase.from("student_group").select("*, student(*)").eq("id", studentGroupId).single()
-
-        if (studentGroupDataError) throw new Error(studentGroupDataError.message)
-        if (studentGroupData == null) throw new Error("No student group data")
-
-        const {
-                data: pointTemplateData,
-                error: pointTemplateDataError
-        } = await supabase.from("point_template").select("*").eq("student_group_id", studentGroupId)
-
-        if (pointTemplateDataError) throw new Error(pointTemplateDataError.message)
-        if (pointTemplateData == null) throw new Error("No point template data")
-
-        const {
-                data: pointEventData,
-                error: pointEventDataError
-        } = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule_type (*), point_group (*)), student_point (*, student (id, powerschool_id, student_group (*)))").eq("student_group_id", studentGroupId)
-
-        if (pointEventDataError) throw new Error(pointEventDataError.message)
-        if (pointEventData == null) throw new Error("No point event data")
-
-        if (studentGroupData.school_id == null) throw new Error("Unattached student group (no school id)")
-        const {
-                data: pointGroupsData,
-                error: pointGroupsDataError
-        } = await supabase.from("point_group").select("*").eq("school_id", studentGroupData.school_id)
-
-        if (pointGroupsDataError) throw new Error(pointGroupsDataError.message)
-        if (pointGroupsData == null) throw new Error("No point groups data")
-
-        console.log(pointEventData.map((pointEvent) => pointEvent.name))
-
-        return {
-                pointTemplates: pointTemplateData.map((pointTemplate) => {
-                        return {
-                                id: pointTemplate.id,
-                                name: pointTemplate.name
-                        }
-                }),
-                pointEvents: pointEventData.map((pointEvent) => {
-                        if (pointEvent.point_template == null) return
-                        if (pointEvent.point_template.point_group == null) return
-
-                        return {
-                                id: pointEvent.id,
-                                date: pointEvent.date ?? "0",
-                                name: pointEvent.name ?? "",
-                                maxInput: pointEvent.max_input,
-                                template: {
-                                        id: pointEvent.point_template.id,
-                                        name: pointEvent.point_template.name,
-                                        conversionRuleType: pointEvent.point_template.point_conversion_rule_type?.name ?? "default",
-                                        conversionRuleValue: pointEvent.point_template.conversion_rule_value ?? 0,
-                                        conversionRuleTarget: pointEvent.point_template.max_input_value ?? 0,
-                                        pointGroup: {
-                                                id: pointEvent.point_template.point_group.id,
-                                                name: pointEvent.point_template.point_group.name,
-                                                color: pointEvent.point_template.point_group.color
-                                        }
-                                },
-                                studentPoints: pointEvent.student_point.map((studentPoint) => {
-                                        if (studentPoint.student == null) return
-                                        return {
-                                                student: {
-                                                        id: studentPoint.student.id,
-                                                        studentGroups: studentPoint.student.student_group.map((studentGroup) => {
-                                                                return {
-                                                                        id: studentGroup.id,
-                                                                        name: studentGroup.name
-                                                                }
-                                                        }),
-                                                        powerschoolId: studentPoint.student.powerschool_id
-                                                },
-                                                pointData: {
-                                                        //id: studentPoint.id,
-                                                        input: studentPoint.input_score ?? 0,
-                                                        value: studentPoint.point_value,
-                                                        notes: studentPoint.notes ?? ""
-                                                }
-                                        }
-                                }).filter((studentPoint) => studentPoint !== undefined)
-                        }
-                })
-                        .filter((pointEvent) => pointEvent !== undefined)
-                        .sort((a, b) => DateTime.fromISO(a.date).toSeconds() - DateTime.fromISO(b.date).toSeconds()),
-                students: studentGroupData.student.map((student) => {
-                        return {
-                                id: student.id,
-                                firstName: student.first_name.trim(),
-                                lastName: student.last_name.trim()
-                        }
-                }),
-                studentGroup: {
-                        id: studentGroupData.id,
-                        name: studentGroupData.name
+export async function newGetScorebookData(studentGroupId: number, timeframeId?: number | null): Promise<NewScorebookData> {
+    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+    if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
+    const supabase = await supabaseServiceClient();
+    const { data: studentGroupData, error: studentGroupDataError } = await supabase.from("student_group").select("*, student(*)").eq("id", studentGroupId).single();
+    if (studentGroupDataError) throw new Error(studentGroupDataError.message);
+    if (studentGroupData == null) throw new Error("No student group data");
+    
+    // Build point event query with optional timeframe filtering
+    let pointEventQuery = supabase.from("point_event").select("*, point_group (*), student_point (*, student (id, first_name, last_name, powerschool_id, student_group (*)))").eq("student_group_id", studentGroupId);
+    
+    // Add timeframe filtering if timeframeId is provided
+    if (timeframeId !== null && timeframeId !== undefined) {
+        // Get the timeframe dates
+        const { data: timeframeData, error: timeframeError } = await supabase
+            .from("school_timeframes")
+            .select("starts_at, ends_at")
+            .eq("id", timeframeId)
+            .single();
+        
+        if (!timeframeError && timeframeData) {
+            pointEventQuery = pointEventQuery
+                .gte("date", timeframeData.starts_at)
+                .lte("date", timeframeData.ends_at);
+        }
+    }
+    
+    const { data: pointEventData, error: pointEventDataError } = await pointEventQuery;
+    if (pointEventDataError) throw new Error(pointEventDataError.message);
+    if (pointEventData == null) throw new Error("No point event data");
+    if (studentGroupData.school_id == null) throw new Error("Unattached student group (no school id)");
+    const { data: pointGroupsData, error: pointGroupsDataError } = await supabase.from("point_group").select("*").eq("school_id", studentGroupData.school_id);
+    if (pointGroupsDataError) throw new Error(pointGroupsDataError.message);
+    if (pointGroupsData == null) throw new Error("No point groups data");
+    
+    return {
+        pointEvents: pointEventData.map((pe: any) => {
+            if (pe.point_group == null) return null;
+            return {
+                id: pe.id,
+                date: pe.date ?? "0",
+                name: pe.name ?? "",
+                maxInput: pe.max_input,
+                pointGroup: {
+                    id: pe.point_group.id,
+                    name: pe.point_group.name,
+                    color: pe.point_group.color
                 },
-                pointGroups: pointGroupsData.map((pointGroup) => {
-                        return {
-                                id: pointGroup.id,
-                                name: pointGroup.name,
-                                color: pointGroup.color
-                        }
-                })
-        }
-}
-
-export async function getScorebookData(studentGroupId: number): Promise<ScorebookData> {
-        const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
-
-        if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
-
-        const supabase = await supabaseServiceClient();
-
-        const pointEventsResponse = await supabase.from("point_event").select("*, point_template (*, point_conversion_rule_type (*), point_group (*)), student_point (*)").eq("student_group_id", studentGroupId);
-        const pointTemplatesResponse = await supabase.from("point_template").select("*").eq("student_group_id", studentGroupId);
-        const studentPairsResponse = await supabase
-                .from("student_group_pair")
-                .select("student(*)")
-                .eq("student_group_id", studentGroupId);
-        const studentGroupResponse = await supabase.from("student_group").select("*").eq("id", studentGroupId).single();
-        let pointGroupsResponseData: Database['public']['Tables']['point_group']['Row'][] | null = null;
-        if (studentGroupResponse.data?.school_id) {
-                pointGroupsResponseData = (await supabase.from("point_group").select("*").eq("school_id", studentGroupResponse.data?.school_id)).data;
-        }
-
-        if (pointEventsResponse.error) {
-                console.error("Error fetching point events", pointEventsResponse.error);
-                throw new Error("Error fetching point events");
-        }
-
-        if (pointTemplatesResponse.error) {
-                console.error("Error fetching point templates", pointTemplatesResponse.error);
-                throw new Error("Error fetching point templates");
-        }
-
-        if (studentPairsResponse.error) {
-                console.error("Error fetching students", studentPairsResponse.error);
-                throw new Error("Error fetching students");
-        }
-
-        if (studentGroupResponse.error) {
-                console.error("Error fetching student group", studentGroupResponse.error);
-                throw new Error("Error fetching student group");
-        }
-
-        return {
-                pointEvents: pointEventsResponse.data.map((pointEventData) => ({
-                        id: pointEventData.id,
-                        date: pointEventData.date,
-                        name: pointEventData.name,
-                        student_group_id: pointEventData.student_group_id,
-                        template_id: pointEventData.template_id,
-                        maxInput: pointEventData.max_input,
-                        linkedTemplateData: {
-                                id: pointEventData.point_template?.id,
-                                name: pointEventData.point_template?.name,
-                                conversionRuleType: pointEventData.point_template?.point_conversion_rule_type ?? null,
-                                pointGroup: pointEventData.point_template?.point_group ?? null,
-                                conversionRuleValue: pointEventData.point_template?.conversion_rule_value ?? null,
-                                conversionRuleTarget: pointEventData.point_template?.max_input_value ?? null,
+                studentPoints: Array.isArray(pe.student_point) ? pe.student_point.map((sp: any) => {
+                    if (sp.student == null) return null;
+                    return {
+                        student: {
+                            id: sp.student.id,
+                            studentGroups: Array.isArray(sp.student.student_group) ? sp.student.student_group.map((sg: any) => ({
+                                id: sg.id,
+                                name: sg.name
+                            })) : [],
+                            powerschoolId: sp.student.powerschool_id
                         },
-                        studentPoints: pointEventData.student_point?.map((studentPointData) => {
-                                const searchedStudentData = studentPairsResponse.data.find((studentPair) => studentPair.student?.id === studentPointData.student_id)?.student;
-                                if (!searchedStudentData) return null;
-                                return {
-                                        studentData: searchedStudentData,
-                                        pointData: studentPointData
-                                }
-                        }).filter((studentPoint) => studentPoint !== null)
-                })).sort((a, b) => {
-                        if (a.date && b.date) {
-                                return new Date(a.date).getTime() - new Date(b.date).getTime();
+                        pointData: {
+                            input: sp.input_score ?? 0,
+                            value: sp.point_value,
+                            notes: sp.notes ?? ""
                         }
-                        return 0;
-                }),
-                pointTemplates: pointTemplatesResponse.data,
-                students: studentPairsResponse.data.map((studentData) => studentData.student),
-                studentGroup: studentGroupResponse.data,
-                pointGroups: pointGroupsResponseData
-        }
+                    };
+                }).filter((sp: any) => sp !== null) : []
+            };
+        }).filter((pe: any) => pe !== null).sort((a: any, b: any) => DateTime.fromISO(a.date).toSeconds() - DateTime.fromISO(b.date).toSeconds()) as NewScorebookPointEvent[],
+        students: Array.isArray(studentGroupData.student) ? studentGroupData.student.filter((student: any) => student !== null).map((student: any) => ({
+            id: student.id,
+            firstName: student.first_name?.trim() ?? "",
+            lastName: student.last_name?.trim() ?? ""
+        })) : [],
+        studentGroup: {
+            id: studentGroupData.id,
+            name: studentGroupData.name
+        },
+        pointGroups: pointGroupsData ? pointGroupsData.map((pg: any) => ({
+            id: pg.id,
+            name: pg.name,
+            color: pg.color
+        })) : []
+    };
 }
 
 export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent, studentGroupId: number): Promise<boolean> {
@@ -335,7 +228,8 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
                 name: scorebookPointEvent.name,
                 max_input: scorebookPointEvent.maxInput ?? 0,
                 student_group_id: studentGroupId,
-                template_id: scorebookPointEvent.template.id
+                template_id: scorebookPointEvent.pointGroup.id, // Using template_id to store point_group_id temporarily
+                point_group_id: scorebookPointEvent.pointGroup.id
         });
 
         if (error) {
@@ -343,23 +237,19 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
                 return false;
         }
 
-        const newStudentPoints = scorebookPointEvent.studentPoints?.map((studentPoint) => {
-                return {
-                        student_id: studentPoint.student.id,
-                        point_value: studentPoint.pointData.value,
-                        point_event_id: scorebookPointEvent.id,
-                        input_score: studentPoint.pointData.input
-                }
-        })
+        // Update student points
+        const studentPointsToUpdate = scorebookPointEvent.studentPoints.map((studentPoint) => ({
+                student_id: studentPoint.student.id,
+                point_event_id: scorebookPointEvent.id,
+                point_value: studentPoint.pointData.value,
+                input_score: studentPoint.pointData.input,
+                notes: studentPoint.pointData.notes
+        }));
 
-        if (!newStudentPoints) return true;
+        const { error: studentPointsError } = await supabase.from("student_point").upsert(studentPointsToUpdate);
 
-        console.log(newStudentPoints)
-
-        const { data: updateStudentPointsData, error: updateStudentPointsError } = await supabase.from("student_point").upsert(newStudentPoints);
-
-        if (updateStudentPointsError) {
-                console.error("Error updating student points", updateStudentPointsError);
+        if (studentPointsError) {
+                console.error("Error updating student points", studentPointsError);
                 return false;
         }
 
@@ -683,6 +573,43 @@ export async function editRankingGroupPointEvent(
         }
 
         return true;
+}
+
+export async function getTeacherSchoolTimeframes(studentGroupId: number): Promise<TeacherTimeframe[]> {
+    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+    if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
+    
+    const supabase = await supabaseServiceClient();
+    
+    // Get the school_id for this student group
+    const { data: studentGroupData, error: studentGroupError } = await supabase
+        .from("student_group")
+        .select("school_id")
+        .eq("id", studentGroupId)
+        .single();
+    
+    if (studentGroupError || !studentGroupData || !studentGroupData.school_id) {
+        throw new Error("Student group not found or has no school");
+    }
+    
+    // Get all timeframes for this school
+    const { data: timeframes, error: timeframesError } = await supabase
+        .from("school_timeframes")
+        .select("id, name, starts_at, ends_at, active")
+        .eq("school_id", studentGroupData.school_id)
+        .order("starts_at", { ascending: false });
+    
+    if (timeframesError) {
+        throw new Error("Failed to fetch timeframes");
+    }
+    
+    return timeframes.map(timeframe => ({
+        id: timeframe.id,
+        name: timeframe.name,
+        startsAt: timeframe.starts_at,
+        endsAt: timeframe.ends_at,
+        active: timeframe.active
+    }));
 }
 
 export default async function importPhoenixScorebookData(

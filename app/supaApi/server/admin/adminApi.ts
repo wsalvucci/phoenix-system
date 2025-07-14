@@ -151,7 +151,7 @@ export async function getAdminDashboardData(
     let currentTimeframe = undefined
     let timeframeStart = DateTime.fromFormat("1970-01-01", "yyyy-MM-dd")
     let timeframeEnd = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
-    for (let timeframe of timeframeData) {
+    for (const timeframe of timeframeData) {
         if (timeframe.active) {
             currentTimeframe = timeframe
             break
@@ -196,7 +196,7 @@ export async function getAdminDashboardData(
                 totalPoints: schoolData.student_group.reduce((totalPoints, studentGroup) => {
                     return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
                         return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
-                            let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
                             if (studentPoint.student_id === student.id) {
                                 return totalPoints + pointValue
                             } else {
@@ -219,7 +219,7 @@ export async function getAdminDashboardData(
                         name: pointEvent.name || "",
                         date: pointEvent.date || "",
                         studentPoints: pointEvent.student_point.map((studentPoint) => {
-                            let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
                             return {
                                 studentId: studentPoint.student_id,
                                 value: pointValue,
@@ -273,7 +273,7 @@ export async function getAdminStudentDashboardData(
     let currentTimeframe = undefined
     let timeframeStart = DateTime.fromFormat("1970-01-01", "yyyy-MM-dd")
     let timeframeEnd = DateTime.fromFormat("2100-01-01", "yyyy-MM-dd")
-    for (let timeframe of timeframeData) {
+    for (const timeframe of timeframeData) {
         if (timeframe.active) {
             currentTimeframe = timeframe
             break
@@ -307,14 +307,14 @@ export async function getAdminStudentDashboardData(
         return null
     }
 
-    let formattedStudentData = pointData?.reduce((formattedData, studentGroup) => {
+    const formattedStudentData = pointData?.reduce((formattedData, studentGroup) => {
         studentGroup.point_event.forEach((pointEvent) => {
             pointEvent.student_point.forEach((studentPoint) => {
-                let curStudentData = formattedData.find((studentData) => studentData.studentId === studentPoint.student_id)
-                let pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                const curStudentData = formattedData.find((studentData) => studentData.studentId === studentPoint.student_id)
+                const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
                 if (curStudentData) {
                     curStudentData.studentTotalPoints += pointValue
-                    let curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
+                    const curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
                     if (curStudentGroupData) {
                         curStudentGroupData.points += pointValue
                         curStudentGroupData.outOf++
@@ -327,7 +327,7 @@ export async function getAdminStudentDashboardData(
                             outOf: 1
                         })
                     }
-                    let curPointGroupData = curStudentData.studentPointsByPointGroup.find((pointGroupData) => pointGroupData.groupId === pointEvent.point_template?.point_group_id)
+                    const curPointGroupData = curStudentData.studentPointsByPointGroup.find((pointGroupData) => pointGroupData.groupId === pointEvent.point_template?.point_group_id)
                     if (curPointGroupData) {
                         curPointGroupData.points += pointValue
                         curPointGroupData.outOf++
@@ -506,7 +506,7 @@ export async function getAdminStudentDashboardData(
                 .sort((a, b) => (b.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0) - (a.studentPointsByPointGroup.find((group) => group.groupId === pointGroup.groupId)?.points ?? 0)).findIndex((sortedStudent) => sortedStudent.studentId === student.studentId) + 1
         })
         rankingGroupData?.forEach((rankingGroup) => {
-            let studentGroup = rankingGroup.student_group.find((group) => group.student.find((searchedStudent) => searchedStudent.id === student.studentId) !== undefined)
+            const studentGroup = rankingGroup.student_group.find((group) => group.student.find((searchedStudent) => searchedStudent.id === student.studentId) !== undefined)
             if (studentGroup) {
                 student.studentRanksByRankingGroup.push({
                     groupId: studentGroup.id,

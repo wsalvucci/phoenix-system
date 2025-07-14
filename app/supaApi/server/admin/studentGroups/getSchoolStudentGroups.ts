@@ -14,7 +14,7 @@ export async function recursivelyGetStudentGroups(studentGroupId: number): Promi
 
     if (childGroups === null) return groupData;
 
-    var newChildGroups: StudentGroupWithRelations[] = [];
+    const newChildGroups: StudentGroupWithRelations[] = [];
 
     await Promise.all(childGroups.map(async childGroup => {
         const childGroupData = await recursivelyGetStudentGroups(childGroup.id);
@@ -50,7 +50,7 @@ export async function getStudentGroupsForSchool(schoolId: number): Promise<Stude
 
     if (parentStudentGroups === null) return null;
 
-    var studentGroups: StudentGroupWithRelations[] = [];
+    const studentGroups: StudentGroupWithRelations[] = [];
 
     await Promise.all(parentStudentGroups.map(async studentGroup => {
         const studentGroupData = await recursivelyGetStudentGroups(studentGroup.id);

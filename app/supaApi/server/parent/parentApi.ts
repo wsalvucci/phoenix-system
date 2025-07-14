@@ -155,7 +155,7 @@ export async function getStudentDataForParent(
         return null
     }
 
-    var { data: studentData, error: studentDataError } =
+    const { data: studentData, error: studentDataError } =
         await supabase.from("student")
             .select("*")
             .eq("id", studentId)
@@ -170,7 +170,7 @@ export async function getStudentDataForParent(
         return null
     }
 
-    var { data: allStudentData, error: allStudentDataError } =
+    const { data: allStudentData, error: allStudentDataError } =
         await supabase.from("student")
             .select("*, student_group (*), student_point (*, point_event (*, student_group (*), point_template (conversion_rule_value, point_group (*), point_conversion_rule_type (*))))")
             .eq("school_id", studentData.school_id)

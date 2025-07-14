@@ -377,8 +377,8 @@ export default function GlobalDashboard() {
                                                                 </div>
                                                                 {
                                                                         rankingGroup.studentGroups.sort((a, b) => {
-                                                                                var aPoints = (a?.averagePoints ?? 0) + (a?.rawPoints ?? 0)
-                                                                                var bPoints = (b?.averagePoints ?? 0) + (b?.rawPoints ?? 0)
+                                                                                const aPoints = (a?.averagePoints ?? 0) + (a?.rawPoints ?? 0)
+                                                                                const bPoints = (b?.averagePoints ?? 0) + (b?.rawPoints ?? 0)
                                                                                 return bPoints - aPoints
                                                                         })
                                                                                 .slice(0, 5)

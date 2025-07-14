@@ -16,7 +16,7 @@ export default function ParentDashboard() {
     const [addStudentResponseText, setAddStudentResponseText] = useState<string>("")
     const [addingStudent, setAddingStudent] = useState<boolean>(false)
 
-    const [confirmDisconnectData, setConfirmDisconnectData] = useState<{ visible: Boolean, id: number, name: string }>({
+    const [confirmDisconnectData, setConfirmDisconnectData] = useState<{ visible: boolean, id: number, name: string }>({
         visible: false,
         id: -1,
         name: ""

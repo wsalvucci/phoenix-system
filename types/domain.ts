@@ -231,6 +231,14 @@ export type Timeframe = {
     schoolId: number,
 }
 
+export type TeacherTimeframe = {
+    id: number,
+    name: string,
+    startsAt: string,
+    endsAt: string,
+    active: boolean,
+}
+
 // Admin API Data Types
 export type AdminStudentData = {
   id: number;
@@ -289,4 +297,236 @@ export type AdminTimeframeData = {
   endsAt: string;
   active: boolean;
   schoolId: number;
+};
+
+export type StudentScore = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  inputScore: number;
+  points: number;
+};
+
+export type PointTemplate = {
+  id: number;
+  name: string;
+  pointGroup: { color: string };
+  conversionRule: string; // or a more specific type if you have one
+  conversionRuleValue: number;
+};
+
+export type ScorebookPointEvent = {
+  id: number;
+  name: string;
+  date: string;
+  maxInput: number;
+  pointTemplate: PointTemplate;
+  students: StudentScore[];
+};
+
+export type ScorebookData = {
+  group: {
+    id: number;
+    name: string;
+  };
+  students: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  }[];
+  pointTemplates: PointTemplate[];
+  pointEvents: ScorebookPointEvent[];
+};
+
+export type ImportedScorebook = {
+  pointEventId: number,
+  name: string,
+  date: string,
+  template: {
+    type: string,
+    value: number
+  }
+  studentPoints: {
+    id: number,
+    lastName: string,
+    firstName: string,
+    input: number,
+    value: number
+  }[]
+}[]
+
+export type NewScorebookData = {
+  pointEvents: NewScorebookPointEvent[],
+  students: {
+    id: number,
+    firstName: string,
+    lastName: string
+  }[],
+  studentGroup: {
+    id: number,
+    name: string
+  },
+  pointGroups: {
+    id: number,
+    name: string,
+    color: string
+  }[]
+}
+
+export type NewScorebookPointEvent = {
+  id: number;
+  date: string,
+  name: string,
+  maxInput: number,
+  pointGroup: {
+    id: number,
+    name: string,
+    color: string
+  },
+  studentPoints: {
+    student: {
+      id: number,
+      studentGroups: {
+        id: number,
+        name: string
+      }[],
+      powerschoolId: number,
+    },
+    pointData: {
+      input: number,
+      value: number,
+      notes: string
+    }
+  }[]
+}
+
+export enum PointConversionRuleType {
+  ADD = 'add',
+  SUBTRACT = 'subtract',
+  MULTIPLY = 'multiply',
+  DIVIDE = 'divide',
+  FORMULA = 'formula',
+  DIRECT = 'direct'
+}
+
+export function stringToRuleType(ruleType: string): PointConversionRuleType {
+  switch (ruleType.toLowerCase()) {
+    case 'add':
+      return PointConversionRuleType.ADD;
+    case 'subtract':
+      return PointConversionRuleType.SUBTRACT;
+    case 'multiply':
+      return PointConversionRuleType.MULTIPLY;
+    case 'divide':
+      return PointConversionRuleType.DIVIDE;
+    case 'formula':
+      return PointConversionRuleType.FORMULA;
+    case 'direct':
+      return PointConversionRuleType.DIRECT;
+    default:
+      return PointConversionRuleType.DIRECT;
+  }
+}
+
+export function ruleTypeAndValueToFormula(ruleType: PointConversionRuleType, value: number, input: number, formula: string | null): string {
+  switch (ruleType) {
+    case PointConversionRuleType.ADD:
+      return `${input} + ${value}`;
+    case PointConversionRuleType.SUBTRACT:
+      return `${input} - ${value}`;
+    case PointConversionRuleType.MULTIPLY:
+      return `${input} * ${value}`;
+    case PointConversionRuleType.DIVIDE:
+      return `${input} / ${value}`;
+    case PointConversionRuleType.FORMULA:
+      if (!formula) return '';
+      return formula.replace('a', input.toString()).replace('b', value.toString());
+    case PointConversionRuleType.DIRECT:
+      return '';
+  }
+}
+
+export function convertPointUsingRuleType(
+  ruleType: PointConversionRuleType,
+  value: number,
+  input: number,
+  formula: string | null = null
+): number {
+  switch (ruleType) {
+    case PointConversionRuleType.ADD:
+      return Number(input) + Number(value);
+    case PointConversionRuleType.SUBTRACT:
+      return Number(input) - Number(value);
+    case PointConversionRuleType.MULTIPLY:
+      return Number(input) * Number(value);
+    case PointConversionRuleType.DIVIDE:
+      return Number(input) / Number(value);
+    case PointConversionRuleType.FORMULA:
+      if (!formula) return input;
+      return eval(formula);
+    case PointConversionRuleType.DIRECT:
+      return input;
+  }
+}
+
+export type ClassConfigurationData = {
+  templates: {
+    id: number;
+    name: string;
+    templateType: string | null;
+    pointGroup: {
+      id: number | null;
+      name: string | null;
+      color: string | null;
+    } | null;
+    conversionRuleType: string | null;
+    conversionRuleValue: number | null;
+    conversionRuleTarget: number | null;
+    conversionRuleFormula: string | null;
+  }[];
+  pointGroups: {
+    id: number;
+    name: string;
+    color: string;
+    parent_id: number | null;
+    ranked: boolean;
+    school_id: number;
+    created_at: string;
+  }[];
+  templateTypes: {
+    id: number;
+    name: string;
+  }[];
+  conversionRuleTypes: {
+    id: number;
+    name: string;
+  }[];
+};
+
+export type RankingGroupData = {
+  id: number;
+  name: string;
+  studentGroups: {
+    id: number;
+    name: string;
+  }[];
+};
+
+export type RankingGroupScorebookData = {
+  id: number;
+  name: string;
+  studentGroups: {
+    id: number;
+    name: string;
+  }[];
+  pointEvents: {
+    id: number;
+    name: string;
+    date: string;
+    studentGroupPoints: {
+      studentGroupId: number;
+      value: number;
+      pointId: number;
+    }[];
+  }[];
 };

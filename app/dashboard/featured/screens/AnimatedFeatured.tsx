@@ -305,7 +305,7 @@ export default function AnimatedFeatured(
         }[] | null
     }) {
         const percentOfFirst = student.points / firstPlacePoints
-        let breakdownGradient : String | null = null
+        let breakdownGradient : string | null = null
         if (breakdownPoints !== null) {
             breakdownGradient = backgroundGradient(breakdownPoints.map((pointGroup) => {
                 return {

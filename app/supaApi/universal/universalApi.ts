@@ -959,7 +959,7 @@ export async function getStudentPointStats(
     let verifiedStudentId = studentId;
     
     if (verifiedStudentId === null) {
-        let studentData = await getOwnStudentData()
+        const studentData = await getOwnStudentData()
         if (studentData === null) return null;
         verifiedStudentId = studentData.id;
     } else {

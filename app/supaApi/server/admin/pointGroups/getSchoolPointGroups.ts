@@ -14,7 +14,7 @@ export async function recursivelyGetPointGroups(pointGroupId: number): Promise<L
 
     if (childGroups === null) return groupData;
 
-    var newChildGroups: LinkedPointGroups[] = [];
+    const newChildGroups: LinkedPointGroups[] = [];
 
     await Promise.all(childGroups.map(async childGroup => {
         const childGroupData = await recursivelyGetPointGroups(childGroup.id);
@@ -46,7 +46,7 @@ export async function getPointGroupsForSchool(schoolId: number): Promise<LinkedP
 
     if (parentPointGroups === null) return null;
 
-    var pointGroups: LinkedPointGroups[] = [];
+    const pointGroups: LinkedPointGroups[] = [];
 
     await Promise.all(parentPointGroups.map(async pointGroup => {
         const pointGroupData = await recursivelyGetPointGroups(pointGroup.id);

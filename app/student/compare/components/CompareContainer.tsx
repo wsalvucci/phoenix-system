@@ -97,7 +97,7 @@ export default function CompareContainer(
             {
                 globalData?.pointGroups.map((group, index) => {
                     // copy new globalData and sort students by points in this category
-                    var sortedStudents = globalData.students.sort((a, b) => (b.pointGroups.find(group => group.id === group.id)?.points ?? 0) - (a.pointGroups.find(group => group.id === group.id)?.points ?? 0))
+                    const sortedStudents = globalData.students.sort((a, b) => (b.pointGroups.find(group => group.id === group.id)?.points ?? 0) - (a.pointGroups.find(group => group.id === group.id)?.points ?? 0))
 
                     return <DetailsRow
                         key={index}
@@ -141,8 +141,8 @@ function DetailsRow(
         student2Data: number
     }
 ) {
-    var pct = student1Data / (student1Data + student2Data) * 100
-    var diff = student1Data - student2Data
+    const pct = student1Data / (student1Data + student2Data) * 100
+    const diff = student1Data - student2Data
     return (
         <div className="w-full my-3">
             <div className="text-center text-xl">{categoryTitle}</div>

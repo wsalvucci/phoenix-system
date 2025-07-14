@@ -22,7 +22,7 @@ export default async function getOwnStudentGroups(): Promise<StudentGroupWithRel
 
     console.log(studentGroupsData);
 
-    var fullGroupData: StudentGroupWithRelations[] = [];
+    const fullGroupData: StudentGroupWithRelations[] = [];
     await Promise.all(studentGroupsData.map(async (studentGroupData) => {
         if (studentGroupData.student_group === null) return;
         fullGroupData.push(await getStudentGroup(studentGroupData.student_group?.id) as StudentGroupWithRelations);
