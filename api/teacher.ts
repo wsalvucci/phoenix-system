@@ -18,17 +18,31 @@ export async function getOwnTeacherData(): Promise<Teacher | null> {
         }
 
         const supabase = await supabaseServiceClient();
-        const { data: teacherData, error: teacherDataError } = await supabase
+        const { data: teacherDataArray, error: teacherDataError } = await supabase
             .from('teacher')
             .select('*')
-            .eq('linked_user', phoenixUser.id)
-            .single();
+            .eq('linked_user', phoenixUser.id);
 
         if (teacherDataError !== null) {
             logger.error("Error fetching teacher data:", { teacherDataError });
             return null;
         }
 
+        if (!teacherDataArray || teacherDataArray.length === 0) {
+            logger.warn('No teacher records found for user', { userId: phoenixUser.id.toString() });
+            return null;
+        }
+
+        // If multiple teachers exist, log a warning and use the first one
+        if (teacherDataArray.length > 1) {
+            logger.warn('Multiple teacher records found for user, using first one', { 
+                userId: phoenixUser.id.toString(), 
+                teacherCount: teacherDataArray.length,
+                teacherIds: teacherDataArray.map(t => t.id)
+            });
+        }
+
+        const teacherData = teacherDataArray[0]; // Use the first teacher record
         const teacher: Teacher = {
             id: teacherData.id,
             schoolId: teacherData.school_id,
@@ -41,7 +55,8 @@ export async function getOwnTeacherData(): Promise<Teacher | null> {
         logger.info('Teacher data retrieved successfully', { 
             teacherId: teacher.id,
             schoolId: teacher.schoolId,
-            teacherName: `${teacher.firstName} ${teacher.lastName}`
+            teacherName: `${teacher.firstName} ${teacher.lastName}`,
+            totalTeacherRecords: teacherDataArray.length
         });
 
         return teacher;
@@ -69,17 +84,31 @@ export async function getTeacherDataWithContext(): Promise<Teacher | null> {
         }
 
         const supabase = await supabaseServiceClient();
-        const { data: teacherData, error: teacherDataError } = await supabase
+        const { data: teacherDataArray, error: teacherDataError } = await supabase
             .from('teacher')
             .select('*')
-            .eq('linked_user', phoenixUser.id)
-            .single();
+            .eq('linked_user', phoenixUser.id);
 
         if (teacherDataError !== null) {
             logger.error("Error fetching teacher data:", { teacherDataError });
             return null;
         }
 
+        if (!teacherDataArray || teacherDataArray.length === 0) {
+            logger.warn('No teacher records found for user', { userId: phoenixUser.id.toString() });
+            return null;
+        }
+
+        // If multiple teachers exist, log a warning and use the first one
+        if (teacherDataArray.length > 1) {
+            logger.warn('Multiple teacher records found for user, using first one', { 
+                userId: phoenixUser.id.toString(), 
+                teacherCount: teacherDataArray.length,
+                teacherIds: teacherDataArray.map(t => t.id)
+            });
+        }
+
+        const teacherData = teacherDataArray[0]; // Use the first teacher record
         const teacher: Teacher = {
             id: teacherData.id,
             schoolId: teacherData.school_id,
@@ -92,7 +121,8 @@ export async function getTeacherDataWithContext(): Promise<Teacher | null> {
         logger.info('Teacher data retrieved successfully using context', { 
             teacherId: teacher.id,
             schoolId: teacher.schoolId,
-            teacherName: `${teacher.firstName} ${teacher.lastName}`
+            teacherName: `${teacher.firstName} ${teacher.lastName}`,
+            totalTeacherRecords: teacherDataArray.length
         });
 
         return teacher;
