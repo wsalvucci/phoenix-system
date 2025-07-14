@@ -1,11 +1,10 @@
 "use server";
 
-import { Database } from "@/types/supabase";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, RankingGroupData, RankingGroupScorebookData, ImportedScorebook, TeacherTimeframe } from "@/types/domain";
 import { DateTime } from "luxon";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
-import getOwnTeacherData from "./getOwnTeacherData";
+import { createClient } from "@/utils/supabase/server";
 
 export async function createPointEvent(
         studentGroupId: number,
@@ -64,13 +63,51 @@ export async function createPointEvent(
 }
 
 export async function checkTeacherAccessToPointEvent(pointEventId: number): Promise<boolean> {
-        const teacherData = await getOwnTeacherData();
-
-        if (!teacherData) return false;
-
         const supabase = await supabaseServiceClient();
+        const authClient = createClient();
 
-        const { data: pointEventData, error: pointEventError } = await supabase.from("point_event").select("*").eq("id", pointEventId).single();
+        // Get current user
+        const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+        
+        if (authError || !supabaseUser) {
+                console.error("User not authenticated", authError);
+                return false;
+        }
+
+        // Get numeric user ID from user table
+        const { data: userRow, error: userError } = await supabase
+                .from("user")
+                .select("id")
+                .eq("supabase_id", supabaseUser.id)
+                .single();
+        if (userError || !userRow) {
+                console.error("Could not find user row for supabase_id", supabaseUser.id, userError);
+                return false;
+        }
+        const numericUserId = userRow.id;
+
+        // Get all teacher records for this user
+        const { data: teacherData, error: teacherError } = await supabase
+                .from("teacher")
+                .select("id")
+                .eq("linked_user", numericUserId);
+
+        if (teacherError) {
+                console.error("Error getting teacher data", teacherError);
+                return false;
+        }
+
+        if (!teacherData || teacherData.length === 0) {
+                console.error("No teacher records found for user");
+                return false;
+        }
+
+        // Get the point event to find its student group
+        const { data: pointEventData, error: pointEventError } = await supabase
+                .from("point_event")
+                .select("*")
+                .eq("id", pointEventId)
+                .single();
 
         if (pointEventError) {
                 console.error("Error fetching point event", pointEventError);
@@ -82,14 +119,30 @@ export async function checkTeacherAccessToPointEvent(pointEventId: number): Prom
                 return false;
         }
 
-        const { data: teacherGroupPairData, error: teacherGroupPairError } = await supabase.from("teacher_student_group_pair").select("*").eq("teacher_id", teacherData.id).eq("group_id", pointEventData.student_group_id).single();
+        // Get all teacher IDs
+        const teacherIds = teacherData.map(teacher => teacher.id);
+
+        // Check if any of the teacher records have access to this student group
+        const { data: teacherGroupPairData, error: teacherGroupPairError } = await supabase
+                .from("teacher_student_group_pair")
+                .select("*")
+                .in("teacher_id", teacherIds)
+                .eq("group_id", pointEventData.student_group_id)
+                .limit(1);
 
         if (teacherGroupPairError) {
-                console.error(teacherGroupPairError);
+                console.error("Error getting teacher student group pairing", teacherGroupPairError);
                 return false;
         }
 
-        if (teacherGroupPairData === null) return false;
+        if (!teacherGroupPairData || teacherGroupPairData.length === 0) {
+                console.error("Teacher does not have access to this point event", {
+                        teacherIds,
+                        pointEventId,
+                        studentGroupId: pointEventData.student_group_id
+                });
+                return false;
+        }
 
         return true;
 }
@@ -392,50 +445,145 @@ export async function createConversionRule(
 }
 
 export async function checkTeacherAccessToRankingGroup(rankingGroupId: number): Promise<boolean> {
-        const teacherData = await getOwnTeacherData();
-
-        if (!teacherData) return false;
-
         const supabase = await supabaseServiceClient();
+        const authClient = createClient();
 
-        const { data: rankingGroupPairData, error: rankingGroupPairError } = await supabase.from("teacher_ranking_group_pair").select("*").eq("teacher_id", teacherData.id).eq("ranking_group_id", rankingGroupId).single();
-
-        if (rankingGroupPairError) {
-                console.error(rankingGroupPairError);
+        // Get current user
+        const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+        
+        if (authError || !supabaseUser) {
+                console.error("User not authenticated", authError);
                 return false;
         }
 
-        if (rankingGroupPairData === null) return false;
+        // Get numeric user ID from user table
+        const { data: userRow, error: userError } = await supabase
+                .from("user")
+                .select("id")
+                .eq("supabase_id", supabaseUser.id)
+                .single();
+        if (userError || !userRow) {
+                console.error("Could not find user row for supabase_id", supabaseUser.id, userError);
+                return false;
+        }
+        const numericUserId = userRow.id;
+
+        // Get all teacher records for this user
+        const { data: teacherData, error: teacherError } = await supabase
+                .from("teacher")
+                .select("id")
+                .eq("linked_user", numericUserId);
+
+        if (teacherError) {
+                console.error("Error getting teacher data", teacherError);
+                return false;
+        }
+
+        if (!teacherData || teacherData.length === 0) {
+                console.error("No teacher records found for user");
+                return false;
+        }
+
+        // Get all teacher IDs
+        const teacherIds = teacherData.map(teacher => teacher.id);
+
+        // Check if any of the teacher records have access to this ranking group
+        const { data: rankingGroupPairData, error: rankingGroupPairError } = await supabase
+                .from("teacher_ranking_group_pair")
+                .select("*")
+                .in("teacher_id", teacherIds)
+                .eq("ranking_group_id", rankingGroupId)
+                .limit(1);
+
+        if (rankingGroupPairError) {
+                console.error("Error getting teacher ranking group pairing", rankingGroupPairError);
+                return false;
+        }
+
+        if (!rankingGroupPairData || rankingGroupPairData.length === 0) {
+                console.error("Teacher does not have access to this ranking group", {
+                        teacherIds,
+                        rankingGroupId
+                });
+                return false;
+        }
 
         return true;
 }
 
 export async function getRankingGroups(): Promise<RankingGroupData[]> {
-        const teacherData = await getOwnTeacherData();
-
-        if (!teacherData) throw new Error("Teacher data not found");
-
         const supabase = await supabaseServiceClient();
+        const authClient = createClient();
 
-        const { data, error } = await supabase.from("teacher_ranking_group_pair").select("*, ranking_group (*, ranking_group_pair (*, student_group (*)))").eq("teacher_id", teacherData.id);
+        // Get current user
+        const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+        
+        if (authError || !supabaseUser) {
+                console.error("User not authenticated", authError);
+                throw new Error("User not authenticated");
+        }
+
+        // Get numeric user ID from user table
+        const { data: userRow, error: userError } = await supabase
+                .from("user")
+                .select("id")
+                .eq("supabase_id", supabaseUser.id)
+                .single();
+        if (userError || !userRow) {
+                console.error("Could not find user row for supabase_id", supabaseUser.id, userError);
+                throw new Error("Could not find user row for supabase_id");
+        }
+        const numericUserId = userRow.id;
+
+        // Get all teacher records for this user
+        const { data: teacherData, error: teacherError } = await supabase
+                .from("teacher")
+                .select("id")
+                .eq("linked_user", numericUserId);
+
+        if (teacherError) {
+                console.error("Error getting teacher data", teacherError);
+                throw new Error("Error getting teacher data");
+        }
+
+        if (!teacherData || teacherData.length === 0) {
+                console.error("No teacher records found for user");
+                throw new Error("Teacher data not found");
+        }
+
+        // Get all teacher IDs
+        const teacherIds = teacherData.map(teacher => teacher.id);
+
+        // Get ranking groups for all teacher records
+        const { data, error } = await supabase
+                .from("teacher_ranking_group_pair")
+                .select("*, ranking_group (*, ranking_group_pair (*, student_group (*)))")
+                .in("teacher_id", teacherIds);
 
         if (error) {
                 console.error("Error fetching ranking groups", error);
                 throw new Error("Error fetching ranking groups");
         }
 
-        return data.map((rankingGroupPairData) => {
-                return {
-                        id: rankingGroupPairData.ranking_group_id,
-                        name: rankingGroupPairData.ranking_group?.name ?? "",
-                        studentGroups: rankingGroupPairData.ranking_group?.ranking_group_pair.map((studentGroupPairData) => {
-                                return {
-                                        id: studentGroupPairData.student_group_id,
-                                        name: studentGroupPairData.student_group?.name ?? ""
-                                }
-                        }) ?? []
+        // Deduplicate ranking groups by ID to avoid showing the same group multiple times
+        const uniqueRankingGroups = new Map();
+        data.forEach((rankingGroupPairData) => {
+                const rankingGroupId = rankingGroupPairData.ranking_group_id;
+                if (!uniqueRankingGroups.has(rankingGroupId)) {
+                        uniqueRankingGroups.set(rankingGroupId, {
+                                id: rankingGroupId,
+                                name: rankingGroupPairData.ranking_group?.name ?? "",
+                                studentGroups: rankingGroupPairData.ranking_group?.ranking_group_pair.map((studentGroupPairData) => {
+                                        return {
+                                                id: studentGroupPairData.student_group_id,
+                                                name: studentGroupPairData.student_group?.name ?? ""
+                                        }
+                                }) ?? []
+                        });
                 }
-        })
+        });
+
+        return Array.from(uniqueRankingGroups.values());
 }
 
 export async function getRankingGroupPoints(rankingGroupId: number): Promise<RankingGroupScorebookData> {
@@ -622,24 +770,31 @@ export default async function importPhoenixScorebookData(
 
         const supabase = await supabaseServiceClient();
 
-        data.map(async (pointEvent) => {
-                const {data, error} = await supabase.from('student_point')
-                        .upsert(pointEvent.studentPoints.filter(student => !isNaN(student.id)).map((student) => {
-                                return {
-                                        created_at: DateTime.now().toISO(),
-                                        point_value: student.value,
-                                        student_id: student.id,
-                                        input_score: student.input,
-                                        notes: null,
-                                        point_event_id: pointEvent.pointEventId
-                                }
-                        }))
-
-                if (error) {
-                        console.error("Error importing student points", error);
-                        return "Error importing student points";
+        // For each event in the imported data
+        for (const event of data) {
+            const pointEventId = event.pointEventId;
+            // For each student in this event
+            for (const student of event.studentPoints) {
+                // Skip if no score or empty
+                if (student.input === undefined || student.input === null || String(student.input) === "") {
+                    continue;
                 }
-        })
-
-        return
+                // Upsert the student point
+                const { error: upsertError } = await supabase
+                    .from('student_point')
+                    .upsert({
+                        created_at: DateTime.now().toISO(),
+                        point_value: student.value, // For now, use input as point value
+                        student_id: student.id,
+                        input_score: student.input,
+                        notes: null,
+                        point_event_id: pointEventId
+                    });
+                if (upsertError) {
+                    console.error("Error importing student point", upsertError);
+                    return "Error importing student points";
+                }
+            }
+        }
+        return;
 }

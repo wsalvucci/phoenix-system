@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import { DateTime } from "luxon"
 import CSVReader from "react-csv-reader"
+import Papa from 'papaparse';
 import { newGetScorebookData, editPointEvent, deletePointEvent, createPointEvent, getTeacherSchoolTimeframes } from "@/app/supaApi/server/teacher/teacherServerActions"
 import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServerActions"
-import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe } from "@/types/domain"
+import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow } from "@/types/domain"
 
 type NewPointEventData = {
   pointGroupId: number,
@@ -14,26 +15,7 @@ type NewPointEventData = {
   maxInput: number
 }
 
-type ExportScorebookTemplateData = {
-  events: {
-    id: number,
-    name: string,
-    date: string,
-    studentPoints: {
-      student: {
-        id: number
-      },
-      pointData: {
-        input: number
-      }
-    }[],
-    pointGroupColor: string
-  }[],
-  students: {
-    id: number,
-    name: string,
-  }[]
-}
+
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
   const [scorebookData, setScorebookData] = useState<NewScorebookData | null>(null)
@@ -56,10 +38,55 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
 
-  const sendBroadcastSignal = () => {
-    // This function is just for the interactive tutorial.
-    // Feel free to remove it once you have Supabase connected.
+  // New state for parsed import preview
+  const [importPreview, setImportPreview] = useState<{
+    eventIds: string[];
+    eventNames: string[];
+    students: ImportPreviewTableRow[];
+  } | null>(null);
+
+  const [importLoading, setImportLoading] = useState(false);
+  const [showUnchanged, setShowUnchanged] = useState(false);
+  const [showPercent, setShowPercent] = useState(false);
+
+  const [selectedPointGroupId, setSelectedPointGroupId] = useState<string>('');
+  const [focusedStudentId, setFocusedStudentId] = useState<number | null>(null);
+
+  // Helper: Determine which students/events have changes
+  function getChangedMatrix() {
+    if (!importPreview || !scorebookData) return { changedStudents: [], changedEvents: [] };
+    const changedStudents: boolean[] = importPreview.students.map((student, sIdx) => {
+      return importPreview.eventIds.some((eventId, eIdx) => {
+        const event = scorebookData.pointEvents.find(e => e.id.toString() === eventId);
+        let currentValue = '';
+        if (event) {
+          const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
+          if (sp) currentValue = sp.pointData.input.toString();
+        }
+        return (student.scores[eIdx] || '') !== (currentValue || '');
+      });
+    });
+    const changedEvents: boolean[] = importPreview.eventIds.map((eventId, eIdx) => {
+      return importPreview.students.some((student, sIdx) => {
+        const event = scorebookData.pointEvents.find(e => e.id.toString() === eventId);
+        let currentValue = '';
+        if (event) {
+          const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
+          if (sp) currentValue = sp.pointData.input.toString();
+        }
+        return (student.scores[eIdx] || '') !== (currentValue || '');
+      });
+    });
+    return { changedStudents, changedEvents };
   }
+
+  const getCellBgClass = (percentNum: number) => {
+    if (percentNum > 75) return 'bg-green-50 dark:bg-green-900';
+    if (percentNum > 25) return 'bg-yellow-50 dark:bg-yellow-900';
+    if (percentNum > 0) return 'bg-orange-50 dark:bg-orange-900';
+    return 'bg-red-50 dark:bg-red-900';
+  };
+
 
   const fetchTimeframes = async () => {
     try {
@@ -134,41 +161,35 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const createScorebookTemplateExportFile = () => {
     if (!scorebookData) return
 
-    const exportData: ExportScorebookTemplateData = {
-      events: scorebookData.pointEvents.map((pointEvent) => ({
-        id: pointEvent.id,
-        name: pointEvent.name,
-        date: pointEvent.date,
-        studentPoints: pointEvent.studentPoints.map((studentPoint) => ({
-          student: {
-            id: studentPoint.student.id
-          },
-          pointData: {
-            input: studentPoint.pointData.input
-          }
-        })),
-        pointGroupColor: pointEvent.pointGroup.color
-      })),
-      students: scorebookData.students.map((student) => ({
-        id: student.id,
-        name: `${student.lastName}, ${student.firstName}`
-      }))
-    }
+    // Create table-like format
+    // First row: Point event IDs (for reference when importing)
+    // Second row: Point event names
+    // First column: Student names
+    // Data cells: Student scores
 
-    // Create CSV content manually
-    const headers = ['Event ID', 'Event Name', 'Date', 'Student ID', 'Student Name', 'Points']
-    const rows = exportData.events.flatMap(event => 
-      event.studentPoints.map(sp => [
-        event.id,
-        event.name,
-        event.date,
-        sp.student.id,
-        exportData.students.find(s => s.id === sp.student.id)?.name || '',
-        sp.pointData.input
-      ])
-    )
+    const eventIds = scorebookData.pointEvents.map(event => event.id.toString())
+    const eventNames = scorebookData.pointEvents.map(event => event.name)
     
-    const csvContent = [headers, ...rows]
+    // Create header rows
+    const headerRow1 = ['Student Name', 'Student ID', ...eventIds]
+    const headerRow2 = ['', '', ...eventNames]
+    
+    // Create data rows
+    const dataRows = scorebookData.students.map(student => {
+      const studentName = `${student.lastName}, ${student.firstName}`
+      const studentId = student.id
+      
+      // Get scores for each event
+      const scores = scorebookData.pointEvents.map(event => {
+        const studentPoint = event.studentPoints.find(sp => sp.student.id === student.id)
+        return studentPoint ? studentPoint.pointData.input.toString() : ''
+      })
+      
+      return [studentName, studentId.toString(), ...scores]
+    })
+    
+    // Combine all rows
+    const csvContent = [headerRow1, headerRow2, ...dataRows]
       .map(row => row.map(cell => `"${cell}"`).join(','))
       .join('\n')
 
@@ -308,87 +329,128 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const scorebookTable = () => {
     if (!scorebookData) return <div>No data</div>
+    // Filter point events by selected point group
+    const filteredPointEvents = selectedPointGroupId
+      ? scorebookData.pointEvents.filter(pe => pe.pointGroup.id.toString() === selectedPointGroupId)
+      : scorebookData.pointEvents;
+    // Filter students by focus
+    const studentsToShow = focusedStudentId
+      ? scorebookData.students.filter(s => s.id === focusedStudentId)
+      : scorebookData.students;
     return (
-      <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-full">
-        <div className="overflow-x-auto max-w-full h-full overflow-y-auto">
-          <table className="min-w-full bg-white dark:bg-gray-800">
-            <thead className="sticky top-0 z-20">
-              <tr>
-                <th className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gray-50 dark:bg-gray-700 sticky left-0 z-30 shadow-sm">
-                  Student
-                </th>
-                {scorebookData.pointEvents.map((pointEvent) => (
-                  <th key={pointEvent.id} className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 w-[200px]">
-                    <div className="flex flex-col items-center space-y-1">
-                      <div className="text-sm font-bold text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
-                        {pointEvent.name}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {DateTime.fromISO(pointEvent.date).toFormat('MMM dd')}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-500">
-                        Max: {pointEvent.maxInput}
-                      </div>
-                      <div 
-                        className="w-full h-1 rounded"
-                        style={{ backgroundColor: pointEvent.pointGroup.color }}
-                      ></div>
-                      <div className="flex space-x-1 mt-1">
-                        <button
-                          onClick={() => {
-                            setCurrentlyEditedPointEvent(pointEvent)
-                            setUpdatedPointEvent(pointEvent)
-                            setEditPointEventModalOpen(true)
-                          }}
-                          className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCurrentlyEditedPointEvent(pointEvent)
-                            setConfirmDeletePointEventDialogOpen(true)
-                          }}
-                          className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {currentStudentOrder.map((student) => (
-                <tr key={student.id}>
-                  <td className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-50 dark:bg-gray-700 sticky left-0 z-10 shadow-sm">
-                    <div className="font-medium">
-                      {student.lastName}, {student.firstName}
-                    </div>
-                  </td>
-                  {scorebookData.pointEvents.map((pointEvent) => {
-                    const studentPoint = Array.isArray(pointEvent.studentPoints) 
-                      ? pointEvent.studentPoints.find(s => s.student.id === student.id)
-                      : undefined
-                    return (
-                      <td key={`${student.id}-${pointEvent.id}`} className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center w-[200px]">
-                        {studentPoint ? (
-                          <span className="text-lg font-semibold">
-                            {studentPoint.pointData.value} pts
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
+      <>
+        {focusedStudentId && (
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              className="px-3 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium border border-blue-300 dark:border-blue-700"
+              onClick={() => setFocusedStudentId(null)}
+            >
+              Clear Focus
+            </button>
+            <span className="text-xs text-slate-600 dark:text-slate-400">Showing only selected student</span>
+          </div>
+        )}
+        <div className="flex items-center gap-4 mb-4">
+          <label className="text-sm font-medium">
+            Filter by Point Group:
+            <select
+              className="ml-2 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+              value={selectedPointGroupId}
+              onChange={e => setSelectedPointGroupId(e.target.value)}
+            >
+              <option value="">All</option>
+              {scorebookData.pointGroups.map(pg => (
+                <option key={pg.id} value={pg.id}>{pg.name}</option>
               ))}
-            </tbody>
-          </table>
+            </select>
+          </label>
         </div>
-      </div>
+        <div className="flex items-center gap-3 mb-4">
+          <label className="flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showPercent}
+              onChange={() => setShowPercent(v => !v)}
+              className="sr-only"
+            />
+            <span
+              className={`w-10 h-6 flex items-center bg-gray-300 dark:bg-gray-600 rounded-full p-1 duration-300 ease-in-out ${showPercent ? 'bg-blue-500' : ''}`}
+            >
+              <span
+                className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${showPercent ? 'translate-x-4' : ''}`}
+              />
+            </span>
+            <span className="ml-3 text-sm font-medium">
+              {showPercent ? 'Percent of Max Points' : 'Raw Point Values'}
+            </span>
+          </label>
+          <span className="text-xs text-slate-600 dark:text-slate-400 ml-2">
+            {showPercent ? 'Showing percent out of max points' : 'Showing raw point values'}
+          </span>
+        </div>
+        <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-full">
+          <div className="overflow-x-auto max-w-full h-full overflow-y-auto">
+            <table className="min-w-full bg-white dark:bg-gray-800">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gray-50 dark:bg-gray-700 sticky left-0 z-30 shadow-sm">
+                    Student
+                  </th>
+                  {filteredPointEvents.map((pointEvent) => (
+                    <th key={pointEvent.id} className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 w-[200px]">
+                      <div className="flex flex-col items-center space-y-1">
+                        <div className="text-sm font-bold text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
+                          {pointEvent.name}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {DateTime.fromISO(pointEvent.date).toFormat('MMM dd')}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-500">
+                          Max: {pointEvent.maxInput}
+                        </div>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {studentsToShow.map((student) => (
+                  <tr
+                    key={student.id}
+                    className={
+                      focusedStudentId === student.id
+                        ? 'ring-2 ring-blue-400 dark:ring-blue-600 bg-blue-50 dark:bg-blue-950'
+                        : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900'
+                    }
+                    onClick={() => !focusedStudentId && setFocusedStudentId(student.id)}
+                  >
+                    <td className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-50 dark:bg-gray-700 sticky left-0 z-10 shadow-sm font-medium">
+                      {student.lastName}, {student.firstName}
+                    </td>
+                    {filteredPointEvents.map((pointEvent) => {
+                      const studentPoint = pointEvent.studentPoints.find(sp => sp.student.id === student.id)
+                      const value = studentPoint ? studentPoint.pointData.input : ''
+                      let percentNum = 0;
+                      if (typeof value === 'number' && pointEvent.maxInput !== 0) {
+                        percentNum = (value / pointEvent.maxInput) * 100;
+                      }
+                      const percent = (typeof value === 'number' && pointEvent.maxInput !== 0)
+                        ? percentNum.toFixed(1) + '%'
+                        : ''
+                      const bgClass = getCellBgClass(percentNum);
+                      return (
+                        <td key={pointEvent.id} className={`border border-gray-300 dark:border-gray-600 px-3 py-2 text-center ${bgClass}`}>
+                          {showPercent ? percent : value}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -553,80 +615,197 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [importScorebookData, setImportScorebookData] = useState<ImportedScorebook | null>(null)
 
   const handleImportScorebookData = async () => {
-    if (!importScorebookData) return
-    await importPhoenixScorebookData(parseInt(groupId), importScorebookData)
-    setImportScorebookTemplateModalOpen(false)
-    setImportScorebookData(null)
-    fetchScorebookData()
+    if (!importPreview) return;
+    setImportLoading(true);
+    // Convert importPreview to ImportedScorebook (array of event objects)
+    const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => ({
+      pointEventId: parseInt(eventId),
+      name: importPreview.eventNames[eventIdx] || '',
+      date: '', // Not available from import
+      template: { type: '', value: 0 }, // Not available from import
+      studentPoints: importPreview.students.map(student => ({
+        id: parseInt(student.studentId),
+        lastName: student.studentName.split(',')[0]?.trim() || '',
+        firstName: student.studentName.split(',')[1]?.trim() || '',
+        input: student.scores[eventIdx] ? parseFloat(student.scores[eventIdx]) : 0,
+        value: student.scores[eventIdx] ? parseFloat(student.scores[eventIdx]) : 0
+      }))
+    }));
+    try {
+      const result = await importPhoenixScorebookData(parseInt(groupId), imported);
+      if (typeof result === 'string') {
+        alert(`Import failed: ${result}`);
+        setImportLoading(false);
+        return;
+      }
+      setImportScorebookTemplateModalOpen(false);
+      setImportPreview(null);
+      fetchScorebookData();
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('An error occurred during import. Please try again.');
+    } finally {
+      setImportLoading(false);
+    }
   }
 
-  const importScorebookTemplateModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-3/4">
-        <h2 className="text-xl font-bold mb-4">Import Scorebook Template</h2>
-        <CSVReader
-          onFileLoaded={(data) => {
-            setImportScorebookData(data as ImportedScorebook)
-          }}
-          parserOptions={{
-            header: true,
-            skipEmptyLines: true
-          }}
-        />
-        {importScorebookData && (
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Preview:</h3>
-            <div className="max-h-64 overflow-y-auto">
-              <table className="min-w-full border border-gray-300 dark:border-gray-600">
-                <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700">
-                    <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left">Student</th>
-                    {importScorebookData[0] && Object.keys(importScorebookData[0]).slice(3).map((key, index) => (
-                      <th key={index} className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center">
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {importScorebookData.slice(0, 5).map((row, index) => (
-                    <tr key={index}>
-                      <td className="border border-gray-300 dark:border-gray-600 px-2 py-1">
-                        {(row as any)[Object.keys(row)[1]]}, {(row as any)[Object.keys(row)[2]]}
-                      </td>
-                      {Object.keys(row).slice(3).map((key, keyIndex) => (
-                        <td key={keyIndex} className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center">
-                          {(row as any)[key]}
-                        </td>
+  // Custom CSV file handler
+  const handleCSVFile = (file: File) => {
+    Papa.parse(file, {
+      complete: (results) => {
+        const rows = results.data as string[][];
+        if (!rows || rows.length < 3) {
+          setImportPreview(null);
+          return;
+        }
+        // First row: headers (Student Name, Student ID, event IDs...)
+        // Second row: sub-headers (blank, blank, event names...)
+        const eventIds = rows[0].slice(2);
+        const eventNames = rows[1].slice(2);
+        const students = rows.slice(2).filter(r => r.length > 1).map(row => ({
+          studentName: row[0],
+          studentId: row[1],
+          scores: row.slice(2)
+        }));
+        setImportPreview({ eventIds, eventNames, students });
+      },
+      skipEmptyLines: true
+    });
+  };
+
+  const importScorebookTemplateModal = () => {
+    const changedMatrix = getChangedMatrix();
+    // Filter students/events if showUnchanged is false
+    const filteredStudents = importPreview && !showUnchanged && changedMatrix
+      ? importPreview.students.filter((_, idx) => changedMatrix.changedStudents[idx])
+      : importPreview?.students || [];
+    const filteredEventIds = importPreview && !showUnchanged && changedMatrix
+      ? importPreview.eventIds.filter((_, idx) => changedMatrix.changedEvents[idx])
+      : importPreview?.eventIds || [];
+    const filteredEventNames = importPreview && !showUnchanged && changedMatrix
+      ? importPreview.eventNames.filter((_, idx) => changedMatrix.changedEvents[idx])
+      : importPreview?.eventNames || [];
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-3/4">
+          <h2 className="text-xl font-bold mb-4">Import Scorebook Template</h2>
+          <div className="mb-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              Import a CSV file with the following format:
+            </p>
+            <ul className="text-sm text-slate-600 dark:text-slate-400 list-disc list-inside mb-4">
+              <li>First column: Student Name (LastName, FirstName)</li>
+              <li>Second column: Student ID</li>
+              <li>First row: Point Event IDs (for reference)</li>
+              <li>Second row: Point Event Names</li>
+              <li>Data cells: Student scores for each event</li>
+            </ul>
+          </div>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={e => {
+              if (e.target.files && e.target.files[0]) {
+                handleCSVFile(e.target.files[0]);
+              }
+            }}
+            className="mb-4"
+          />
+          {importPreview && (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-4">
+                <button
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 text-sm font-medium"
+                  onClick={() => setShowUnchanged(v => !v)}
+                >
+                  {showUnchanged ? 'Hide' : 'Show'} Unchanged Rows/Columns
+                </button>
+                <span className="text-xs text-slate-600 dark:text-slate-400">{!showUnchanged && 'Only showing changed students/events.'}</span>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Preview:</h3>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="min-w-full border border-gray-300 dark:border-gray-600">
+                  <thead>
+                    <tr className="bg-gray-200 dark:bg-gray-800">
+                      <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left text-xs">Student Name</th>
+                      <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left text-xs">Student ID</th>
+                      {filteredEventIds.map((id, idx) => (
+                        <th key={`id-${idx}`} className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-xs">{id}</th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <tr className="bg-gray-100 dark:bg-gray-700">
+                      <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left text-xs">(Event Names)</th>
+                      <th className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-left text-xs"></th>
+                      {filteredEventNames.map((name, idx) => (
+                        <th key={`name-${idx}`} className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-xs">{name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudents.slice(0, 5).map((student, idx) => (
+                      <tr key={idx}>
+                        <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentName}</td>
+                        <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentId}</td>
+                        {filteredEventIds.map((eventId, sidx) => {
+                          // Compare to current scorebookData
+                          let highlight = false;
+                          let tooltip = '';
+                          if (scorebookData) {
+                            const event = scorebookData.pointEvents.find(e => e.id.toString() === eventId);
+                            let currentValue = '';
+                            if (event) {
+                              const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
+                              if (sp) currentValue = sp.pointData.input.toString();
+                            }
+                            if ((student.scores[sidx] || '') !== (currentValue || '')) {
+                              highlight = true;
+                              tooltip = `Current: ${currentValue || '(none)'}`;
+                            }
+                          }
+                          return (
+                            <td
+                              key={sidx}
+                              className={`border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-sm ${highlight ? 'bg-yellow-200 dark:bg-yellow-700' : ''}`}
+                              title={highlight ? tooltip : ''}
+                            >
+                              {student.scores[sidx]}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                Showing first 5 students. Total: {filteredStudents.length} students
+              </div>
             </div>
+          )}
+          <div className="flex space-x-4 mt-6">
+            <button
+              onClick={() => handleImportScorebookData()}
+              disabled={!importPreview || importLoading}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+            >
+              {importLoading ? 'Importing...' : 'Import'}
+            </button>
+            <button
+              onClick={() => {
+                setImportScorebookTemplateModalOpen(false)
+                setImportPreview(null)
+              }}
+              disabled={importLoading}
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
           </div>
-        )}
-        <div className="flex space-x-4 mt-6">
-          <button
-            onClick={() => handleImportScorebookData()}
-            disabled={!importScorebookData}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-          >
-            Import
-          </button>
-          <button
-            onClick={() => {
-              setImportScorebookTemplateModalOpen(false)
-              setImportScorebookData(null)
-            }}
-            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Cancel
-          </button>
         </div>
       </div>
-    </div>
-  )
+    );
+  };
 
   const loadingScreen = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">

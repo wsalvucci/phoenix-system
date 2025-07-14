@@ -338,6 +338,14 @@ export type ScorebookData = {
   pointEvents: ScorebookPointEvent[];
 };
 
+// For import UI preview (row-based)
+export type ImportPreviewTableRow = {
+  studentName: string,
+  studentId: string,
+  scores: string[]
+};
+
+// For backend import (event-centric)
 export type ImportedScorebook = {
   pointEventId: number,
   name: string,
@@ -345,7 +353,7 @@ export type ImportedScorebook = {
   template: {
     type: string,
     value: number
-  }
+  },
   studentPoints: {
     id: number,
     lastName: string,
@@ -353,7 +361,7 @@ export type ImportedScorebook = {
     input: number,
     value: number
   }[]
-}[]
+}[];
 
 export type NewScorebookData = {
   pointEvents: NewScorebookPointEvent[],
