@@ -258,6 +258,193 @@ export async function getTeacherRankingGroups(): Promise<{ id: number; name: str
 }
 
 /**
+ * Gets all teacher records for the current user
+ */
+export async function getAllTeacherRecords(): Promise<Teacher[]> {
+    const logger = createServerLogger({ component: 'TeacherAPI', action: 'getAllTeacherRecords' });
+    
+    try {
+        const phoenixUser = await getPhoenixUser();
+
+        if (phoenixUser === null) {
+            logger.warn('No Phoenix user found');
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+        const { data: teacherDataArray, error: teacherDataError } = await supabase
+            .from('teacher')
+            .select('*')
+            .eq('linked_user', phoenixUser.id);
+
+        if (teacherDataError !== null) {
+            logger.error("Error fetching teacher data:", { teacherDataError });
+            return [];
+        }
+
+        if (!teacherDataArray || teacherDataArray.length === 0) {
+            logger.warn('No teacher records found for user', { userId: phoenixUser.id.toString() });
+            return [];
+        }
+
+        const teachers: Teacher[] = teacherDataArray.map(teacherData => ({
+            id: teacherData.id,
+            schoolId: teacherData.school_id,
+            linkCode: teacherData.link_code,
+            firstName: teacherData.first_name,
+            lastName: teacherData.last_name,
+            linkedUserId: teacherData.linked_user,
+        }));
+
+        logger.info('All teacher records retrieved successfully', { 
+            userId: phoenixUser.id.toString(),
+            teacherCount: teachers.length,
+            teacherIds: teachers.map(t => t.id)
+        });
+
+        return teachers;
+    } catch (error) {
+        logger.error('Failed to get all teacher records', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
+ * Gets student groups for multiple teachers
+ */
+export async function getStudentGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; archived: boolean }[]> {
+    const logger = createServerLogger({ component: 'TeacherAPI', action: 'getStudentGroupsForTeachers' });
+    
+    try {
+        if (teacherIds.length === 0) {
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+        const { data: groupPairs, error: groupPairsError } = await supabase
+            .from('teacher_student_group_pair')
+            .select(`
+                group_id,
+                student_group (
+                    id,
+                    name,
+                    archived
+                )
+            `)
+            .in('teacher_id', teacherIds);
+
+        if (groupPairsError !== null) {
+            logger.error("Error fetching teacher student groups:", { groupPairsError });
+            return [];
+        }
+
+        // Use a Map to deduplicate by group ID
+        const uniqueGroups = new Map<number, { id: number; name: string; archived: boolean }>();
+        
+        groupPairs?.forEach(pair => {
+            const group = pair.student_group;
+            if (group && group.id !== undefined && group.name !== undefined && group.archived !== undefined) {
+                uniqueGroups.set(group.id, {
+                    id: group.id,
+                    name: group.name,
+                    archived: group.archived
+                });
+            }
+        });
+
+        const groups = Array.from(uniqueGroups.values());
+
+        logger.info('Student groups for multiple teachers retrieved successfully', { 
+            teacherIds,
+            groupCount: groups.length
+        });
+
+        return groups;
+    } catch (error) {
+        logger.error('Failed to get student groups for multiple teachers', { 
+            teacherIds,
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
+ * Gets ranking groups for multiple teachers
+ */
+export async function getRankingGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; studentGroups: { id: number; name: string }[] }[]> {
+    const logger = createServerLogger({ component: 'TeacherAPI', action: 'getRankingGroupsForTeachers' });
+    
+    try {
+        if (teacherIds.length === 0) {
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+        const { data: rankingGroupPairs, error: rankingGroupPairsError } = await supabase
+            .from('teacher_ranking_group_pair')
+            .select(`
+                ranking_group_id,
+                ranking_group (
+                    id,
+                    name,
+                    ranking_group_pair (
+                        student_group_id,
+                        student_group (
+                            id,
+                            name
+                        )
+                    )
+                )
+            `)
+            .in('teacher_id', teacherIds);
+
+        if (rankingGroupPairsError !== null) {
+            logger.error("Error fetching teacher ranking groups:", { rankingGroupPairsError });
+            return [];
+        }
+
+        // Use a Map to deduplicate by ranking group ID
+        const uniqueRankingGroups = new Map<number, { id: number; name: string; studentGroups: { id: number; name: string }[] }>();
+        
+        rankingGroupPairs?.forEach(pair => {
+            const rankingGroup = pair.ranking_group;
+            if (rankingGroup && rankingGroup.id !== undefined && rankingGroup.name !== undefined) {
+                const studentGroups = rankingGroup.ranking_group_pair?.map(groupPair => ({
+                    id: groupPair.student_group?.id,
+                    name: groupPair.student_group?.name
+                })).filter((group): group is { id: number; name: string } => 
+                    group.id !== undefined && group.name !== undefined
+                ) || [];
+
+                uniqueRankingGroups.set(rankingGroup.id, {
+                    id: rankingGroup.id,
+                    name: rankingGroup.name,
+                    studentGroups
+                });
+            }
+        });
+
+        const rankingGroups = Array.from(uniqueRankingGroups.values());
+
+        logger.info('Ranking groups for multiple teachers retrieved successfully', { 
+            teacherIds,
+            rankingGroupCount: rankingGroups.length
+        });
+
+        return rankingGroups;
+    } catch (error) {
+        logger.error('Failed to get ranking groups for multiple teachers', { 
+            teacherIds,
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
  * Gets teacher dashboard data
  */
 export async function getTeacherDashboardData(): Promise<{
@@ -268,26 +455,34 @@ export async function getTeacherDashboardData(): Promise<{
     const logger = createServerLogger({ component: 'TeacherAPI', action: 'getTeacherDashboardData' });
     
     try {
-        const teacher = await getOwnTeacherData();
+        // Get all teacher records for the user
+        const allTeachers = await getAllTeacherRecords();
 
-        if (teacher === null) {
+        if (allTeachers.length === 0) {
             logger.error('No teacher data found');
             throw new Error('Teacher not found');
         }
 
+        // Use the first teacher as the primary teacher for the response
+        const primaryTeacher = allTeachers[0];
+        const teacherIds = allTeachers.map(t => t.id);
+
+        // Fetch data for all teachers
         const [studentGroups, rankingGroups] = await Promise.all([
-            getTeacherStudentGroups(),
-            getTeacherRankingGroups()
+            getStudentGroupsForTeachers(teacherIds),
+            getRankingGroupsForTeachers(teacherIds)
         ]);
 
         const dashboardData = {
-            teacher,
+            teacher: primaryTeacher,
             studentGroups,
             rankingGroups
         };
 
         logger.info('Teacher dashboard data retrieved successfully', { 
-            teacherId: teacher.id,
+            primaryTeacherId: primaryTeacher.id,
+            totalTeacherCount: allTeachers.length,
+            teacherIds,
             studentGroupCount: studentGroups.length,
             rankingGroupCount: rankingGroups.length
         });
