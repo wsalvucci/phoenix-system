@@ -408,6 +408,31 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         <div className="text-xs text-gray-500 dark:text-gray-500">
                           Max: {pointEvent.maxInput}
                         </div>
+                        <div 
+                          className="w-full h-1 rounded mt-1 mb-1"
+                          style={{ backgroundColor: pointEvent.pointGroup.color }}
+                        ></div>
+                        <div className="flex space-x-1 mt-1">
+                          <button
+                            onClick={() => {
+                              setCurrentlyEditedPointEvent(pointEvent)
+                              setUpdatedPointEvent(pointEvent)
+                              setEditPointEventModalOpen(true)
+                            }}
+                            className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCurrentlyEditedPointEvent(pointEvent)
+                              setConfirmDeletePointEventDialogOpen(true)
+                            }}
+                            className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </th>
                   ))}
