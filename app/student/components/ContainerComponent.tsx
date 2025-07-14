@@ -1,18 +1,15 @@
 "use client";
 
-import { rankToColor, Student, StudentRankData } from "@/app/dataClasses";
+import { rankToColor } from "@/app/dataClasses";
 import TotalPointsRank from "./TotalPointsRank";
 import PointCategoryTotals from "./pointCategoryTotals";
 import RecentPoints from "./recentPoints";
-import Color from "color";
 import StudentName from "./StudentName";
 import { useEffect, useState } from "react";
 import StudentCategoryTotals from "./studentCategoryTotals";
-import { DateTime } from "luxon";
-import { Quicksand, Roboto, Anta, Azeret_Mono, Zain } from "next/font/google";
+import { Anta } from "next/font/google";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { getStudentDashboardData } from "@/app/supaApi/server/student/studentApi";
 import { StudentPointsData } from "@/app/supaApi/universal/utils/types";
 import { getStudentPointStats } from "@/app/supaApi/universal/universalApi";
 
@@ -20,10 +17,6 @@ const anta = Anta({
     weight: "400",
     subsets: ["latin"]
 });
-
-function isBirthday(birthdate: DateTime) {
-    return birthdate.day === DateTime.now().day && birthdate.month === DateTime.now().month;
-}
 
 export default function ContainerComponent(
     {
@@ -100,15 +93,6 @@ export default function ContainerComponent(
                         opacity={pointHeaderOpacity}
                     />
                 </div>
-                {/* {
-                    studentData.birthdate && isBirthday(DateTime.fromJSDate(studentData.birthdate, { zone: 'utc' })) && (
-                        <div className="flex justify-center items-center p-2" style={{
-                            color: totalRank > 20 ? '#000' : '#FFF'
-                        }}>
-                            <div className="text-3xl">Happy Birthday {studentData.firstName}!</div>
-                        </div>
-                    )
-                } */}
                 <div className="px-6 pb-6">
                     <TotalPointsRank
                         studentId={liveStudentData.studentId}

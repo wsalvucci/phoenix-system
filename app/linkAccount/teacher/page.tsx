@@ -14,7 +14,6 @@ export default function LinkTeacher() {
     const [teacherLinkCode, setTeacherLinkCode] = useState<string>('')
     const [errorText, setErrorText] = useState<string | null>(null)
 
-    const supabase = createClient();
 
     const handleLinkTeacher = async (schoolId: number, linkCode: string) => {
         const linkResult = await clientLinkTeacher(schoolId, linkCode);

@@ -24,7 +24,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
   } | null>(null);
 
   // Queries
-  const { data: groups, isLoading, error, refetch } = useSchoolGroupsWithCounts(parseInt(schoolId), showArchived);
+  const { data: groups, isLoading, error } = useSchoolGroupsWithCounts(parseInt(schoolId), showArchived);
   const createGroupMutation = useCreateGroup();
   const updateGroupMutation = useUpdateGroup();
   const archiveGroupMutation = useArchiveGroup();

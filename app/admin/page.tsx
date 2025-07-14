@@ -1,16 +1,10 @@
 "use client";
-import { AdminHomeDashboard, School } from "@/types/domain";
-
-// Force static generation to reduce serverless functions
-export const dynamic = 'force-static';
 import { getAdminHomeDashboard, getAdminSchoolDashboardData } from "@/api/admin";
 import { LoadingState } from "@/components/LoadingLayout";
 import { useQuery } from "@tanstack/react-query";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
 import MotionButton from "@/components/MotionButton";
 import { useState } from "react";
-import ThemeInput from "@/components/ThemeInput";
-import ThemeSelect from "@/components/ThemeSelect";
 
 enum SortType {
     Name,
@@ -38,7 +32,7 @@ export default function AdminHome() {
         queryFn: async () => {
             if (!data?.schools) return {};
             
-            const details: Record<number, any> = {};
+            const details: Record<number, unknown> = {};
             await Promise.all(
                 data.schools.map(async (school) => {
                     try {
@@ -55,158 +49,130 @@ export default function AdminHome() {
         enabled: !!data?.schools && data.schools.length > 0
     });
 
-    console.log("AdminHome debug:", { data, isLoading, error });
-
-    const filteredAndSortedSchools = data?.schools
-        .filter(school => school.name.toLowerCase().includes(schoolSearch.toLowerCase()))
-        .sort((a, b) => {
-            switch (schoolSort) {
-                case SortType.Name:
-                    return schoolSortDirection === SortDirection.Ascending 
-                        ? a.name.localeCompare(b.name) 
-                        : b.name.localeCompare(a.name);
-                case SortType.Id:
-                    return schoolSortDirection === SortDirection.Ascending 
-                        ? a.id - b.id 
-                        : b.id - a.id;
-                default:
-                    return a.name.localeCompare(b.name);
-            }
-        }) || [];
-
     return (
         <LoadingState
-            isLoading={isLoading || schoolDetailsLoading}
+            isLoading={isLoading}
             error={error}
             data={data}
             errorFallback={(err) => (
-                <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Dashboard</h2>
-                        <p className="text-gray-600 dark:text-gray-400">{err.message}</p>
-                    </div>
+                <div className="flex flex-col items-center justify-center min-h-screen">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Dashboard</h1>
+                    <p className="text-gray-600 mb-4">{err.message}</p>
+                    <MotionButton onClick={() => window.location.reload()} variant="primary">
+                        Retry
+                    </MotionButton>
                 </div>
             )}
         >
-            {(data) => (
-                <div className="animate-in w-full">
-                    <header className="flex items-center justify-center w-full p-5 bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                        <div className="text-center">
-                            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-                            <p className="text-lg mt-2">Manage your schools and view analytics</p>
-                        </div>
-                    </header>
+            {(data) => {
+                const filteredSchools = data.schools.filter(school =>
+                    school.name.toLowerCase().includes(schoolSearch.toLowerCase())
+                );
+
+                const sortedSchools = [...filteredSchools].sort((a, b) => {
+                    let comparison = 0;
                     
-                    <div className="m-5">
-                        <div className="mb-6">
-                            <h2 className="text-2xl font-bold mb-4">Your Schools ({filteredAndSortedSchools.length})</h2>
-                            
-                            {/* Search and Sort Controls */}
-                            <div className="mb-4">
-                                <ThemeInput
+                    if (schoolSort === SortType.Name) {
+                        comparison = a.name.localeCompare(b.name);
+                    } else if (schoolSort === SortType.Id) {
+                        comparison = a.id - b.id;
+                    }
+                    
+                    return schoolSortDirection === SortDirection.Ascending ? comparison : -comparison;
+                });
+
+                return (
+                    <div className="container mx-auto px-4 py-8">
+                        <div className="flex justify-between items-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
+                            <div className="flex gap-4">
+                                <input
                                     type="text"
-                                    placeholder="Search Schools"
-                                    fullWidth
+                                    placeholder="Search schools..."
+                                    value={schoolSearch}
                                     onChange={(e) => setSchoolSearch(e.target.value)}
-                                    className="mb-2"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                                <div className="grid grid-cols-2 gap-2">
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setSchoolSort(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortType.Name}>Name</option>
-                                        <option value={SortType.Id}>ID</option>
-                                    </ThemeSelect>
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setSchoolSortDirection(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortDirection.Ascending}>ASC</option>
-                                        <option value={SortDirection.Descending}>DESC</option>
-                                    </ThemeSelect>
-                                </div>
-                            </div>
-
-                            {/* Schools Grid */}
-                            {filteredAndSortedSchools.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {filteredAndSortedSchools.map((school) => {
-                                        const schoolDetail = schoolDetails?.[school.id];
-                                        const studentCount = schoolDetail?.students?.length || 0;
-                                        const totalPoints = schoolDetail?.students?.reduce((acc: number, student: any) => acc + (student.totalPoints || 0), 0) || 0;
-                                        const groupCount = schoolDetail?.studentGroups?.length || 0;
-                                        
-                                        return (
-                                            <MotionButton 
-                                                href={`/admin/school/${school.id}`} 
-                                                key={school.id}
-                                                variant="secondary"
-                                                className="bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-700 shadow-md transition-all duration-200 h-40"
-                                            >
-                                                <div className="flex flex-col items-center justify-center text-center w-full h-full p-4">
-                                                    <div className="text-xl font-bold mb-2">{school.name}</div>
-                                                    <div className="text-sm opacity-75 mb-2">School ID: {school.id}</div>
-                                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                                        <div className="bg-slate-400 dark:bg-slate-800 px-2 py-1 rounded">
-                                                            <div className="font-semibold">{studentCount}</div>
-                                                            <div>Students</div>
-                                                        </div>
-                                                        <div className="bg-slate-400 dark:bg-slate-800 px-2 py-1 rounded">
-                                                            <div className="font-semibold">{groupCount}</div>
-                                                            <div>Groups</div>
-                                                        </div>
-                                                        <div className="bg-slate-400 dark:bg-slate-800 px-2 py-1 rounded col-span-2">
-                                                            <div className="font-semibold">{totalPoints.toLocaleString()}</div>
-                                                            <div>Total Points</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </MotionButton>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-600 dark:text-gray-400">
-                                        {schoolSearch ? 'No schools match your search criteria.' : 'No schools found.'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Total Schools</h3>
-                                <p className="text-3xl font-bold text-blue-600">{data.schools.length}</p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Total Students</h3>
-                                <p className="text-3xl font-bold text-green-600">
-                                    {Object.values(schoolDetails || {}).reduce((acc: number, school: any) => 
-                                        acc + (school?.students?.length || 0), 0
+                                <select
+                                    value={schoolSort}
+                                    onChange={(e) => setSchoolSort(Number(e.target.value) as SortType)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value={SortType.Name}>Sort by Name</option>
+                                    <option value={SortType.Id}>Sort by ID</option>
+                                </select>
+                                <button
+                                    onClick={() => setSchoolSortDirection(
+                                        schoolSortDirection === SortDirection.Ascending 
+                                            ? SortDirection.Descending 
+                                            : SortDirection.Ascending
                                     )}
-                                </p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Total Points</h3>
-                                <p className="text-3xl font-bold text-purple-600">
-                                    {Object.values(schoolDetails || {}).reduce((acc: number, school: any) => 
-                                        acc + (school?.students?.reduce((sAcc: number, student: any) => 
-                                            sAcc + (student.totalPoints || 0), 0
-                                        ) || 0), 0
-                                    ).toLocaleString()}
-                                </p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Admin ID</h3>
-                                <p className="text-3xl font-bold text-orange-600">{data.id}</p>
+                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                    {schoolSortDirection === SortDirection.Ascending ? '↑' : '↓'}
+                                </button>
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {sortedSchools.map((school) => {
+                                const schoolDetail = schoolDetails?.[school.id];
+                                const isLoadingDetail = schoolDetailsLoading;
+                                
+                                return (
+                                    <div key={school.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <h2 className="text-xl font-semibold text-gray-800">{school.name}</h2>
+                                            <span className="text-sm text-gray-500">ID: {school.id}</span>
+                                        </div>
+                                        
+                                        {isLoadingDetail ? (
+                                            <div className="space-y-2">
+                                                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                                                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                                                <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                                            </div>
+                                        ) : schoolDetail ? (
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-600">Students:</span>
+                                                    <span className="font-medium">{(schoolDetail as { students?: unknown[] })?.students?.length || 0}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-600">Groups:</span>
+                                                    <span className="font-medium">{(schoolDetail as { studentGroups?: unknown[] })?.studentGroups?.length || 0}</span>
+                                                </div>
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-600">Point Types:</span>
+                                                    <span className="font-medium">{(schoolDetail as { pointTypes?: unknown[] })?.pointTypes?.length || 0}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 text-sm">Failed to load details</p>
+                                        )}
+                                        
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <MotionButton 
+                                                href={`/admin/school/${school.id}`}
+                                                variant="primary"
+                                                fullWidth
+                                            >
+                                                Manage School
+                                            </MotionButton>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {sortedSchools.length === 0 && (
+                            <div className="text-center py-12">
+                                <p className="text-gray-500 text-lg">No schools found matching your search.</p>
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
+                );
+            }}
         </LoadingState>
     );
 }

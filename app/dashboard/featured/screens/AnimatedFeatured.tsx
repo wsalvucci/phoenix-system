@@ -592,19 +592,19 @@ export default function AnimatedFeatured(
             }}/>
             <div>
                 <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={(e) => { decrementDav() }}
+                    onClick={() => { decrementDav() }}
                 >
                     Previous
                 </button>
                 <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={(e) => { setPaused(!paused) }}
+                    onClick={() => { setPaused(!paused) }}
                 >
                     {
                         paused ? 'Resume' : 'Pause'
                     }
                 </button>
                 <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={(e) => { incrementNav() }}
+                    onClick={() => { incrementNav() }}
                 >
                     Next
                 </button>

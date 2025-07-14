@@ -41,7 +41,6 @@ import {
   deleteTimeframe,
   activateTimeframe
 } from '@/api/admin/timeframes';
-import { AdminStudentData, AdminTeacherData, AdminGroupData, AdminPointTypeData } from '@/types/domain';
 
 // Query Keys
 export const adminQueryKeys = {
@@ -49,7 +48,6 @@ export const adminQueryKeys = {
   student: (studentId: number) => ['admin', 'student', studentId] as const,
   teachers: (schoolId: number) => ['admin', 'teachers', schoolId] as const,
   groups: (schoolId: number) => ['admin', 'groups', schoolId] as const,
-  group: (schoolId: number, groupId: number) => ['admin', 'group', schoolId, groupId] as const,
   rankingGroups: (schoolId: number) => ['admin', 'rankingGroups', schoolId] as const,
   pointGroups: (schoolId: number) => ['admin', 'pointGroups', schoolId] as const,
   timeframes: (schoolId: number) => ['admin', 'timeframes', schoolId] as const,
@@ -195,7 +193,6 @@ export const useSchoolGroups = (schoolId: number) => {
   });
 };
 
-export const useSchoolGroupsWithCounts = (schoolId: number, includeArchived: boolean = false) => {
   return useQuery({
     queryKey: [...adminQueryKeys.groups(schoolId), 'withCounts', includeArchived],
     queryFn: () => getSchoolGroupsWithCounts(schoolId, includeArchived),
@@ -204,7 +201,6 @@ export const useSchoolGroupsWithCounts = (schoolId: number, includeArchived: boo
   });
 };
 
-export const useGroup = (schoolId: number, groupId: number) => {
   return useQuery({
     queryKey: adminQueryKeys.group(schoolId, groupId),
     queryFn: () => getGroupById(schoolId, groupId),

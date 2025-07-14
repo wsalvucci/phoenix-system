@@ -1,14 +1,6 @@
 import AuthButton from "../components/AuthButton";
 import { createClient } from "@/utils/supabase/server";
-import LinkTeacher from "./components/LinkTeacher";
-import LinkStudent from "./components/LinkStudent";
-import AdminPortal from "./components/AdminPortal";
-
-import { getOwnStudentData } from "./supaApi/server/student/studentApi";
-import getOwnTeacherData from "./supaApi/server/teacher/getOwnTeacherData";
 import InstallPrompt from "./components/InstallPrompt";
-import DashboardButton from "./components/DashboardButton";
-import ParentButton from "./components/ParentButton";
 import StudentChip from "@/components/home/StudentChip";
 import AdminChip from "@/components/home/AdminChip";
 import TeacherChip from "@/components/home/TeacherChip";
@@ -20,7 +12,7 @@ export default async function Index() {
     try {
       createClient();
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   };

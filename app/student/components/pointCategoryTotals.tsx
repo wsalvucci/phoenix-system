@@ -43,7 +43,7 @@ export default function PointCategoryTotals(
 
     return (
         <div>
-            <div className="text-3xl border-b flex justify-start" style={
+            <div key={student.id || index} className="text-3xl border-b flex justify-start" style={
                 customMetalStyle(rankToColor(totalRank).toString())
             }>
                 CATEGORIES
@@ -54,7 +54,7 @@ export default function PointCategoryTotals(
                     const totalPoints = organizedCategories.reduce((acc, category) => acc + category.totalPoints, 0);
                     const percentages = organizedCategories.map(category => category.totalPoints / totalPoints);
                     return (
-                        <div className="grid rounded-full text-xl my-1 px-3" style={{
+                        <div key={student.id || index} className="grid rounded-full text-xl my-1 px-3" style={{
 
                             // Hard 0% stop between each color
                             backgroundImage: metalStyleGradient(categories.reduce((acc, category, index) => {
@@ -90,7 +90,7 @@ export default function PointCategoryTotals(
             {
                 categories.map((category) => {
                     return (
-                        <div className="py-3">
+                        <div key={student.id || index} className="py-3">
                         <div
                             key={category.pointGroup.id}
                             className={`text-xl grid justify-center my-1 ps-3`}
@@ -118,10 +118,10 @@ export default function PointCategoryTotals(
                                             <div style={
                                                 customMetalStyle(rankToColor(totalRank).toString())
                                             }>{student.firstName} {student.lastName}</div>
-                                            <div className={`flex justify-end ${azeret.className}`} style={
+                                            <div key={student.id || index} className={`flex justify-end ${azeret.className}`} style={
                                                 customMetalStyle(rankToColor(totalRank).toString())
                                             }>{student.points.toLocaleString()}</div>
-                                            <div className={`flex justify-end ${azeret.className}`} style={
+                                            <div key={student.id || index} className={`flex justify-end ${azeret.className}`} style={
                                                 customMetalStyle(rankToColor(totalRank).toString())
                                             }>{numberToOrdinal(student.rank)}</div>
                                         </div>

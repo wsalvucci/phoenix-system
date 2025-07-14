@@ -66,17 +66,17 @@ export default function ParentDashboard() {
 
     function ConfirmDisconnect() {
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
+            <div key={student.id || index} className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                <div key={student.id || index} className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
                     <div>
-                        <div className="flex justify-center">Are you sure you want to disconnect from:</div>
-                        <div className="flex justify-center">{confirmDisconnectData.name}</div>
-                        <div className="flex justify-center">You'll have to ask an admin for their link code to connect to them again.</div>
+                        <div key={student.id || index} className="flex justify-center">Are you sure you want to disconnect from:</div>
+                        <div key={student.id || index} className="flex justify-center">{confirmDisconnectData.name}</div>
+                        <div key={student.id || index} className="flex justify-center">You'll have to ask an admin for their link code to connect to them again.</div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div key={student.id || index} className="grid grid-cols-2 gap-3">
                         <button
                             className="bg-red-500 rounded-lg px-3 py-1"
-                            onClick={(e) => {
+                            onClick={() => {
                                 disconnectStudent(confirmDisconnectData.id)
                             }}
                         >
@@ -84,7 +84,7 @@ export default function ParentDashboard() {
                         </button>
                         <button
                             className="bg-green-500 rounded-lg px-3 py-1"
-                            onClick={(e) => {
+                            onClick={() => {
                                 setConfirmDisconnectData({
                                     visible: false,
                                     id: -1,
@@ -102,11 +102,11 @@ export default function ParentDashboard() {
 
 
     return (
-        <div className="w-dvw h-dvh bg-slate-100 dark:bg-slate-900">
+        <div key={student.id || index} className="w-dvw h-dvh bg-slate-100 dark:bg-slate-900">
             {confirmDisconnectData.visible && ConfirmDisconnect()}
             {
                 linkedStudents.map((student) =>
-                    <div className="p-5 m-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex justify-between">
+                    <div key={student.id || index} className="p-5 m-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex justify-between">
                         <div>
                             <div>
                                 {student.name}
@@ -119,7 +119,7 @@ export default function ParentDashboard() {
                         </div>
                         <button
                             className="bg-red-500 rounded-lg px-3 py-1"
-                            onClick={(e) => {
+                            onClick={() => {
                                 setConfirmDisconnectData({
                                     visible: true,
                                     id: student.id,
@@ -129,9 +129,9 @@ export default function ParentDashboard() {
                     </div>
                 )
             }
-            <div className="p-5 m-5 rounded-lg bg-green-200 dark:bg-green-800">
+            <div key={student.id || index} className="p-5 m-5 rounded-lg bg-green-200 dark:bg-green-800">
                 Add New Student
-                <div className="grid gap-1">
+                <div key={student.id || index} className="grid gap-1">
                     <input
                         type="number"
                         name="schoolId"
@@ -159,7 +159,7 @@ export default function ParentDashboard() {
                     <button
                         className="rounded-lg bg-green-400 dark:bg-green-600 hover:bg-green-300 dark:hover:bg-green-700"
                         disabled={addingStudent}
-                        onClick={(e) => {
+                        onClick={() => {
                             addStudent()
                         }}
                     >

@@ -201,7 +201,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
     if (pointGroupsData == null) throw new Error("No point groups data");
     
     return {
-        pointEvents: pointEventData.map((pe: any) => {
+        pointEvents: pointEventData.map((pe: unknown) => {
             if (pe.point_group == null) return null;
             return {
                 id: pe.id,
@@ -213,12 +213,12 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                     name: pe.point_group.name,
                     color: pe.point_group.color
                 },
-                studentPoints: Array.isArray(pe.student_point) ? pe.student_point.map((sp: any) => {
+                studentPoints: Array.isArray(pe.student_point) ? pe.student_point.map((sp: unknown) => {
                     if (sp.student == null) return null;
                     return {
                         student: {
                             id: sp.student.id,
-                            studentGroups: Array.isArray(sp.student.student_group) ? sp.student.student_group.map((sg: any) => ({
+                            studentGroups: Array.isArray(sp.student.student_group) ? sp.student.student_group.map((sg: unknown) => ({
                                 id: sg.id,
                                 name: sg.name
                             })) : [],
@@ -230,10 +230,10 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                             notes: sp.notes ?? ""
                         }
                     };
-                }).filter((sp: any) => sp !== null) : []
+                }).filter((sp: unknown) => sp !== null) : []
             };
-        }).filter((pe: any) => pe !== null).sort((a: any, b: any) => DateTime.fromISO(a.date).toSeconds() - DateTime.fromISO(b.date).toSeconds()) as NewScorebookPointEvent[],
-        students: Array.isArray(studentGroupData.student) ? studentGroupData.student.filter((student: any) => student !== null).map((student: any) => ({
+        }).filter((pe: unknown) => pe !== null).sort((a: unknown, b: unknown) => DateTime.fromISO(a.date).toSeconds() - DateTime.fromISO(b.date).toSeconds()) as NewScorebookPointEvent[],
+        students: Array.isArray(studentGroupData.student) ? studentGroupData.student.filter((student: unknown) => student !== null).map((student: unknown) => ({
             id: student.id,
             firstName: student.first_name?.trim() ?? "",
             lastName: student.last_name?.trim() ?? ""
@@ -242,7 +242,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
             id: studentGroupData.id,
             name: studentGroupData.name
         },
-        pointGroups: pointGroupsData ? pointGroupsData.map((pg: any) => ({
+        pointGroups: pointGroupsData ? pointGroupsData.map((pg: unknown) => ({
             id: pg.id,
             name: pg.name,
             color: pg.color

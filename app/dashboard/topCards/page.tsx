@@ -50,7 +50,6 @@ export default function TopCards() {
                 </select>
             </div>
         );
-    };
 
     const StudentCard = ({ student }: { student: SimpleDashboardData["students"][0] }) => {
         // Function to create gradient text
@@ -67,7 +66,6 @@ export default function TopCards() {
                         2px 2px 3px rgba(0,0,0,0.3),
                         -2px -2px 3px rgba(255,255,255,0.4)
                     `,
-                };
             }
             
             // Shiny metallic effect for other ranks
@@ -89,8 +87,6 @@ export default function TopCards() {
                     2px 2px 3px rgba(0,0,0,0.2),
                     -2px -2px 3px rgba(255,255,255,0.3)
                 `,
-            };
-        };
 
         return (
             <div className="flex-shrink-0 w-screen p-4 text-off-white rounded-lg shadow-xl border border-border" style={{

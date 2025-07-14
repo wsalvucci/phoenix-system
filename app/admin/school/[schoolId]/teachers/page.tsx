@@ -6,7 +6,6 @@ import { LoadingState } from '@/components/LoadingLayout';
 import ThemeInput from '@/components/ThemeInput';
 import ThemeSelect from '@/components/ThemeSelect';
 import MotionButton from '@/components/MotionButton';
-import { AdminTeacherData } from '@/types/domain';
 
 enum SortType {
   FirstName = 'firstName',
@@ -26,7 +25,7 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
 
   // Queries
   const { data: teachers, isLoading, error } = useSchoolTeachers(parseInt(schoolId));
-  const { data: groups, isLoading: groupsLoading } = useSchoolGroups(parseInt(schoolId));
+  const { data: groups } = useSchoolGroups(parseInt(schoolId));
   const createTeacherMutation = useCreateTeacher();
 
   // Create form state

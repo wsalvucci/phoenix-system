@@ -172,19 +172,19 @@ export default function TopStudents(
       }}>
         <div>
           <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-            onClick={(e) => { retreatGroup() }}
+            onClick={() => { retreatGroup() }}
           >
             Previous
           </button>
           <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-            onClick={(e) => { setPaused(!paused) }}
+            onClick={() => { setPaused(!paused) }}
           >
             {
               paused ? 'Resume' : 'Pause'
             }
           </button>
           <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-            onClick={(e) => { advanceGroup() }}
+            onClick={() => { advanceGroup() }}
           >
             Next
           </button>

@@ -49,7 +49,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
 
   // Queries
   const { data: students, isLoading, error, refetch } = useSchoolStudents(parseInt(schoolId));
-  const { data: groups, isLoading: groupsLoading } = useSchoolGroups(parseInt(schoolId));
+  const { data: groups } = useSchoolGroups(parseInt(schoolId));
   const createStudentMutation = useCreateStudent();
   const updateStudentMutation = useUpdateStudent();
   const deleteStudentMutation = useDeleteStudent();

@@ -534,7 +534,7 @@ export default function GlobalDashboard() {
                                                                 .sort((a, b) => b.monthToMonthChange - a.monthToMonthChange)
                                                                 .slice(0, 10)
                                                                 .map(student => (
-                                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2" style={{
+                                                                        <div key={student.id || index} className="text-lg border grid py-1 px-2 mx-2" style={{
                                                                                 background: metalStyle('#000'),
                                                                                 backgroundSize: "cover",
                                                                                 backgroundPosition: "center",
@@ -562,7 +562,7 @@ export default function GlobalDashboard() {
                                                                 .filter(student => student.lastMonthRank - student.rank > 0)
                                                                 .slice(0, 10)
                                                                 .map(student => (
-                                                                        <div key={student.id} className="text-lg border grid py-1 px-2 mx-2" style={{
+                                                                        <div key={student.id || index} className="text-lg border grid py-1 px-2 mx-2" style={{
                                                                                 background: metalStyle('#000'),
                                                                                 backgroundSize: "cover",
                                                                                 backgroundPosition: "center",

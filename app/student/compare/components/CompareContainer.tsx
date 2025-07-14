@@ -25,7 +25,6 @@ export default function CompareContainer(
     }
 ) {
     
-    const [studentData, setStudentData] = useState<StudentPointsData | null>(null);
     const [globalData, setGlobalData] = useState<GlobalPoints | null>(null);
 
     const [thisStudent, setThisStudent] = useState<SelectedStudentData | null>(null)

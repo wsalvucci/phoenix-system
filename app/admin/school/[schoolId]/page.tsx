@@ -194,12 +194,12 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <ZAxis dataKey="name" type="category" name="student" />
                                     <Tooltip 
                                         cursor={{ strokeDasharray: '3 3' }}
-                                        formatter={(value: any, name: any) => [value, name]}
+                                        formatter={(value: unknown, name: unknown) => [value, name]}
                                         labelFormatter={(label) => `Student: ${label}`}
                                     />
                                     <Scatter 
                                         data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
-                                        shape={(props: any) => {
+                                        shape={(props: unknown) => {
                                             const { cx, cy, payload } = props;
                                             const isHovered = payload.id === studentHover;
                                             const color = isHovered 
