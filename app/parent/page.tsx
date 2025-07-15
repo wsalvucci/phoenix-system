@@ -71,7 +71,7 @@ export default function ParentDashboard() {
                     <div>
                         <div className="flex justify-center">Are you sure you want to disconnect from:</div>
                         <div className="flex justify-center">{confirmDisconnectData.name}</div>
-                        <div className="flex justify-center">You'll have to ask an admin for their link code to connect to them again.</div>
+                        <div className="flex justify-center">You&apos;ll have to ask an admin for their link code to connect to them again.</div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <button

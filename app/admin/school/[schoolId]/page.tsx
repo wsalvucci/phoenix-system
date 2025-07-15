@@ -1,23 +1,19 @@
 "use client";
 import { useState } from "react";
-import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis, BarChart, Bar, XAxis, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis, BarChart, Bar, XAxis } from "recharts";
 import Link from "next/link";
 import { Space_Mono, Quicksand } from "next/font/google"
 import { useQuery } from "@tanstack/react-query";
 import { getAdminSchoolDashWithTimeframe } from "@/api/admin";
 import { useTheme } from "@/components/ThemeProvider";
-import ThemeInput from "@/components/ThemeInput";
-import ThemeSelect from "@/components/ThemeSelect";
+
 import { LoadingState } from "@/components/LoadingLayout";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
-import { faUsers, faGraduationCap, faTrophy, faChartLine, faCalendarAlt, faCog, faUserGraduate, faUsersCog, faChartBar, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faUsers, faGraduationCap, faTrophy, faChartLine, faCalendarAlt, faUserGraduate, faUsersCog, faChartBar, faStar } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useTimeframe } from "./TimeframeProvider";
 
-const customFont = Space_Mono({
-    weight: "400",
-    subsets: ["latin"]
-});
+
 
 const titleFont = Quicksand({
     weight: "600",
@@ -45,14 +41,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
         queryFn: () => wrapServerAction(getAdminSchoolDashWithTimeframe)(parseInt(schoolId), selectedTimeframe?.id || null)
     })
 
-    const [studentSearch, setStudentSearch] = useState<string>("")
-    const [studentSort, setStudentSort] = useState<SortType>(SortType.LastName)
-    const [studentSortDirection, setStudentSortDirection] = useState<SortDirection>(SortDirection.Ascending)
-    const [studentHover, setStudentHover] = useState<number | null>(null)
 
-    const [groupSearch, setGroupSearch] = useState<string>("")
-    const [groupSort, setGroupSort] = useState<SortType>(SortType.LastName)
-    const [groupSortDirection, setGroupSortDirection] = useState<SortDirection>(SortDirection.Ascending)
     const [showAllStudents, setShowAllStudents] = useState<boolean>(false)
 
     // Calculate key metrics
@@ -60,7 +49,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
     const totalGroups = adminDashData?.studentGroups.length || 0;
     const totalPointTypes = adminDashData?.pointTypes.length || 0;
     const averagePoints = totalStudents > 0 && adminDashData?.students ? Math.round(adminDashData.students.reduce((sum, student) => sum + student.totalPoints, 0) / totalStudents) : 0;
-    const topStudent = adminDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[0];
+
     const studentsByGrade = adminDashData?.students.reduce((acc, student) => {
         acc[student.grade] = (acc[student.grade] || 0) + 1;
         return acc;
@@ -81,7 +70,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
             id: student.id
         })) || [];
 
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
 
     return (
         <LoadingState
@@ -201,15 +190,12 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                         data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
                                         shape={(props: any) => {
                                             const { cx, cy, payload } = props;
-                                            const isHovered = payload.id === studentHover;
-                                            const color = isHovered 
-                                                ? "#00ff00"
-                                                : (theme === 'dark' ? "#9ca3af" : "#6b7280");
+                                            const color = theme === 'dark' ? "#9ca3af" : "#6b7280";
                                             return (
                                                 <circle
                                                     cx={cx}
                                                     cy={cy}
-                                                    r={isHovered ? 6 : 4}
+                                                    r={4}
                                                     fill={color}
                                                 />
                                             );

@@ -273,7 +273,7 @@ export default function RankingGroupsNewPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-2xl max-h-[80vh] overflow-hidden">
             <h2 className="text-xl font-semibold mb-4 text-foreground">
-              Add Student Groups to "{selectedRankingGroup.name}"
+              Add Student Groups to &quot;{selectedRankingGroup.name}&quot;
             </h2>
             <div className="max-h-[60vh] overflow-y-auto">
               <div className="space-y-4">
