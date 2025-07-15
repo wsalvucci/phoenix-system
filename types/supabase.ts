@@ -1008,7 +1008,7 @@ export type Database = {
         Insert: {
           full_access?: boolean | null
           group_id: number
-          id: number
+          id?: number
           student_id: number
         }
         Update: {

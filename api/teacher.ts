@@ -1,6 +1,6 @@
 "use server";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
-import { Teacher } from "@/types/domain";
+import { Teacher, TeachingAssistant } from "@/types/domain";
 import { getPhoenixUser } from "./user";
 import { createServerLogger } from "@/utils/serverLogger";
 
@@ -608,4 +608,544 @@ export async function getTeacherRankingGroupScorebook(rankingGroupId: number): P
         }, error instanceof Error ? error : undefined);
         throw error;
     }
+}
+
+/**
+ * Gets teaching assistant data for a specific student group
+ */
+export async function getTeachingAssistantData(groupId: number): Promise<{
+  assistants: TeachingAssistant[];
+  availableStudents: { id: number; firstName: string; lastName: string }[];
+  pointEvents: { id: number; name: string; date: string }[];
+}> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'getTeachingAssistantData' });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    const authClient = require('@/utils/supabase/server').createClient();
+    const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+
+    let hasAccess = false;
+
+    if (!authError && supabaseUser) {
+      // Get numeric user ID from user table
+      const { data: userRow } = await supabase
+        .from('user')
+        .select('id')
+        .eq('supabase_id', supabaseUser.id)
+        .single();
+
+      if (userRow) {
+        // Get all teacher records for this user
+        const { data: teacherRows } = await supabase
+          .from('teacher')
+          .select('id')
+          .eq('linked_user', userRow.id);
+
+        if (teacherRows && teacherRows.length > 0) {
+          const teacherIds = teacherRows.map(t => t.id);
+          const { data: teacherGroupAccess } = await supabase
+            .from('teacher_student_group_pair')
+            .select('group_id')
+            .in('teacher_id', teacherIds)
+            .eq('group_id', groupId)
+            .limit(1);
+
+          if (teacherGroupAccess && teacherGroupAccess.length > 0) {
+            hasAccess = true;
+          }
+        }
+
+        // Check teaching assistant access
+        if (!hasAccess) {
+          const { data: taRow } = await supabase
+            .from('teaching_assistant')
+            .select('id')
+            .eq('group_id', groupId)
+            .eq('student_id', userRow.id)
+            .limit(1);
+
+          if (taRow && taRow.length > 0) {
+            hasAccess = true;
+          }
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      logger.warn('User does not have access to this group', { groupId });
+      throw new Error('Access denied to this group');
+    }
+
+    // Get existing teaching assistants
+    const { data: assistants, error: assistantsError } = await supabase
+      .from('teaching_assistant')
+      .select(`
+        id,
+        student_id,
+        group_id,
+        full_access,
+        student:student_id (
+          id,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('group_id', groupId);
+
+    if (assistantsError) {
+      logger.error('Error fetching teaching assistants:', { assistantsError });
+      throw new Error('Failed to fetch teaching assistants');
+    }
+
+    // Get all students in the group
+    const { data: groupStudents, error: studentsError } = await supabase
+      .from('student_group_pair')
+      .select(`
+        student:student_id (
+          id,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('student_group_id', groupId);
+
+    if (studentsError) {
+      logger.error('Error fetching group students:', { studentsError });
+      throw new Error('Failed to fetch group students');
+    }
+
+    // Get point events for this group
+    const { data: pointEvents, error: eventsError } = await supabase
+      .from('point_event')
+      .select('id, name, date')
+      .eq('student_group_id', groupId);
+
+    if (eventsError) {
+      logger.error('Error fetching point events:', { eventsError });
+      throw new Error('Failed to fetch point events');
+    }
+
+    const availableStudents = groupStudents
+      ?.map(pair => ({
+        id: pair.student?.id,
+        firstName: pair.student?.first_name,
+        lastName: pair.student?.last_name
+      }))
+      .filter((student): student is { id: number; firstName: string; lastName: string } =>
+        student.id !== undefined && student.firstName !== undefined && student.lastName !== undefined
+      ) || [];
+
+    const formattedAssistants = assistants?.map(assistant => ({
+      id: assistant.id,
+      studentId: assistant.student_id,
+      groupId: assistant.group_id,
+      fullAccess: assistant.full_access ?? false,
+      student: {
+        id: assistant.student?.id || 0,
+        firstName: assistant.student?.first_name || '',
+        lastName: assistant.student?.last_name || ''
+      }
+    })) || [];
+
+    const formattedPointEvents = pointEvents?.map(event => ({
+      id: event.id,
+      name: event.name || '',
+      date: event.date || ''
+    })) || [];
+
+    logger.info('Teaching assistant data retrieved successfully', {
+      teacherId: teacher.id,
+      groupId,
+      assistantCount: formattedAssistants.length,
+      studentCount: availableStudents.length,
+      eventCount: formattedPointEvents.length
+    });
+
+    return {
+      assistants: formattedAssistants,
+      availableStudents,
+      pointEvents: formattedPointEvents
+    };
+  } catch (error) {
+    logger.error('Failed to get teaching assistant data', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Assigns a student as a teaching assistant to a group
+ */
+export async function assignTeachingAssistant(
+  groupId: number,
+  studentId: number,
+  fullAccess: boolean,
+  pointEventIds: number[] = []
+): Promise<void> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'assignTeachingAssistant' });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Get all teacher records for this user
+    if (!teacher.linkedUserId) {
+      logger.warn('Teacher has no linked user ID');
+      throw new Error('Teacher not properly linked to user');
+    }
+
+    const { data: allTeachers, error: teachersError } = await supabase
+      .from('teacher')
+      .select('id')
+      .eq('linked_user', teacher.linkedUserId);
+
+    if (teachersError) {
+      logger.error('Error fetching teacher records:', { teachersError });
+      throw new Error('Failed to verify teacher access');
+    }
+
+    const teacherIds = allTeachers?.map(t => t.id) || [];
+    
+    // Check if any teacher record has access to this group
+    const { data: teacherGroupAccess, error: accessError } = await supabase
+      .from('teacher_student_group_pair')
+      .select('group_id')
+      .in('teacher_id', teacherIds)
+      .eq('group_id', groupId)
+      .limit(1);
+
+    if (accessError || !teacherGroupAccess || teacherGroupAccess.length === 0) {
+      logger.warn('Teacher does not have access to this group', { teacherIds, groupId });
+      throw new Error('Access denied to this group');
+    }
+
+    // Check if student is in the group
+    const { data: studentInGroup, error: studentError } = await supabase
+      .from('student_group_pair')
+      .select('student_id')
+      .eq('student_group_id', groupId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (studentError || !studentInGroup) {
+      logger.warn('Student is not in this group', { studentId, groupId });
+      throw new Error('Student is not in this group');
+    }
+
+    // Check if assistant already exists
+    const { data: existingAssistant, error: existingError } = await supabase
+      .from('teaching_assistant')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (existingAssistant) {
+      logger.warn('Teaching assistant already exists', { studentId, groupId });
+      throw new Error('Student is already a teaching assistant for this group');
+    }
+
+    // Insert new teaching assistant
+    const { data: newAssistant, error: insertError } = await supabase
+      .from('teaching_assistant')
+      .insert({
+        group_id: groupId,
+        student_id: studentId,
+        full_access: fullAccess
+      })
+      .select('id')
+      .single();
+
+    if (insertError || !newAssistant) {
+      logger.error('Error creating teaching assistant:', { insertError });
+      throw new Error('Failed to create teaching assistant');
+    }
+
+    // If not full access and point events specified, insert point event assignments
+    if (!fullAccess && pointEventIds.length > 0) {
+      const pointEventAssignments = pointEventIds.map(pointEventId => ({
+        assistant_id: newAssistant.id,
+        point_event_id: pointEventId
+      }));
+
+      const { error: assignmentError } = await supabase
+        .from('teaching_assistant_point_event')
+        .insert(pointEventAssignments);
+
+      if (assignmentError) {
+        logger.error('Error assigning point events:', { assignmentError });
+        throw new Error('Failed to assign point events');
+      }
+    }
+
+    logger.info('Teaching assistant assigned successfully', {
+      teacherId: teacher.id,
+      groupId,
+      studentId,
+      fullAccess,
+      pointEventCount: pointEventIds.length
+    });
+  } catch (error) {
+    logger.error('Failed to assign teaching assistant', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Updates teaching assistant permissions
+ */
+export async function updateTeachingAssistant(
+  groupId: number,
+  assistantId: number,
+  fullAccess: boolean,
+  pointEventIds: number[] = []
+): Promise<void> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'updateTeachingAssistant' });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this group
+    const { data: teacherGroupAccess, error: accessError } = await supabase
+      .from('teacher_student_group_pair')
+      .select('group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('group_id', groupId)
+      .single();
+
+    if (accessError || !teacherGroupAccess) {
+      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+      throw new Error('Access denied to this group');
+    }
+
+    // Check if assistant exists and belongs to this group
+    const { data: existingAssistant, error: existingError } = await supabase
+      .from('teaching_assistant')
+      .select('id, group_id')
+      .eq('id', assistantId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (existingError || !existingAssistant) {
+      logger.warn('Teaching assistant not found or not in this group', { assistantId, groupId });
+      throw new Error('Teaching assistant not found');
+    }
+
+    // Update full access flag
+    const { error: updateError } = await supabase
+      .from('teaching_assistant')
+      .update({ full_access: fullAccess })
+      .eq('id', assistantId);
+
+    if (updateError) {
+      logger.error('Error updating teaching assistant:', { updateError });
+      throw new Error('Failed to update teaching assistant');
+    }
+
+    // If not full access, update point event assignments
+    if (!fullAccess) {
+      // Remove existing assignments
+      const { error: deleteError } = await supabase
+        .from('teaching_assistant_point_event')
+        .delete()
+        .eq('assistant_id', assistantId);
+
+      if (deleteError) {
+        logger.error('Error removing existing point event assignments:', { deleteError });
+        throw new Error('Failed to remove existing point event assignments');
+      }
+
+      // Add new assignments if specified
+      if (pointEventIds.length > 0) {
+        const pointEventAssignments = pointEventIds.map(pointEventId => ({
+          assistant_id: assistantId,
+          point_event_id: pointEventId
+        }));
+
+        const { error: assignmentError } = await supabase
+          .from('teaching_assistant_point_event')
+          .insert(pointEventAssignments);
+
+        if (assignmentError) {
+          logger.error('Error assigning point events:', { assignmentError });
+          throw new Error('Failed to assign point events');
+        }
+      }
+    }
+
+    logger.info('Teaching assistant updated successfully', {
+      teacherId: teacher.id,
+      groupId,
+      assistantId,
+      fullAccess,
+      pointEventCount: pointEventIds.length
+    });
+  } catch (error) {
+    logger.error('Failed to update teaching assistant', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Removes a teaching assistant from a group
+ */
+export async function removeTeachingAssistant(groupId: number, assistantId: number): Promise<void> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'removeTeachingAssistant' });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this group
+    const { data: teacherGroupAccess, error: accessError } = await supabase
+      .from('teacher_student_group_pair')
+      .select('group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('group_id', groupId)
+      .single();
+
+    if (accessError || !teacherGroupAccess) {
+      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+      throw new Error('Access denied to this group');
+    }
+
+    // Check if assistant exists and belongs to this group
+    const { data: existingAssistant, error: existingError } = await supabase
+      .from('teaching_assistant')
+      .select('id, group_id')
+      .eq('id', assistantId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (existingError || !existingAssistant) {
+      logger.warn('Teaching assistant not found or not in this group', { assistantId, groupId });
+      throw new Error('Teaching assistant not found');
+    }
+
+    // Remove point event assignments first
+    const { error: deleteAssignmentsError } = await supabase
+      .from('teaching_assistant_point_event')
+      .delete()
+      .eq('assistant_id', assistantId);
+
+    if (deleteAssignmentsError) {
+      logger.error('Error removing point event assignments:', { deleteAssignmentsError });
+      throw new Error('Failed to remove point event assignments');
+    }
+
+    // Remove the teaching assistant
+    const { error: deleteAssistantError } = await supabase
+      .from('teaching_assistant')
+      .delete()
+      .eq('id', assistantId);
+
+    if (deleteAssistantError) {
+      logger.error('Error removing teaching assistant:', { deleteAssistantError });
+      throw new Error('Failed to remove teaching assistant');
+    }
+
+    logger.info('Teaching assistant removed successfully', {
+      teacherId: teacher.id,
+      groupId,
+      assistantId
+    });
+  } catch (error) {
+    logger.error('Failed to remove teaching assistant', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Clears all point event assignments for a teaching assistant (keeps full access flag)
+ */
+export async function clearTeachingAssistantPointEvents(groupId: number, assistantId: number): Promise<void> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'clearTeachingAssistantPointEvents' });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this group
+    const { data: teacherGroupAccess, error: accessError } = await supabase
+      .from('teacher_student_group_pair')
+      .select('group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('group_id', groupId)
+      .single();
+
+    if (accessError || !teacherGroupAccess) {
+      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+      throw new Error('Access denied to this group');
+    }
+
+    // Check if assistant exists and belongs to this group
+    const { data: existingAssistant, error: existingError } = await supabase
+      .from('teaching_assistant')
+      .select('id, group_id')
+      .eq('id', assistantId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (existingError || !existingAssistant) {
+      logger.warn('Teaching assistant not found or not in this group', { assistantId, groupId });
+      throw new Error('Teaching assistant not found');
+    }
+
+    // Remove all point event assignments
+    const { error: deleteError } = await supabase
+      .from('teaching_assistant_point_event')
+      .delete()
+      .eq('assistant_id', assistantId);
+
+    if (deleteError) {
+      logger.error('Error clearing point event assignments:', { deleteError });
+      throw new Error('Failed to clear point event assignments');
+    }
+
+    logger.info('Teaching assistant point events cleared successfully', {
+      teacherId: teacher.id,
+      groupId,
+      assistantId
+    });
+  } catch (error) {
+    logger.error('Failed to clear teaching assistant point events', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
 }

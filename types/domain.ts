@@ -538,3 +538,40 @@ export type RankingGroupScorebookData = {
     }[];
   }[];
 };
+
+export type TeachingAssistant = {
+  id: number;
+  studentId: number;
+  groupId: number;
+  fullAccess: boolean;
+  student: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
+};
+
+export type TeachingAssistantPointEvent = {
+  assistantId: number;
+  pointEventId: number;
+};
+
+export type TeachingAssistantAssignment = {
+  studentId: number;
+  fullAccess: boolean;
+  pointEventIds: number[];
+};
+
+export type TeachingAssistantManagementData = {
+  assistants: TeachingAssistant[];
+  availableStudents: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  }[];
+  pointEvents: {
+    id: number;
+    name: string;
+    date: string;
+  }[];
+};

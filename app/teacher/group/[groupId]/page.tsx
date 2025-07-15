@@ -6,7 +6,8 @@ import CSVReader from "react-csv-reader"
 import Papa from 'papaparse';
 import { newGetScorebookData, editPointEvent, deletePointEvent, createPointEvent, getTeacherSchoolTimeframes } from "@/app/supaApi/server/teacher/teacherServerActions"
 import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServerActions"
-import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow } from "@/types/domain"
+import { getTeachingAssistantData, assignTeachingAssistant, updateTeachingAssistant, removeTeachingAssistant, clearTeachingAssistantPointEvents } from "@/api/teacher"
+import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow, TeachingAssistant, TeachingAssistantManagementData } from "@/types/domain"
 
 type NewPointEventData = {
   pointGroupId: number,
@@ -15,6 +16,11 @@ type NewPointEventData = {
   maxInput: number
 }
 
+type TeachingAssistantModalData = {
+  studentId: number,
+  fullAccess: boolean,
+  pointEventIds: number[]
+}
 
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
@@ -51,6 +57,17 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const [selectedPointGroupId, setSelectedPointGroupId] = useState<string>('');
   const [focusedStudentId, setFocusedStudentId] = useState<number | null>(null);
+
+  // Teaching Assistant Management
+  const [teachingAssistantData, setTeachingAssistantData] = useState<TeachingAssistantManagementData | null>(null);
+  const [teachingAssistantModalOpen, setTeachingAssistantModalOpen] = useState(false);
+  const [editingAssistant, setEditingAssistant] = useState<TeachingAssistant | null>(null);
+  const [isAddingAssistant, setIsAddingAssistant] = useState(false);
+  const [teachingAssistantModalData, setTeachingAssistantModalData] = useState<TeachingAssistantModalData>({
+    studentId: 0,
+    fullAccess: false,
+    pointEventIds: []
+  });
 
   // Helper: Determine which students/events have changes
   function getChangedMatrix() {
@@ -116,6 +133,15 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     }
   }
 
+  const fetchTeachingAssistantData = async () => {
+    try {
+      const data = await getTeachingAssistantData(parseInt(groupId))
+      setTeachingAssistantData(data)
+    } catch (error) {
+      console.error("Error fetching teaching assistant data:", error)
+    }
+  }
+
   useEffect(() => {
     fetchTimeframes()
   }, [])
@@ -123,6 +149,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   useEffect(() => {
     if (timeframes.length > 0) {
       fetchScorebookData()
+      fetchTeachingAssistantData()
     }
   }, [selectedTimeframe, timeframes])
 
@@ -318,6 +345,15 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     </button>
   )
 
+  const teachingAssistantButton = () => (
+    <button
+      onClick={() => setTeachingAssistantModalOpen(true)}
+      className="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+    >
+      Manage Teaching Assistants
+    </button>
+  )
+
   const saveEditedPointEventData = async () => {
     if (!updatedPointEvent) return
     await editPointEvent(updatedPointEvent, parseInt(groupId))
@@ -485,6 +521,78 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     setConfirmDeletePointEventDialogOpen(false)
     setCurrentlyEditedPointEvent(null)
     fetchScorebookData()
+  }
+
+  const openTeachingAssistantModal = (assistant?: TeachingAssistant) => {
+    if (assistant) {
+      setEditingAssistant(assistant)
+      setIsAddingAssistant(false)
+      setTeachingAssistantModalData({
+        studentId: assistant.studentId,
+        fullAccess: assistant.fullAccess,
+        pointEventIds: [] // Will be fetched separately
+      })
+    } else {
+      setEditingAssistant(null)
+      setIsAddingAssistant(true)
+      setTeachingAssistantModalData({
+        studentId: 0,
+        fullAccess: false,
+        pointEventIds: []
+      })
+    }
+    setTeachingAssistantModalOpen(true)
+  }
+
+  const saveTeachingAssistant = async () => {
+    try {
+      if (editingAssistant) {
+        await updateTeachingAssistant(
+          parseInt(groupId),
+          editingAssistant.id,
+          teachingAssistantModalData.fullAccess,
+          teachingAssistantModalData.pointEventIds
+        )
+      } else {
+        await assignTeachingAssistant(
+          parseInt(groupId),
+          teachingAssistantModalData.studentId,
+          teachingAssistantModalData.fullAccess,
+          teachingAssistantModalData.pointEventIds
+        )
+      }
+      setTeachingAssistantModalOpen(false)
+      setEditingAssistant(null)
+      setIsAddingAssistant(false)
+      fetchTeachingAssistantData()
+    } catch (error) {
+      console.error("Error saving teaching assistant:", error)
+      alert("Error saving teaching assistant: " + (error instanceof Error ? error.message : "Unknown error"))
+    }
+  }
+
+  const removeTeachingAssistantFromGroup = async (assistantId: number) => {
+    if (confirm("Are you sure you want to remove this teaching assistant?")) {
+      try {
+        await removeTeachingAssistant(parseInt(groupId), assistantId)
+        fetchTeachingAssistantData()
+      } catch (error) {
+        console.error("Error removing teaching assistant:", error)
+        alert("Error removing teaching assistant: " + (error instanceof Error ? error.message : "Unknown error"))
+      }
+    }
+  }
+
+  const clearTeachingAssistantEvents = async (assistantId: number) => {
+    if (confirm("Are you sure you want to clear all point event assignments for this teaching assistant?")) {
+      try {
+        await clearTeachingAssistantPointEvents(parseInt(groupId), assistantId)
+        fetchTeachingAssistantData()
+      } catch (error) {
+        console.error("Error clearing teaching assistant events:", error)
+        alert("Error clearing teaching assistant events: " + (error instanceof Error ? error.message : "Unknown error"))
+      }
+    }
   }
 
   const confirmDeletePointEventDialog = () => (
@@ -698,6 +806,199 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     });
   };
 
+  const teachingAssistantModal = () => {
+    if (!teachingAssistantData) return null;
+
+    const availableStudents = teachingAssistantData.availableStudents.filter(
+      student => !teachingAssistantData.assistants.some(assistant => assistant.studentId === student.id)
+    );
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-3/4 max-h-[80vh] overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4">
+            {editingAssistant ? 'Edit Teaching Assistant' : 'Add Teaching Assistant'}
+          </h2>
+          
+          <div className="grid grid-cols-1 gap-4">
+            {!editingAssistant && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Student</label>
+                <select
+                  value={teachingAssistantModalData.studentId}
+                  onChange={(e) => setTeachingAssistantModalData(prev => ({
+                    ...prev,
+                    studentId: parseInt(e.target.value)
+                  }))}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
+                >
+                  <option value={0}>Select a student</option>
+                  {availableStudents.map(student => (
+                    <option key={student.id} value={student.id}>
+                      {student.lastName}, {student.firstName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={teachingAssistantModalData.fullAccess}
+                  onChange={(e) => setTeachingAssistantModalData(prev => ({
+                    ...prev,
+                    fullAccess: e.target.checked
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={`w-10 h-6 flex items-center bg-gray-300 dark:bg-gray-600 rounded-full p-1 duration-300 ease-in-out ${teachingAssistantModalData.fullAccess ? 'bg-blue-500' : ''}`}
+                >
+                  <span
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${teachingAssistantModalData.fullAccess ? 'translate-x-4' : ''}`}
+                  />
+                </span>
+                <span className="ml-3 text-sm font-medium">
+                  Full Access to All Point Events
+                </span>
+              </label>
+            </div>
+
+            {!teachingAssistantModalData.fullAccess && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Assigned Point Events</label>
+                <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
+                  {teachingAssistantData.pointEvents.map(event => (
+                    <label key={event.id} className="flex items-center space-x-2 p-1">
+                      <input
+                        type="checkbox"
+                        checked={teachingAssistantModalData.pointEventIds.includes(event.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTeachingAssistantModalData(prev => ({
+                              ...prev,
+                              pointEventIds: [...prev.pointEventIds, event.id]
+                            }))
+                          } else {
+                            setTeachingAssistantModalData(prev => ({
+                              ...prev,
+                              pointEventIds: prev.pointEventIds.filter(id => id !== event.id)
+                            }))
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">
+                        {event.name} ({DateTime.fromISO(event.date).toFormat('MMM dd')})
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex space-x-4 mt-6">
+            <button
+              onClick={saveTeachingAssistant}
+              disabled={!editingAssistant && teachingAssistantModalData.studentId === 0}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+            >
+              {editingAssistant ? 'Update' : 'Add'} Assistant
+            </button>
+            <button
+              onClick={() => {
+                setTeachingAssistantModalOpen(false)
+                setEditingAssistant(null)
+                setIsAddingAssistant(false)
+              }}
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const teachingAssistantManagementModal = () => {
+    if (!teachingAssistantData) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-3/4 max-h-[80vh] overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4">Teaching Assistant Management</h2>
+          
+          <div className="mb-4">
+            <button
+              onClick={() => openTeachingAssistantModal()}
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Add New Teaching Assistant
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {teachingAssistantData.assistants.map(assistant => (
+              <div key={assistant.id} className="border border-gray-300 dark:border-gray-600 rounded p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold">
+                      {assistant.student.lastName}, {assistant.student.firstName}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {assistant.fullAccess ? 'Full Access' : 'Limited Access'}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => openTeachingAssistantModal(assistant)}
+                      className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                    >
+                      Edit
+                    </button>
+                    {!assistant.fullAccess && (
+                      <button
+                        onClick={() => clearTeachingAssistantEvents(assistant.id)}
+                        className="bg-yellow-500 hover:bg-yellow-700 text-white text-xs px-2 py-1 rounded"
+                      >
+                        Clear Events
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeTeachingAssistantFromGroup(assistant.id)}
+                      className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {teachingAssistantData.assistants.length === 0 && (
+              <p className="text-gray-600 dark:text-gray-400 text-center py-4">
+                No teaching assistants assigned to this group.
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={() => setTeachingAssistantModalOpen(false)}
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const importScorebookTemplateModal = () => {
     const changedMatrix = getChangedMatrix();
     // Filter students/events if showUnchanged is false
@@ -906,6 +1207,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {addNewPointEventButton()}
             {exportScorebookTemplateButton()}
             {importScorebookTemplateButton()}
+            {teachingAssistantButton()}
           </div>
         </div>
       </header>
@@ -923,6 +1225,8 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       {editPointEventModalOpen && editPointEventModal()}
       {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
       {importScorebookTemplateModalOpen && importScorebookTemplateModal()}
+      {teachingAssistantModalOpen && !isAddingAssistant && !editingAssistant && teachingAssistantManagementModal()}
+      {teachingAssistantModalOpen && (isAddingAssistant || editingAssistant) && teachingAssistantModal()}
     </div>
   )
 }
