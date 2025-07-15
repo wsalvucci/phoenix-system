@@ -586,3 +586,176 @@ export type TeachingAssistantManagementData = {
     color: string;
   }[];
 };
+
+// STUDENT DASHBOARD TYPES
+
+export type StudentDashboardData = {
+  student: Student;
+  timeframe: {
+    id: number;
+    name: string;
+    startsAt: string;
+    endsAt: string;
+    active: boolean;
+  };
+  totalPoints: number;
+  totalRank: number;
+  totalOutOf: number;
+  gradeRank: number;
+  gradeOutOf: number;
+  nearbyStudents: {
+    studentId: number;
+    firstName: string;
+    lastName: string;
+    totalPoints: number;
+    rank: number;
+  }[];
+  nearbyGradeStudents: {
+    studentId: number;
+    firstName: string;
+    lastName: string;
+    points: number;
+    rank: number;
+  }[];
+  pointGroupRankings: PointGroupRanking[];
+  pointEventRankings: PointEventRanking[];
+};
+
+export type PointGroupRanking = {
+  pointGroupId: number;
+  points: number;
+  rank: number;
+  outOf: number;
+  nearbyStudents: {
+    studentId: number;
+    firstName: string;
+    lastName: string;
+    points: number;
+    rank: number;
+  }[];
+};
+
+export type PointEventRanking = {
+  eventId: number;
+  eventName: string;
+  eventDate: string;
+  maxPoints: number;
+  points: number;
+  rank: number;
+  outOf: number;
+  pointGroup: {
+    id: number;
+    name: string;
+    color: string;
+  };
+};
+
+export type StudentRecentEvent = {
+  id: number;
+  name: string;
+  date: string;
+  maxPoints: number;
+  points: number;
+  pointGroup: {
+    id: number;
+    name: string;
+    color: string;
+  };
+};
+
+export type StudentRankingData = {
+  totalRank: number;
+  totalOutOf: number;
+  gradeRank: number;
+  gradeOutOf: number;
+  nearbyStudents: {
+    studentId: number;
+    firstName: string;
+    lastName: string;
+    totalPoints: number;
+    rank: number;
+  }[];
+  nearbyGradeStudents: {
+    studentId: number;
+    firstName: string;
+    lastName: string;
+    points: number;
+    rank: number;
+  }[];
+};
+
+// RANK TO COLOR CONVERSION FUNCTIONS
+
+/**
+ * Converts a rank to a color using the established color scheme
+ */
+export function rankToColor(rank: number): string {
+  if (rank === 1) {
+    return "#FFD700"; // Gold
+  } else if (rank === 2) {
+    return "#C0C0C0"; // Silver
+  } else if (rank === 3) {
+    return "#CD7F32"; // Bronze
+  } else if (rank === 4) {
+    return "#800080"; // Purple
+  } else if (rank === 5) {
+    return "#008080"; // Teal
+  } else if (rank <= 10) {
+    return "#DC143C"; // Crimson
+  } else if (rank <= 20) {
+    return "#40D13B"; // Green
+  } else {
+    return "#FFFFFF"; // White
+  }
+}
+
+/**
+ * Converts a rank to a background color
+ */
+export function rankToBackgroundColor(rank: number): string {
+  if (rank > 20) {
+    return "#000000"; // Black for ranks above 20
+  } else {
+    return rankToColor(rank);
+  }
+}
+
+/**
+ * Gets a color with opacity for background use
+ */
+export function rankToColorWithOpacity(rank: number, opacity: number = 0.1): string {
+  const color = rankToColor(rank);
+  return `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * Gets a darker version of the rank color
+ */
+export function rankToDarkColor(rank: number): string {
+  const color = rankToColor(rank);
+  // Simple darkening - in a real implementation you might want to use a color library
+  if (color === "#FFD700") return "#B8860B"; // DarkGoldenrod
+  if (color === "#C0C0C0") return "#808080"; // Gray
+  if (color === "#CD7F32") return "#8B4513"; // SaddleBrown
+  if (color === "#800080") return "#4B0082"; // Indigo
+  if (color === "#008080") return "#006666"; // DarkTeal
+  if (color === "#DC143C") return "#8B0000"; // DarkRed
+  if (color === "#40D13B") return "#228B22"; // ForestGreen
+  return "#333333"; // Default dark color
+}
+
+export type MonthlyTrendData = {
+  month: string; // Format: "YYYY-MM"
+  totalPoints: number;
+  rank: number;
+  outOf: number;
+  pointIncrease: number;
+  percentageIncrease: number;
+  rankChange: number; // Positive = improved rank, negative = worse rank
+};
+
+export type StudentMonthlyTrends = {
+  currentMonth: MonthlyTrendData;
+  previousMonth: MonthlyTrendData | null;
+  trends: MonthlyTrendData[];
+};

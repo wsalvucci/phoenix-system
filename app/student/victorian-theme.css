@@ -1,0 +1,624 @@
+/* Modern Victorian Theme for Student Dashboard */
+
+/* Import modern traditional font */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+/* Custom Properties for Victorian Color Palette */
+:root {
+  --victorian-burgundy: #8B2635;
+  --victorian-mahogany: #5D2E46;
+  --victorian-emerald: #2D5A27;
+  --victorian-sapphire: #1B365D;
+  --victorian-gold: #D4AF37;
+  --victorian-cream: #F5F1E8;
+  --victorian-charcoal: #2C2C2C;
+  --victorian-sage: #9CAF88;
+  --victorian-dusty-rose: #B76E79;
+  --victorian-navy: #2C3E50;
+  
+  /* Opacity variants for layering */
+  --victorian-burgundy-light: rgba(139, 38, 53, 0.08);
+  --victorian-mahogany-light: rgba(93, 46, 70, 0.08);
+  --victorian-gold-light: rgba(212, 175, 55, 0.08);
+  --victorian-emerald-light: rgba(45, 90, 39, 0.08);
+  --victorian-sapphire-light: rgba(27, 54, 93, 0.08);
+  
+  /* Border patterns */
+  --victorian-border: 2px solid var(--victorian-burgundy);
+  --victorian-border-light: 1px solid rgba(139, 38, 53, 0.2);
+  --victorian-border-gold: 1px solid var(--victorian-gold);
+}
+
+/* Dark mode variants */
+.dark {
+  --victorian-burgundy: #B76E79;
+  --victorian-mahogany: #8B5A6B;
+  --victorian-emerald: #4A7C59;
+  --victorian-sapphire: #5B7A9A;
+  --victorian-gold: #E6C547;
+  --victorian-cream: #2A2A2A;
+  --victorian-charcoal: #E0E0E0;
+  --victorian-sage: #A8C090;
+  --victorian-dusty-rose: #D4A5A5;
+  --victorian-navy: #6B8BA8;
+  
+  /* Dark mode opacity variants */
+  --victorian-burgundy-light: rgba(183, 110, 121, 0.12);
+  --victorian-mahogany-light: rgba(139, 90, 107, 0.12);
+  --victorian-gold-light: rgba(230, 197, 71, 0.12);
+  --victorian-emerald-light: rgba(74, 124, 89, 0.12);
+  --victorian-sapphire-light: rgba(91, 122, 154, 0.12);
+  
+  /* Dark mode border patterns */
+  --victorian-border: 2px solid var(--victorian-burgundy);
+  --victorian-border-light: 1px solid rgba(183, 110, 121, 0.3);
+  --victorian-border-gold: 1px solid var(--victorian-gold);
+}
+
+/* Victorian Typography */
+.victorian-title {
+  font-family: 'Playfair Display', serif;
+  color: var(--victorian-burgundy);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-shadow: 0 1px 2px rgba(139, 38, 53, 0.1);
+}
+
+.dark .victorian-title {
+  color: var(--victorian-burgundy);
+  text-shadow: 0 1px 2px rgba(183, 110, 121, 0.2);
+}
+
+.victorian-subtitle {
+  font-family: 'Playfair Display', serif;
+  color: var(--victorian-mahogany);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dark .victorian-subtitle {
+  color: var(--victorian-mahogany);
+}
+
+.victorian-accent {
+  color: var(--victorian-gold);
+  font-weight: 600;
+}
+
+/* Victorian Background Patterns with Textures */
+.victorian-bg {
+  background: 
+    /* Subtle noise texture */
+    radial-gradient(circle at 1px 1px, rgba(139, 38, 53, 0.03) 1px, transparent 0),
+    radial-gradient(circle at 1px 1px, rgba(93, 46, 70, 0.02) 1px, transparent 0),
+    /* Damask-like pattern */
+    radial-gradient(ellipse at 50% 50%, var(--victorian-burgundy-light) 0%, transparent 50%),
+    radial-gradient(ellipse at 25% 25%, var(--victorian-mahogany-light) 0%, transparent 40%),
+    radial-gradient(ellipse at 75% 75%, var(--victorian-gold-light) 0%, transparent 40%),
+    /* Subtle geometric pattern */
+    linear-gradient(45deg, transparent 40%, var(--victorian-emerald-light) 50%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, var(--victorian-sapphire-light) 50%, transparent 60%),
+    /* Base gradient */
+    linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
+  background-size: 
+    20px 20px,
+    15px 15px,
+    200px 200px,
+    150px 150px,
+    180px 180px,
+    100px 100px,
+    100px 100px,
+    100% 100%;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Textured Section Backgrounds */
+.victorian-section {
+  position: relative;
+  padding: 2rem 0;
+  margin: 1rem 0;
+}
+
+.victorian-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    /* Subtle crosshatch texture */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      var(--victorian-burgundy-light) 2px,
+      var(--victorian-burgundy-light) 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      var(--victorian-mahogany-light) 2px,
+      var(--victorian-mahogany-light) 4px
+    ),
+    /* Gradient overlay */
+    linear-gradient(90deg, 
+      transparent 0%, 
+      var(--victorian-burgundy-light) 20%, 
+      var(--victorian-mahogany-light) 50%, 
+      var(--victorian-gold-light) 80%, 
+      transparent 100%);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.victorian-section-alt::before {
+  background: 
+    /* Subtle diamond pattern */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 3px,
+      var(--victorian-emerald-light) 3px,
+      var(--victorian-emerald-light) 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 3px,
+      var(--victorian-sapphire-light) 3px,
+      var(--victorian-sapphire-light) 6px
+    ),
+    /* Gradient overlay */
+    linear-gradient(90deg, 
+      transparent 0%, 
+      var(--victorian-emerald-light) 20%, 
+      var(--victorian-sapphire-light) 50%, 
+      var(--victorian-burgundy-light) 80%, 
+      transparent 100%);
+}
+
+/* Textured Content Areas */
+.victorian-content {
+  background: 
+    /* Subtle linen texture */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(139, 38, 53, 0.02) 1px,
+      rgba(139, 38, 53, 0.02) 2px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1px,
+      rgba(93, 46, 70, 0.02) 1px,
+      rgba(93, 46, 70, 0.02) 2px
+    ),
+    /* Base gradient */
+    linear-gradient(145deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--background)) 100%);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 2px 8px rgba(139, 38, 53, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark .victorian-content {
+  background: 
+    /* Dark mode linen texture */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(183, 110, 121, 0.03) 1px,
+      rgba(183, 110, 121, 0.03) 2px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1px,
+      rgba(139, 90, 107, 0.03) 1px,
+      rgba(139, 90, 107, 0.03) 2px
+    ),
+    linear-gradient(145deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--background)) 100%);
+  box-shadow: 
+    0 2px 8px rgba(183, 110, 121, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.victorian-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    var(--victorian-burgundy), 
+    var(--victorian-gold), 
+    var(--victorian-emerald), 
+    var(--victorian-burgundy));
+  background-size: 200% 100%;
+  animation: victorian-progress 4s ease-in-out infinite;
+}
+
+.victorian-content:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 16px rgba(139, 38, 53, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.dark .victorian-content:hover {
+  box-shadow: 
+    0 4px 16px rgba(183, 110, 121, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Victorian Header with Texture */
+.victorian-header {
+  background: 
+    /* Subtle damask pattern */
+    radial-gradient(ellipse at 30% 30%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 70%, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
+    /* Base gradient */
+    linear-gradient(135deg, var(--victorian-burgundy) 0%, var(--victorian-mahogany) 100%);
+  border-bottom: 3px solid var(--victorian-gold);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.victorian-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    /* Subtle texture overlay */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(212, 175, 55, 0.03) 2px,
+      rgba(212, 175, 55, 0.03) 4px
+    ),
+    radial-gradient(circle at 20% 50%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(212, 175, 55, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.dark .victorian-header::before {
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(230, 197, 71, 0.05) 2px,
+      rgba(230, 197, 71, 0.05) 4px
+    ),
+    radial-gradient(circle at 20% 50%, rgba(230, 197, 71, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(230, 197, 71, 0.08) 0%, transparent 50%);
+}
+
+/* Victorian Buttons */
+.victorian-button {
+  background: 
+    /* Subtle texture */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(255, 255, 255, 0.05) 1px,
+      rgba(255, 255, 255, 0.05) 2px
+    ),
+    linear-gradient(135deg, var(--victorian-burgundy) 0%, var(--victorian-mahogany) 100%);
+  border: 1px solid var(--victorian-burgundy);
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.victorian-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.victorian-button:hover::before {
+  left: 100%;
+}
+
+.victorian-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 38, 53, 0.3);
+}
+
+.dark .victorian-button:hover {
+  box-shadow: 0 4px 12px rgba(183, 110, 121, 0.4);
+}
+
+.victorian-button-secondary {
+  background: 
+    /* Subtle texture */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(139, 38, 53, 0.03) 1px,
+      rgba(139, 38, 53, 0.03) 2px
+    ),
+    linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+  border: 1px solid var(--victorian-burgundy);
+  color: var(--victorian-burgundy);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.victorian-button-secondary:hover {
+  background: linear-gradient(135deg, var(--victorian-burgundy-light) 0%, hsl(var(--card)) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 38, 53, 0.2);
+}
+
+.dark .victorian-button-secondary {
+  color: var(--victorian-burgundy);
+}
+
+.dark .victorian-button-secondary:hover {
+  background: linear-gradient(135deg, var(--victorian-burgundy-light) 0%, hsl(var(--card)) 100%);
+  box-shadow: 0 4px 12px rgba(183, 110, 121, 0.3);
+}
+
+/* Victorian Stats Display */
+.victorian-stat {
+  background: 
+    /* Subtle texture */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(212, 175, 55, 0.05) 1px,
+      rgba(212, 175, 55, 0.05) 2px
+    ),
+    linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+  border: 1px solid var(--victorian-gold);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(139, 38, 53, 0.1);
+}
+
+.dark .victorian-stat {
+  box-shadow: 0 2px 8px rgba(183, 110, 121, 0.2);
+}
+
+.victorian-stat::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--victorian-gold), var(--victorian-burgundy));
+}
+
+.victorian-stat-number {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--victorian-burgundy);
+  text-shadow: 0 1px 2px rgba(139, 38, 53, 0.1);
+}
+
+.dark .victorian-stat-number {
+  color: var(--victorian-burgundy);
+  text-shadow: 0 1px 2px rgba(183, 110, 121, 0.2);
+}
+
+/* Textured List Items */
+.victorian-list-item {
+  background: 
+    /* Subtle linen texture */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(139, 38, 53, 0.02) 1px,
+      rgba(139, 38, 53, 0.02) 2px
+    ),
+    linear-gradient(145deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--background)) 100%);
+  border: 1px solid rgba(139, 38, 53, 0.15);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .victorian-list-item {
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(183, 110, 121, 0.03) 1px,
+      rgba(183, 110, 121, 0.03) 2px
+    ),
+    linear-gradient(145deg, 
+      hsl(var(--card)) 0%, 
+      hsl(var(--background)) 100%);
+  border: 1px solid rgba(183, 110, 121, 0.25);
+}
+
+.victorian-list-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--victorian-burgundy), var(--victorian-gold));
+  opacity: 0.6;
+}
+
+.victorian-list-item:hover {
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(139, 38, 53, 0.15);
+  border-color: rgba(139, 38, 53, 0.3);
+}
+
+.dark .victorian-list-item:hover {
+  box-shadow: 0 2px 8px rgba(183, 110, 121, 0.25);
+  border-color: rgba(183, 110, 121, 0.4);
+}
+
+.victorian-list-item.highlight {
+  background: 
+    /* Highlight texture */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(212, 175, 55, 0.08) 1px,
+      rgba(212, 175, 55, 0.08) 2px
+    ),
+    linear-gradient(145deg, 
+      var(--victorian-gold-light) 0%, 
+      hsl(var(--card)) 100%);
+  border-color: var(--victorian-gold);
+}
+
+.dark .victorian-list-item.highlight {
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(230, 197, 71, 0.1) 1px,
+      rgba(230, 197, 71, 0.1) 2px
+    ),
+    linear-gradient(145deg, 
+      var(--victorian-gold-light) 0%, 
+      hsl(var(--card)) 100%);
+}
+
+/* Victorian Animations */
+@keyframes victorian-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes victorian-progress {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes victorian-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes victorian-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation Classes */
+.victorian-fade-in {
+  animation: victorian-fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.victorian-slide-in {
+  animation: victorian-slide-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.victorian-delay-1 { animation-delay: 0.1s; }
+.victorian-delay-2 { animation-delay: 0.2s; }
+.victorian-delay-3 { animation-delay: 0.3s; }
+.victorian-delay-4 { animation-delay: 0.4s; }
+.victorian-delay-5 { animation-delay: 0.5s; }
+
+/* Victorian Grid Layout */
+.victorian-grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.victorian-grid-compact {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Victorian Responsive Design */
+@media (max-width: 768px) {
+  .victorian-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .victorian-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/* Victorian Scrollbar */
+.victorian-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.victorian-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+.victorian-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--victorian-burgundy), var(--victorian-mahogany));
+  border-radius: 4px;
+}
+
+.victorian-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--victorian-mahogany), var(--victorian-burgundy));
+} 

@@ -3,7 +3,7 @@
 import { DateTime } from "luxon";
 import { convertPointUsingRuleType, FeaturedDashboardData, GlobalDashboardData, stringToRuleType, TimedTotalPointData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
-import { getOwnStudentData } from "../student/studentApi";
+import { getOwnStudentData } from "@/api/student";
 
 export async function getFeaturedDashData(schoolId: number, timeframeId: number | null): Promise<FeaturedDashboardData> {
         const supabase = await supabaseServiceClient();

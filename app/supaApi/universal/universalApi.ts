@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, StudentPointsData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
-import { getOwnStudentData } from "../server/student/studentApi";
+import { getOwnStudentData } from "@/api/student";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
     const supabase = createClient();
