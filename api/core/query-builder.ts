@@ -103,7 +103,7 @@ export class QueryBuilder {
   /**
    * Gets nearby ranking data for a specific student
    */
-  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters, userContext: UserContext) {
+  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters, _userContext: UserContext) {
     const baseQuery = this.buildBaseStudentPointsQuery(filters);
     
     // Get the target student's rank first
@@ -286,18 +286,19 @@ export class QueryBuilder {
   /**
    * Helper method to calculate total points per student
    */
-  private calculateStudentTotals(data: any[]) {
-    const totals: Record<number, { totalPoints: number; student: any }> = {};
+  private calculateStudentTotals(data: unknown[]) {
+    const totals: Record<number, { totalPoints: number; student: unknown }> = {};
 
     for (const point of data) {
-      const studentId = point.student_id;
+      const pointData = point as { student_id: number; student: unknown; point_value?: number };
+      const studentId = pointData.student_id;
       if (!totals[studentId]) {
         totals[studentId] = {
           totalPoints: 0,
-          student: point.student
+          student: pointData.student
         };
       }
-      totals[studentId].totalPoints += point.point_value;
+      totals[studentId].totalPoints += pointData.point_value || 0;
     }
 
     return totals;
@@ -306,7 +307,7 @@ export class QueryBuilder {
   /**
    * Helper method to process student points data
    */
-  private processStudentPointsData(data: any[], filters: QueryFilters) {
+  private processStudentPointsData(data: unknown[], _filters: QueryFilters) {
     const studentTotals = this.calculateStudentTotals(data);
     
     // Sort by total points and add rankings
@@ -324,7 +325,7 @@ export class QueryBuilder {
   /**
    * Helper method to process nearby ranking data
    */
-  private processNearbyRankingData(data: any[], targetStudent: any, params: NearbyRankParams) {
+  private processNearbyRankingData(data: unknown[], targetStudent: unknown, params: NearbyRankParams) {
     const studentTotals = this.calculateStudentTotals(data);
     
     const sortedStudents = Object.entries(studentTotals)
@@ -345,7 +346,7 @@ export class QueryBuilder {
   /**
    * Helper method to process top students data
    */
-  private processTopStudentsData(data: any[], params: TopStudentsParams) {
+  private processTopStudentsData(data: unknown[], params: TopStudentsParams) {
     const studentTotals = this.calculateStudentTotals(data);
     
     const sortedStudents = Object.entries(studentTotals)
@@ -367,7 +368,7 @@ export class QueryBuilder {
   /**
    * Helper method to process dashboard data
    */
-  private processDashboardData(data: any[], filters: QueryFilters) {
+  private processDashboardData(data: unknown[], filters: QueryFilters) {
     const studentTotals = this.calculateStudentTotals(data);
     
     const sortedStudents = Object.entries(studentTotals)

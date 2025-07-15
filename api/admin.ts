@@ -6,11 +6,6 @@ import { createClient } from '@/utils/supabase/server';
 import { AdminHomeDashboard, AdminSchoolDash, Admin } from '@/types/domain';
 import { createServerLogger } from '@/utils/serverLogger';
 import { getSchoolStudents } from './admin/students';
-import { getSchoolGroupsWithCounts } from './admin/groups';
-import { getSchoolTeachers } from './admin/teachers';
-import { getSchoolPointGroups } from './admin/pointGroups';
-import { getSchoolRankingGroups } from './admin/rankingGroups';
-import { getSchoolTimeframes } from './admin/timeframes';
 import { AdminService } from './service/admin';
 import { UserContextResolver } from './core/user-context';
 import { AdminStudentDashboardData } from '@/app/dataClasses';
@@ -899,7 +894,7 @@ export async function getAdminStudentDataWithTimeframe(
       }) || []
     );
 
-    pointEventsWithRanks.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    pointEventsWithRanks.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Calculate overall ranking
     const { data: allStudents } = await serviceClient

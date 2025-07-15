@@ -1,14 +1,14 @@
 import { CachedQueryResult, QueryMetadata } from './types';
 
 export class CacheManager {
-  private static cache = new Map<string, CachedQueryResult<any>>();
+  private static cache = new Map<string, CachedQueryResult<unknown>>();
   private static metadata = new Map<string, QueryMetadata>();
   private static readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Generates a cache key based on query parameters
    */
-  static generateCacheKey(queryId: string, params: Record<string, any>): string {
+  static generateCacheKey(queryId: string, params: Record<string, unknown>): string {
     const sortedParams = Object.keys(params)
       .sort()
       .map(key => `${key}:${JSON.stringify(params[key])}`)
@@ -36,7 +36,7 @@ export class CacheManager {
     // Update metadata
     this.updateMetadata(cacheKey, 'hit');
     
-    return cached.data;
+    return cached.data as T;
   }
 
   /**

@@ -124,68 +124,78 @@ export class UserContextResolver {
   /**
    * Determines user context based on user data
    */
-  private async determineUserContext(userData: any): Promise<UserContext | null> {
+  private async determineUserContext(userData: unknown): Promise<UserContext | null> {
+    const data = userData as {
+      supabase_id: string;
+      admin_id?: number;
+      admin?: { admin_school_pair: { school_id: number }[] };
+      teacher_id?: number;
+      teacher?: { school_id: number };
+      student_id?: number;
+      user_student_pair?: { student: { school_id: number } }[];
+    };
+
     // Check if user is an admin
-    if (userData.admin_id && userData.admin) {
-      const adminSchools = userData.admin.admin_school_pair;
+    if (data.admin_id && data.admin) {
+      const adminSchools = data.admin.admin_school_pair;
       if (adminSchools && adminSchools.length > 0) {
         // For now, use the first school - in the future, you might want to handle multiple schools
         return {
-          userId: userData.supabase_id,
+          userId: data.supabase_id,
           role: 'admin' as UserRole,
           schoolId: adminSchools[0].school_id,
-          adminId: userData.admin_id
+          adminId: data.admin_id
         };
       }
     }
 
     // Check if user is a teacher
-    if (userData.teacher_id && userData.teacher) {
+    if (data.teacher_id && data.teacher) {
       return {
-        userId: userData.supabase_id,
+        userId: data.supabase_id,
         role: 'teacher' as UserRole,
-        schoolId: userData.teacher.school_id,
-        teacherId: userData.teacher_id
+        schoolId: data.teacher.school_id,
+        teacherId: data.teacher_id
       };
     }
 
     // Check if user is a student
-    if (userData.student_id) {
+    if (data.student_id) {
       // Get student data to find school
-      const studentPair = userData.user_student_pair?.[0];
+      const studentPair = data.user_student_pair?.[0];
       if (studentPair?.student) {
         // Check if this student is also a group leader
         const { data: leaderGroups } = await this.dbClient
           .from('student_group_leaders')
           .select('group_id')
-          .eq('student_id', userData.student_id);
+          .eq('student_id', data.student_id);
 
         if (leaderGroups && leaderGroups.length > 0) {
           return {
-            userId: userData.supabase_id,
+            userId: data.supabase_id,
             role: 'groupLeader' as UserRole,
             schoolId: studentPair.student.school_id,
-            studentId: userData.student_id,
-            groupLeaderId: userData.student_id,
+            studentId: data.student_id,
+            groupLeaderId: data.student_id,
             managedGroupIds: leaderGroups.map(g => g.group_id)
           };
         }
 
         return {
-          userId: userData.supabase_id,
+          userId: data.supabase_id,
           role: 'student' as UserRole,
           schoolId: studentPair.student.school_id,
-          studentId: userData.student_id
+          studentId: data.student_id
         };
       }
     }
 
     // Check if user is a parent (has student pairs but no direct student/teacher/admin role)
-    if (userData.user_student_pair && userData.user_student_pair.length > 0) {
-      const studentPair = userData.user_student_pair[0];
+    if (data.user_student_pair && data.user_student_pair.length > 0) {
+      const studentPair = data.user_student_pair[0];
       if (studentPair?.student) {
         return {
-          userId: userData.supabase_id,
+          userId: data.supabase_id,
           role: 'parent' as UserRole,
           schoolId: studentPair.student.school_id
         };
@@ -256,10 +266,13 @@ export class UserContextResolver {
         return [];
       }
 
-      return adminSchools.map((pair: any) => ({
-        id: pair.school.id,
-        name: pair.school.name
-      }));
+      return adminSchools.map((pair: unknown) => {
+        const pairData = pair as { school: { id: number; name: string } };
+        return {
+          id: pairData.school.id,
+          name: pairData.school.name
+        };
+      });
     }
 
     // For other roles, return their single school

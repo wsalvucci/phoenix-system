@@ -156,19 +156,19 @@ export class AccessControlService {
     return true;
   }
 
-  static getTeacherStudentGroups(teacherId: number): Promise<number[]> {
+  static getTeacherStudentGroups(_teacherId: number): Promise<number[]> {
     // This would be implemented to fetch the student groups the teacher manages
     // For now, returning empty array - will be implemented when we build the teacher-specific queries
     return Promise.resolve([]);
   }
 
-  static getGroupLeaderStudentGroups(groupLeaderId: number): Promise<number[]> {
+  static getGroupLeaderStudentGroups(_groupLeaderId: number): Promise<number[]> {
     // This would be implemented to fetch the student groups the leader manages
     // For now, returning empty array - will be implemented when we build the leader-specific queries
     return Promise.resolve([]);
   }
 
-  static getTeachingAssistantData(assistantId: number): Promise<{
+  static getTeachingAssistantData(_assistantId: number): Promise<{
     groupId: number;
     hasFullAccess: boolean;
     allowedPointEventIds: number[];
@@ -178,7 +178,7 @@ export class AccessControlService {
     return Promise.resolve(null);
   }
 
-  static filterAllowedFields<T extends Record<string, any>>(
+  static filterAllowedFields<T extends Record<string, unknown>>(
     data: T,
     allowedFields: string[]
   ): Partial<T> {
@@ -189,7 +189,7 @@ export class AccessControlService {
     const filtered: Partial<T> = {};
     for (const field of allowedFields) {
       if (field in data) {
-        filtered[field as keyof T] = data[field];
+        filtered[field as keyof T] = data[field] as T[keyof T];
       }
     }
     return filtered;
