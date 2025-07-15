@@ -90,9 +90,8 @@ export default function PointCategoryTotals(
             {
                 categories.map((category) => {
                     return (
-                        <div className="py-3">
+                        <div key={category.pointGroup.id} className="py-3">
                         <div
-                            key={category.pointGroup.id}
                             className={`text-xl grid justify-center my-1 ps-3`}
                             style={{
                                 borderLeft: `1px solid ${category.pointGroup.color}`,

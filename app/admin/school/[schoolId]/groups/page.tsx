@@ -547,7 +547,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                   Are you sure you want to archive &quot;{confirmDialog.group.name}&quot;?
                   {confirmDialog.group.childGroups && confirmDialog.group.childGroups.length > 0 && (
                     <span className="block mt-2 text-red-600 dark:text-red-400">
-                      Warning: This will also hide all child groups from the default view, even if they aren't archived.
+                      Warning: This will also hide all child groups from the default view, even if they aren&apos;t archived.
                     </span>
                   )}
                 </>

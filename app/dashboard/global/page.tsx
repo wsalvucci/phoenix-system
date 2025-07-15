@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { DateTime } from "luxon";
 import { Azeret_Mono, Quicksand } from "next/font/google";
 import { useEffect, useState } from "react";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Quote = require("inspirational-quotes");
 
 const customFont = Quicksand({
@@ -66,6 +67,7 @@ export default function GlobalDashboard() {
         const StudentPointTile = ({
                 fullName,
                 points,
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 lastMonthPoints,
                 rank,
                 rankChange
@@ -364,7 +366,7 @@ export default function GlobalDashboard() {
                                 <div>
                                         <div className="text-2xl flex justify-center border-b mb-1">Top Groups</div>
                                         {
-                                                globalDashData?.rankingGroups.map((rankingGroup, index) => (
+                                                globalDashData?.rankingGroups.map((rankingGroup) => (
                                                         <div key={rankingGroup.id} className="grid grid-cols-6 px-1 my-1 gap-1">
                                                                 <div className="flex justify-center place-items-center text-2xl" style={{
                                                                         background: metalStyle('#000'),
@@ -503,7 +505,7 @@ export default function GlobalDashboard() {
                                                 }
                                                 {
                                                         globalDashData?.grades.sort((a, b) => a - b).map(grade => (
-                                                                <div className="grid grid-cols-1 gap-1">{
+                                                                <div key={grade} className="grid grid-cols-1 gap-1">{
                                                                         [...Array(10)].map((_, index) => {
                                                                                 const student = globalDashData.students.filter(student => student.grade === grade).sort((a, b) => b.totalPoints - a.totalPoints)[index]
                                                                                 return (

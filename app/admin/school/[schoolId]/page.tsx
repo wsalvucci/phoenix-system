@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ResponsiveContainer, Scatter, ScatterChart, Tooltip, YAxis, ZAxis, BarChart, Bar, XAxis } from "recharts";
 import Link from "next/link";
-import { Space_Mono, Quicksand } from "next/font/google"
+import { Quicksand } from "next/font/google"
 import { useQuery } from "@tanstack/react-query";
 import { getAdminSchoolDashWithTimeframe } from "@/api/admin";
 import { useTheme } from "@/components/ThemeProvider";
@@ -20,17 +20,7 @@ const titleFont = Quicksand({
     subsets: ["latin"]
 });
 
-enum SortType {
-    FirstName,
-    LastName,
-    Grade,
-    Points
-}
 
-enum SortDirection {
-    Ascending,
-    Descending
-}
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
     const { theme } = useTheme();
@@ -183,13 +173,13 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <ZAxis dataKey="name" type="category" name="student" />
                                     <Tooltip 
                                         cursor={{ strokeDasharray: '3 3' }}
-                                        formatter={(value: any, name: any) => [value, name]}
+                                        formatter={(value: unknown, name: unknown) => [String(value), String(name)]}
                                         labelFormatter={(label) => `Student: ${label}`}
                                     />
                                     <Scatter 
                                         data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
-                                        shape={(props: any) => {
-                                            const { cx, cy, payload } = props;
+                                        shape={(props: unknown) => {
+                                            const { cx, cy } = props as { cx: number; cy: number };
                                             const color = theme === 'dark' ? "#9ca3af" : "#6b7280";
                                             return (
                                                 <circle

@@ -98,8 +98,8 @@ export default function TopStudentsByGroup(
                                             {
                                                 index == 0 && <div className="text-md font-extrabold rounded-lg flex">
                                                     {
-                                                        student.pointsByPointGroup.map((pointGroup) =>
-                                                            <div className="h-5" style={{
+                                                        student.pointsByPointGroup.map((pointGroup, idx) =>
+                                                            <div key={idx} className="h-5" style={{
                                                                 width: `${(pointGroup.groupPoints / student.totalPoints) * 100}%`,
                                                                 color: Color(pointGroup.groupColor).lighten(0.5).toString(),
                                                             }}>
@@ -112,7 +112,7 @@ export default function TopStudentsByGroup(
                                             <div className="text-md font-extrabold rounded-lg flex">
                                                 {
                                                     student.pointsByPointGroup.map((pointGroup, pointGroupIdx, array) =>
-                                                        <div className="h-full" style={{
+                                                        <div key={pointGroupIdx} className="h-full" style={{
                                                             height: index < 10 ? '1.25rem' : '0.75rem',
                                                             width: `${(pointGroup.groupPoints / student.totalPoints) * 100}%`,
                                                             backgroundColor: Color(pointGroup.groupColor).darken(0.5).toString(),

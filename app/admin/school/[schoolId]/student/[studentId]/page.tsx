@@ -1,14 +1,14 @@
 "use client";
-import { useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import { getAdminStudentDataWithTimeframe } from "@/api/admin";
-import { AdminStudentDashboardData, numberToOrdinal } from "@/app/dataClasses";
+import { numberToOrdinal } from "@/app/dataClasses";
 import { useTimeframe } from "../../TimeframeProvider";
 import { LoadingState } from "@/components/LoadingLayout";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers, faMedal } from "@fortawesome/free-solid-svg-icons";
+import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { DateTime } from "luxon";
 import Color from "color";
 
@@ -29,8 +29,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
     outOf: group.outOf
   })) || [];
 
-  // Prepare recent points data
-  const recentPoints = studentData?.pointEvents.slice(0, 10) || [];
+
 
   return (
     <LoadingState
@@ -116,7 +115,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                           ))}
                         </Pie>
                         <Tooltip 
-                          formatter={(value: any) => [value.toLocaleString(), 'Points']}
+                          formatter={(value: unknown) => [String(value).toLocaleString(), 'Points']}
                         />
                       </PieChart>
                     </ResponsiveContainer>
