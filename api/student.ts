@@ -120,7 +120,7 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
             .from("student")
             .select("*")
             .eq("id", studentId)
-            .eq("linkedUser", userData.id)  // Verify the student is linked to the current user
+            .eq("linkedUser", userData.id)  // Verify the student is linked to the current user (using numeric user ID)
             .single();
 
         if (studentError !== null) {
