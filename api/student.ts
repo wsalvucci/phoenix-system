@@ -131,7 +131,7 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
         if (!studentData) {
             logger.warn('Student found but not linked to current user', { 
                 studentId, 
-                userId: userData.id 
+                userId: userData.id.toString() 
             });
             return null;
         }
