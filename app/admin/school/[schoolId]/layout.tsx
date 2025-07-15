@@ -5,7 +5,7 @@ import Link from "next/link";
 import React from "react";
 import getOwnUserData from "@/app/supaApi/server/getOwnUserData";
 import { getOwnAdminData } from "@/api/admin";
-import { TimeframeProvider, TimeframeDropdown } from "./TimeframeProvider";
+import { TimeframeProvider } from "./TimeframeProvider";
 
 export default async function AdminLayout({ children, params: { schoolId } }: { children: React.ReactNode, params: { schoolId: string } }) {
 
@@ -57,13 +57,13 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
     }
 
     return (
-        <TimeframeProvider>
+        <TimeframeProvider schoolId={schoolId}>
             <div>
                 <div className="h-dvh flex flex-col text-slate-700 dark:text-slate-300">
                     <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
                         <h1 className="text-3xl font-bold">Dashboard</h1>
                         <div className="flex-1 flex justify-center">
-                            <TimeframeDropdown />
+                            {/* Timeframe dropdown will be added later */}
                         </div>
                         <div className="w-32"></div> {/* Spacer to balance the layout */}
                     </header>

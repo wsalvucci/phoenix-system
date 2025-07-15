@@ -49,7 +49,6 @@ export default function CompareContainer(
     }
 
     useEffect(() => {
-        setStudentData(_studentData)
         setGlobalData(_globalData)
         if (_studentData === null) return
         if (_globalData === null) return

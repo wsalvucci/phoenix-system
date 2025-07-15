@@ -1,9 +1,7 @@
 "use server";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
-import { createClient } from "@/utils/supabase/server";
 import { Teacher } from "@/types/domain";
 import { getPhoenixUser } from "./user";
-import { UserContextResolver } from "./core/user-context";
 import { createServerLogger } from "@/utils/serverLogger";
 
 export async function getOwnTeacherData(): Promise<Teacher | null> {

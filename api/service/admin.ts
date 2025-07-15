@@ -25,7 +25,7 @@ export class AdminService {
    * Validates that the user has admin access to the specified school
    * Note: This validation is now handled at the API level before calling AdminService
    */
-  private validateSchoolAccess(_schoolId: number): void {
+  private validateSchoolAccess(_schoolId: number): void { // eslint-disable-line @typescript-eslint/no-unused-vars
     if (this.userContext.role !== 'admin') {
       throw new Error('Access denied - admin role required');
     }

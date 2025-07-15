@@ -64,7 +64,7 @@ export async function getGroupLeaderDashboard(schoolId: number, timeframeId?: nu
       schoolId: schoolId.toString(),
       userId: userContext.userId,
       managedGroupIds: userContext.managedGroupIds,
-      studentCount: (dashboardData as any).students?.length || 0
+      studentCount: Array.isArray(dashboardData.students) ? dashboardData.students.length : 0
     });
 
     return dashboardData;
@@ -244,7 +244,7 @@ export async function getGroupLeaderNearbyRanking(
       userId: userContext.userId,
       targetStudentId: studentId,
       rankWindow,
-      resultCount: (nearbyRankingData as any).nearbyStudents?.length || 0
+      resultCount: Array.isArray(nearbyRankingData.nearbyStudents) ? nearbyRankingData.nearbyStudents.length : 0
     });
 
     return nearbyRankingData;
@@ -320,7 +320,7 @@ export async function getGroupLeaderTopStudents(
       schoolId: schoolId.toString(),
       userId: userContext.userId,
       limit,
-      resultCount: (topStudentsData as any).students?.length || 0
+      resultCount: Array.isArray(topStudentsData.students) ? topStudentsData.students.length : 0
     });
 
     return topStudentsData;

@@ -50,6 +50,7 @@ export default function TopCards() {
                 </select>
             </div>
         );
+    };
 
     const StudentCard = ({ student }: { student: SimpleDashboardData["students"][0] }) => {
         // Function to create gradient text
@@ -66,17 +67,15 @@ export default function TopCards() {
                         2px 2px 3px rgba(0,0,0,0.3),
                         -2px -2px 3px rgba(255,255,255,0.4)
                     `,
+                };
             }
-            
             // Shiny metallic effect for other ranks
             const baseColor = Color(color);
-            
             // Create shiny metallic effect
             const veryLight = baseColor.lighten(0.6).toString();
             const light = baseColor.lighten(0.3).toString();
             const dark = baseColor.darken(0.2).toString();
             const veryDark = baseColor.darken(0.4).toString();
-            
             return {
                 background: `linear-gradient(45deg, ${veryLight} 0%, ${light} 25%, ${baseColor} 40%, ${dark} 60%, ${veryDark} 75%, ${light} 100%)`,
                 backgroundSize: '200% 200%',
@@ -87,7 +86,8 @@ export default function TopCards() {
                     2px 2px 3px rgba(0,0,0,0.2),
                     -2px -2px 3px rgba(255,255,255,0.3)
                 `,
-
+            };
+        };
         return (
             <div className="flex-shrink-0 w-screen p-4 text-off-white rounded-lg shadow-xl border border-border" style={{
                 background: `linear-gradient(45deg, #000000 50%, #ff6b9d 50%, #c44569 56.25%, #feca57 62.5%, #ff9ff3 68.75%, #54a0ff 75%, #5f27cd 81.25%, #00d2d3 87.5%, #ff9f43 93.75%, #ff6b9d 100%)`,

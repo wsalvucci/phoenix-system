@@ -156,13 +156,13 @@ export class AccessControlService {
     return true;
   }
 
-  static getTeacherStudentGroups(_teacherId: number): Promise<number[]> {
+  static getTeacherStudentGroups(_teacherId: number): Promise<number[]> { // eslint-disable-line @typescript-eslint/no-unused-vars
     // This would be implemented to fetch the student groups the teacher manages
     // For now, returning empty array - will be implemented when we build the teacher-specific queries
     return Promise.resolve([]);
   }
 
-  static getGroupLeaderStudentGroups(_groupLeaderId: number): Promise<number[]> {
+  static getGroupLeaderStudentGroups(_groupLeaderId: number): Promise<number[]> { // eslint-disable-line @typescript-eslint/no-unused-vars
     // This would be implemented to fetch the student groups the leader manages
     // For now, returning empty array - will be implemented when we build the leader-specific queries
     return Promise.resolve([]);

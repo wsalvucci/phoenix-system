@@ -103,7 +103,7 @@ export class QueryBuilder {
   /**
    * Gets nearby ranking data for a specific student
    */
-  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters, _userContext: UserContext) {
+  async getNearbyRanking(params: NearbyRankParams, filters: QueryFilters, _userContext: UserContext) { // eslint-disable-line @typescript-eslint/no-unused-vars
     const baseQuery = this.buildBaseStudentPointsQuery(filters);
     
     // Get the target student's rank first
@@ -307,7 +307,7 @@ export class QueryBuilder {
   /**
    * Helper method to process student points data
    */
-  private processStudentPointsData(data: unknown[], _filters: QueryFilters) {
+  private processStudentPointsData(data: unknown[], _filters: QueryFilters) { // eslint-disable-line @typescript-eslint/no-unused-vars
     const studentTotals = this.calculateStudentTotals(data);
     
     // Sort by total points and add rankings

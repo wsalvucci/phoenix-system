@@ -66,14 +66,14 @@ export default function ParentDashboard() {
 
     function ConfirmDisconnect() {
         return (
-            <div key={student.id || index} className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                <div key={student.id || index} className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                <div className="bg-slate-300 dark:bg-slate-700 border p-3 rounded-lg w-1/2">
                     <div>
-                        <div key={student.id || index} className="flex justify-center">Are you sure you want to disconnect from:</div>
-                        <div key={student.id || index} className="flex justify-center">{confirmDisconnectData.name}</div>
-                        <div key={student.id || index} className="flex justify-center">You'll have to ask an admin for their link code to connect to them again.</div>
+                        <div className="flex justify-center">Are you sure you want to disconnect from:</div>
+                        <div className="flex justify-center">{confirmDisconnectData.name}</div>
+                        <div className="flex justify-center">You'll have to ask an admin for their link code to connect to them again.</div>
                     </div>
-                    <div key={student.id || index} className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <button
                             className="bg-red-500 rounded-lg px-3 py-1"
                             onClick={() => {
@@ -102,11 +102,11 @@ export default function ParentDashboard() {
 
 
     return (
-        <div key={student.id || index} className="w-dvw h-dvh bg-slate-100 dark:bg-slate-900">
+        <div className="w-dvw h-dvh bg-slate-100 dark:bg-slate-900">
             {confirmDisconnectData.visible && ConfirmDisconnect()}
             {
                 linkedStudents.map((student) =>
-                    <div key={student.id || index} className="p-5 m-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex justify-between">
+                    <div key={student.id} className="p-5 m-5 rounded-lg bg-slate-200 dark:bg-slate-800 flex justify-between">
                         <div>
                             <div>
                                 {student.name}
@@ -129,9 +129,9 @@ export default function ParentDashboard() {
                     </div>
                 )
             }
-            <div key={student.id || index} className="p-5 m-5 rounded-lg bg-green-200 dark:bg-green-800">
+            <div className="p-5 m-5 rounded-lg bg-green-200 dark:bg-green-800">
                 Add New Student
-                <div key={student.id || index} className="grid gap-1">
+                <div className="grid gap-1">
                     <input
                         type="number"
                         name="schoolId"

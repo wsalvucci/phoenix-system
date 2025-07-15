@@ -44,7 +44,7 @@ export default function MobileDashboard() {
         rank: number;
     }) => {
         return (
-            <div key={student.id || index} className="grid grid-cols-3 px-2 py-1 my-1" style={{
+            <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
                 background: backgroundGradient([
                     {
                         color: rankToColor(rank).darken(0.5).toString(),
@@ -65,17 +65,17 @@ export default function MobileDashboard() {
                 backgroundSize: "cover",
                 textShadow: metalTextShadow,
             }}>
-                <div key={student.id || index} className={`flex ${azeret.className}`}>{rank}</div>
-                <div key={student.id || index} className="flex ">{fullName}</div>
-                <div key={student.id || index} className={`flex justify-end ${azeret.className}`}>{points.toLocaleString()}</div>
+                <div className={`flex ${azeret.className}`}>{rank}</div>
+                <div className="flex ">{fullName}</div>
+                <div className={`flex justify-end ${azeret.className}`}>{points.toLocaleString()}</div>
             </div>
         );
     }
 
     return (
-        <div key={student.id || index} className={`w-full h-svh px-10 text-white bg-slate-800 ${customFont.className} overflow-auto`}>
-            <div key={student.id || index} className="pb-10">
-                <div key={student.id || index} className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
+        <div className={`w-full h-svh px-10 text-white bg-slate-800 ${customFont.className} overflow-auto`}>
+            <div className="pb-10">
+                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
                 <div>
                     {
                         mobileDashData?.students
@@ -97,20 +97,20 @@ export default function MobileDashboard() {
                     }
                 </div>
             </div>
-            <div key={student.id || index} className="flex justify-center">
+            <div className="flex justify-center">
                 <Link
                     href="/student"
                     className="px-2 py-1 mb-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Your Page</Link>
             </div>
-            <div key={student.id || index} className="pb-5">
-                <div key={student.id || index} className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
+            <div className="pb-5">
+                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
                 {
                     mobileDashData?.grades
                     .sort((a, b) => a - b)
                     .map((grade) => {
                         return (
-                            <div key={student.id || index} className="pb-3">
-                                <div key={student.id || index} className="px-2 py-1 my-1 flex justify-center text-lg" style={{
+                            <div key={grade} className="pb-3">
+                                <div className="px-2 py-1 my-1 flex justify-center text-lg" style={{
                                     background: backgroundGradient([
                                         {
                                             color: Color('#555').darken(0.5).toString(),
@@ -154,8 +154,8 @@ export default function MobileDashboard() {
                 {
                     mobileDashData?.rankingGroups.map((rankingGroup) => {
                         return (
-                            <div key={student.id || index} className="pb-10">
-                                <div key={student.id || index} className="px-2 py-1 my-1 flex justify-center text-2xl border-b">
+                            <div key={rankingGroup.id} className="pb-10">
+                                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">
                                     {rankingGroup.name}
                                 </div>
                                 {
@@ -172,7 +172,7 @@ export default function MobileDashboard() {
                                         }
                                         return (
                                             <div key={index}>
-                                                <div key={student.id || index} className="grid grid-cols-3 px-2 py-1 my-1" style={{
+                                                <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
                                                     background: backgroundGradient([
                                                         {
                                                             color: rankToColor(index + 1).darken(0.5).toString(),
@@ -193,9 +193,9 @@ export default function MobileDashboard() {
                                                     backgroundSize: "cover",
                                                     textShadow: metalTextShadow,
                                                 }}>
-                                                    <div key={student.id || index} className="flex ">{index + 1}</div>
-                                                    <div key={student.id || index} className="flex ">{groupData.name}</div>
-                                                    <div key={student.id || index} className={`flex justify-end ${azeret.className}`}>{Math.round(groupData.averagePoints + groupData.rawPoints).toLocaleString()}</div>
+                                                    <div className="flex ">{index + 1}</div>
+                                                    <div className="flex ">{groupData.name}</div>
+                                                    <div className={`flex justify-end ${azeret.className}`}>{Math.round(groupData.averagePoints + groupData.rawPoints).toLocaleString()}</div>
                                                 </div>
                                             </div>
                                         )

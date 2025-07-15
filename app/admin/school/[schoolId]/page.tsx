@@ -38,11 +38,11 @@ enum SortDirection {
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
     const { theme } = useTheme();
-    const { selectedTimeframeId } = useTimeframe();
+    const { selectedTimeframe } = useTimeframe();
     
     const {data: adminDashData, isLoading, error} = useQuery({
-        queryKey: ["adminSchoolDash", schoolId, selectedTimeframeId],
-        queryFn: () => wrapServerAction(getAdminSchoolDashWithTimeframe)(parseInt(schoolId), selectedTimeframeId)
+        queryKey: ["adminSchoolDash", schoolId, selectedTimeframe?.id],
+        queryFn: () => wrapServerAction(getAdminSchoolDashWithTimeframe)(parseInt(schoolId), selectedTimeframe?.id || null)
     })
 
     const [studentSearch, setStudentSearch] = useState<string>("")
@@ -194,12 +194,12 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <ZAxis dataKey="name" type="category" name="student" />
                                     <Tooltip 
                                         cursor={{ strokeDasharray: '3 3' }}
-                                        formatter={(value: unknown, name: unknown) => [value, name]}
+                                        formatter={(value: any, name: any) => [value, name]}
                                         labelFormatter={(label) => `Student: ${label}`}
                                     />
                                     <Scatter 
                                         data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
-                                        shape={(props: unknown) => {
+                                        shape={(props: any) => {
                                             const { cx, cy, payload } = props;
                                             const isHovered = payload.id === studentHover;
                                             const color = isHovered 

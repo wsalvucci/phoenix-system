@@ -13,11 +13,11 @@ import { DateTime } from "luxon";
 import Color from "color";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
-  const { selectedTimeframeId } = useTimeframe();
+  const { selectedTimeframe } = useTimeframe();
   
   const { data: studentData, isLoading, error } = useQuery({
-    queryKey: ["adminStudentData", schoolId, studentId, selectedTimeframeId],
-    queryFn: () => wrapServerAction(getAdminStudentDataWithTimeframe)(parseInt(schoolId), parseInt(studentId), selectedTimeframeId)
+    queryKey: ["adminStudentData", schoolId, studentId, selectedTimeframe?.id],
+    queryFn: () => wrapServerAction(getAdminStudentDataWithTimeframe)(parseInt(schoolId), parseInt(studentId), selectedTimeframe?.id || null)
   });
 
   // Prepare chart data for point groups

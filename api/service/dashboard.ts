@@ -21,7 +21,7 @@ export class DashboardService {
   constructor(supabase: SupabaseClient) {
     // For the dashboard service, we'll create the resolver when needed
     // since we need both auth and db clients
-    this.userContextResolver = null as any; // Will be initialized when needed
+    this.userContextResolver = null as unknown as UserContextResolver; // Will be initialized when needed
     // We'll initialize apiService after resolving user context
   }
 

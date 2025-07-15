@@ -193,6 +193,7 @@ export const useSchoolGroups = (schoolId: number) => {
   });
 };
 
+export const useSchoolGroupsWithCounts = (schoolId: number, includeArchived: boolean = false) => {
   return useQuery({
     queryKey: [...adminQueryKeys.groups(schoolId), 'withCounts', includeArchived],
     queryFn: () => getSchoolGroupsWithCounts(schoolId, includeArchived),
@@ -201,8 +202,9 @@ export const useSchoolGroups = (schoolId: number) => {
   });
 };
 
+export const useGroup = (schoolId: number, groupId: number) => {
   return useQuery({
-    queryKey: adminQueryKeys.group(schoolId, groupId),
+    queryKey: [...adminQueryKeys.groups(schoolId), groupId],
     queryFn: () => getGroupById(schoolId, groupId),
     enabled: !!schoolId && !!groupId,
     staleTime: 5 * 60 * 1000,
@@ -221,7 +223,7 @@ export const useAddStudentToGroup = () => {
     }) => addStudentToGroup(schoolId, groupId, studentId),
     onSuccess: (_, { schoolId, groupId }) => {
       // Invalidate the specific group and all groups lists
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
     },
   });
@@ -238,7 +240,7 @@ export const useRemoveStudentFromGroup = () => {
     }) => removeStudentFromGroup(schoolId, groupId, studentId),
     onSuccess: (_, { schoolId, groupId }) => {
       // Invalidate the specific group and all groups lists
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
     },
   });
@@ -255,7 +257,7 @@ export const useAddTeacherToGroup = () => {
     }) => addTeacherToGroup(schoolId, groupId, teacherId),
     onSuccess: (_, { schoolId, groupId }) => {
       // Invalidate the specific group and all groups lists
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
     },
   });
@@ -272,7 +274,7 @@ export const useRemoveTeacherFromGroup = () => {
     }) => removeTeacherFromGroup(schoolId, groupId, teacherId),
     onSuccess: (_, { schoolId, groupId }) => {
       // Invalidate the specific group and all groups lists
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.group(schoolId, groupId) });
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
     },
   });

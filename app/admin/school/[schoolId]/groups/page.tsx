@@ -484,7 +484,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
         data={groups}
         errorFallback={(err) => <div>Error loading groups: {err.message}</div>}
       >
-        {(data) => (
+        {() => (
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
             {/* Table Header */}
             <div className="grid grid-cols-7 gap-4 py-4 px-6 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
@@ -544,7 +544,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
             <p className="text-slate-600 dark:text-slate-400 mb-6">
               {confirmDialog.type === 'archive' ? (
                 <>
-                  Are you sure you want to archive "{confirmDialog.group.name}"?
+                  Are you sure you want to archive &quot;{confirmDialog.group.name}"?
                   {confirmDialog.group.childGroups && confirmDialog.group.childGroups.length > 0 && (
                     <span className="block mt-2 text-red-600 dark:text-red-400">
                       Warning: This will also hide all child groups from the default view, even if they aren't archived.
@@ -553,7 +553,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 </>
               ) : (
                 <>
-                  Are you sure you want to delete "{confirmDialog.group.name}"?
+                  Are you sure you want to delete &quot;{confirmDialog.group.name}"?
                   {confirmDialog.group.childGroups && confirmDialog.group.childGroups.length > 0 && (
                     <span className="block mt-2 text-blue-600 dark:text-blue-400">
                       Note: {confirmDialog.group.childGroups.length} child group{confirmDialog.group.childGroups.length === 1 ? '' : 's'} will become top-level group{confirmDialog.group.childGroups.length === 1 ? '' : 's'}.
