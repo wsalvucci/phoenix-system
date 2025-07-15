@@ -68,6 +68,11 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     fullAccess: false,
     pointEventIds: []
   });
+  
+  // Search states for teaching assistant modal
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [pointEventSearchTerm, setPointEventSearchTerm] = useState('');
+  const [selectedPointGroupFilter, setSelectedPointGroupFilter] = useState<number>(0);
 
   // Helper: Determine which students/events have changes
   function getChangedMatrix() {
@@ -541,6 +546,10 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         pointEventIds: []
       })
     }
+    // Reset search terms
+    setStudentSearchTerm('')
+    setPointEventSearchTerm('')
+    setSelectedPointGroupFilter(0)
     setTeachingAssistantModalOpen(true)
   }
 
@@ -564,6 +573,10 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       setTeachingAssistantModalOpen(false)
       setEditingAssistant(null)
       setIsAddingAssistant(false)
+      // Reset search terms
+      setStudentSearchTerm('')
+      setPointEventSearchTerm('')
+      setSelectedPointGroupFilter(0)
       fetchTeachingAssistantData()
     } catch (error) {
       console.error("Error saving teaching assistant:", error)
@@ -824,21 +837,49 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {!editingAssistant && (
               <div>
                 <label className="block text-sm font-medium mb-1">Student</label>
-                <select
-                  value={teachingAssistantModalData.studentId}
-                  onChange={(e) => setTeachingAssistantModalData(prev => ({
-                    ...prev,
-                    studentId: parseInt(e.target.value)
-                  }))}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
-                >
-                  <option value={0}>Select a student</option>
-                  {availableStudents.map(student => (
-                    <option key={student.id} value={student.id}>
-                      {student.lastName}, {student.firstName}
-                    </option>
-                  ))}
-                </select>
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    placeholder="Search students..."
+                    value={studentSearchTerm}
+                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 text-sm"
+                  />
+                </div>
+                <div className="h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
+                  {availableStudents
+                    .filter(student => 
+                      studentSearchTerm === '' || 
+                      student.firstName.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                      student.lastName.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                    )
+                    .map(student => (
+                      <label key={student.id} className="flex items-center space-x-2 p-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 rounded">
+                        <input
+                          type="radio"
+                          name="selectedStudent"
+                          checked={teachingAssistantModalData.studentId === student.id}
+                          onChange={() => setTeachingAssistantModalData(prev => ({
+                            ...prev,
+                            studentId: student.id
+                          }))}
+                          className="rounded"
+                        />
+                        <span className="text-sm">
+                          {student.lastName}, {student.firstName}
+                        </span>
+                      </label>
+                    ))}
+                  {availableStudents.filter(student => 
+                    studentSearchTerm === '' || 
+                    student.firstName.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+                    student.lastName.toLowerCase().includes(studentSearchTerm.toLowerCase())
+                  ).length === 0 && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                      No students found matching your search.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -869,32 +910,76 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {!teachingAssistantModalData.fullAccess && (
               <div>
                 <label className="block text-sm font-medium mb-1">Assigned Point Events</label>
-                <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
-                  {teachingAssistantData.pointEvents.map(event => (
-                    <label key={event.id} className="flex items-center space-x-2 p-1">
-                      <input
-                        type="checkbox"
-                        checked={teachingAssistantModalData.pointEventIds.includes(event.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTeachingAssistantModalData(prev => ({
-                              ...prev,
-                              pointEventIds: [...prev.pointEventIds, event.id]
-                            }))
-                          } else {
-                            setTeachingAssistantModalData(prev => ({
-                              ...prev,
-                              pointEventIds: prev.pointEventIds.filter(id => id !== event.id)
-                            }))
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm">
-                        {event.name} ({DateTime.fromISO(event.date).toFormat('MMM dd')})
-                      </span>
-                    </label>
-                  ))}
+                
+                {/* Search and filter controls */}
+                <div className="mb-2 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Search point events..."
+                    value={pointEventSearchTerm}
+                    onChange={(e) => setPointEventSearchTerm(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 text-sm"
+                  />
+                  <select
+                    value={selectedPointGroupFilter}
+                    onChange={(e) => setSelectedPointGroupFilter(parseInt(e.target.value))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 text-sm"
+                  >
+                    <option value={0}>All Point Groups</option>
+                    {teachingAssistantData.pointGroups?.map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    )) || []}
+                  </select>
+                </div>
+
+                <div className="h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded p-2">
+                  {teachingAssistantData.pointEvents
+                    .filter(event => {
+                      // Filter by search term
+                      const matchesSearch = pointEventSearchTerm === '' || 
+                        event.name.toLowerCase().includes(pointEventSearchTerm.toLowerCase());
+                      
+                      // Filter by point group
+                      const matchesGroup = selectedPointGroupFilter === 0 || 
+                        event.pointGroupId === selectedPointGroupFilter;
+                      
+                      return matchesSearch && matchesGroup;
+                    })
+                    .map(event => (
+                      <label key={event.id} className="flex items-center space-x-2 p-1">
+                        <input
+                          type="checkbox"
+                          checked={teachingAssistantModalData.pointEventIds.includes(event.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setTeachingAssistantModalData(prev => ({
+                                ...prev,
+                                pointEventIds: [...prev.pointEventIds, event.id]
+                              }))
+                            } else {
+                              setTeachingAssistantModalData(prev => ({
+                                ...prev,
+                                pointEventIds: prev.pointEventIds.filter(id => id !== event.id)
+                              }))
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <div className="flex items-center space-x-2">
+                          {event.pointGroup && (
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: event.pointGroup.color }}
+                            />
+                          )}
+                          <span className="text-sm">
+                            {event.name} ({DateTime.fromISO(event.date).toFormat('MMM dd')})
+                          </span>
+                        </div>
+                      </label>
+                    ))}
                 </div>
               </div>
             )}
@@ -913,6 +998,10 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 setTeachingAssistantModalOpen(false)
                 setEditingAssistant(null)
                 setIsAddingAssistant(false)
+                // Reset search terms
+                setStudentSearchTerm('')
+                setPointEventSearchTerm('')
+                setSelectedPointGroupFilter(0)
               }}
               className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
             >

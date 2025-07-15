@@ -573,5 +573,16 @@ export type TeachingAssistantManagementData = {
     id: number;
     name: string;
     date: string;
+    pointGroupId: number;
+    pointGroup: {
+      id: number;
+      name: string;
+      color: string;
+    } | null;
+  }[];
+  pointGroups: {
+    id: number;
+    name: string;
+    color: string;
   }[];
 };
