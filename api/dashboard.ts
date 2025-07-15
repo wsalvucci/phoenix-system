@@ -11,6 +11,8 @@ import { DashboardService } from "./service/dashboard";
  * @param timeframeId - The specific timeframe ID to fetch, or null to get active timeframe
  * @returns Promise<{ id: number, name: string, starts_at: string, ends_at: string, active: boolean, school_id: number }>
  */
+// This function is currently unused but may be needed in the future
+/*
 async function getTimeframeData(schoolId: number, timeframeId: number | null): Promise<Timeframe[]> {
     const startTime = Date.now();
     const logger = createServerLogger({ 
@@ -51,6 +53,7 @@ async function getTimeframeData(schoolId: number, timeframeId: number | null): P
         throw error;
     }
 }
+*/
 
 export async function checkSchoolAccess(schoolId: number): Promise<boolean> {
     const startTime = Date.now();
