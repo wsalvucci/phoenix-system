@@ -91,57 +91,37 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
             return null;
         }
 
-        // Check if user has a student relationship (either direct or through user_student_pair)
-        let studentId: number | null = null;
-
-        // First check direct student relationship
-        if (userData.student_id) {
-            studentId = userData.student_id;
-        } else {
-            // Check user_student_pair relationship
-            const { data: studentPairs } = await supabase
-                .from('user_student_pair')
-                .select('student_id')
-                .eq('user_id', userData.id)
-                .limit(1);
-
-            if (studentPairs && studentPairs.length > 0) {
-                studentId = studentPairs[0].student_id;
-            }
-        }
-
-        if (!studentId) {
-            logger.warn('User has no student relationship');
-            return null;
-        }
-
-        // Get student data (we already verified the relationship exists through user_student_pair or user.student_id)
+        // Get all students whose linkedUser field matches the current user's ID
         const { data: studentData, error: studentError } = await supabase
             .from("student")
             .select("*")
-            .eq("id", studentId)
-            .single();
+            .eq("linkedUser", userData.id);  // Find all students linked to this user
 
         if (studentError !== null) {
             logger.error("Error fetching student data:", { studentError });
             return null;
         }
 
-        if (!studentData) {
-            logger.warn('Student not found', { studentId });
+        if (!studentData || studentData.length === 0) {
+            logger.warn('No students found linked to current user', { 
+                userId: userData.id.toString() 
+            });
             return null;
         }
 
+        // Use the first student if multiple are found
+        const studentRecord = studentData[0];
+
         const student: Student = {
-            id: studentData.id,
-            schoolId: studentData.school_id,
-            linkCode: studentData.link_code,
-            firstName: studentData.first_name,
-            lastName: studentData.last_name,
-            birthdate: studentData.birthdate,
-            grade: studentData.grade,
-            gender: studentData.gender,
-            linkedUserId: studentData.linkedUser,
+            id: studentRecord.id,
+            schoolId: studentRecord.school_id,
+            linkCode: studentRecord.link_code,
+            firstName: studentRecord.first_name,
+            lastName: studentRecord.last_name,
+            birthdate: studentRecord.birthdate,
+            grade: studentRecord.grade,
+            gender: studentRecord.gender,
+            linkedUserId: studentRecord.linkedUser,
         };
 
         logger.info('Student data retrieved successfully', { 
