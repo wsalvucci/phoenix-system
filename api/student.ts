@@ -115,15 +115,24 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
             return null;
         }
 
-        // Get student data
+        // Get student data and verify it's linked to the current user
         const { data: studentData, error: studentError } = await supabase
             .from("student")
             .select("*")
             .eq("id", studentId)
+            .eq("linkedUser", userData.id)  // Verify the student is linked to the current user
             .single();
 
         if (studentError !== null) {
             logger.error("Error fetching student data:", { studentError });
+            return null;
+        }
+
+        if (!studentData) {
+            logger.warn('Student found but not linked to current user', { 
+                studentId, 
+                userId: userData.id 
+            });
             return null;
         }
 
