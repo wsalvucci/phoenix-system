@@ -858,7 +858,7 @@ export async function updateGroup(schoolId: number, groupId: number, groupData: 
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (groupData.name !== undefined) updateData.name = groupData.name;
     if (groupData.parentId !== undefined) updateData.parent_id = groupData.parentId;
 

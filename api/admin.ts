@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 
 import { AdminHomeDashboard, AdminSchoolDash, Admin } from '@/types/domain';
 import { createServerLogger } from '@/utils/serverLogger';
-import { getSchoolStudents } from './admin/students';
+
 import { AdminService } from './service/admin';
 import { UserContextResolver } from './core/user-context';
 import { AdminStudentDashboardData } from '@/app/dataClasses';

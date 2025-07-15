@@ -1,9 +1,8 @@
 "use server";
-import { getSupabaseUser } from "@/api/user";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
-import { percentileToRating, Rating, Timeframe } from "@/types/domain";
+import { Timeframe } from "@/types/domain";
 import { SimpleDashboardData } from "./service/dashboard";
-import { createServerLogger, logDatabaseQuery, logServerError } from "@/utils/serverLogger";
+import { createServerLogger, logDatabaseQuery } from "@/utils/serverLogger";
 import { DashboardService } from "./service/dashboard";
 
 /**

@@ -279,7 +279,7 @@ export class AdminQueryBuilder {
 
     try {
       // Update student data
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (params.firstName !== undefined) updateData.first_name = params.firstName;
       if (params.lastName !== undefined) updateData.last_name = params.lastName;
       if (params.grade !== undefined) updateData.grade = params.grade;

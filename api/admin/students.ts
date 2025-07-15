@@ -396,7 +396,7 @@ export async function updateStudent(studentId: number, studentData: {
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (studentData.firstName !== undefined) updateData.first_name = studentData.firstName;
     if (studentData.lastName !== undefined) updateData.last_name = studentData.lastName;
     if (studentData.grade !== undefined) updateData.grade = studentData.grade;
