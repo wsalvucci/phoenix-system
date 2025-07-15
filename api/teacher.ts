@@ -691,7 +691,7 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
         student_id,
         group_id,
         full_access,
-        student:student_id (
+        student (
           id,
           first_name,
           last_name
@@ -708,7 +708,7 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
     const { data: groupStudents, error: studentsError } = await supabase
       .from('student_group_pair')
       .select(`
-        student:student_id (
+        student (
           id,
           first_name,
           last_name
