@@ -4,6 +4,56 @@ import { Teacher, TeachingAssistant } from "@/types/domain";
 import { getPhoenixUser } from "./user";
 import { createServerLogger } from "@/utils/serverLogger";
 
+/**
+ * Centralized function to check if a teacher has access to a specific group
+ * Handles multi-teacher scenarios where a user might have multiple teacher records
+ */
+async function checkTeacherGroupAccess(teacher: Teacher, groupId: number): Promise<boolean> {
+  const logger = createServerLogger({ component: 'TeacherAPI', action: 'checkTeacherGroupAccess' });
+  
+  try {
+    if (!teacher.linkedUserId) {
+      logger.warn('Teacher has no linked user ID');
+      return false;
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Get all teacher records for this user
+    const { data: allTeachers, error: teachersError } = await supabase
+      .from('teacher')
+      .select('id')
+      .eq('linked_user', teacher.linkedUserId);
+
+    if (teachersError) {
+      logger.error('Error fetching teacher records:', { teachersError });
+      return false;
+    }
+
+    const teacherIds = allTeachers?.map(t => t.id) || [];
+    
+    // Check if any teacher record has access to this group
+    const { data: teacherGroupAccess, error: accessError } = await supabase
+      .from('teacher_student_group_pair')
+      .select('group_id')
+      .in('teacher_id', teacherIds)
+      .eq('group_id', groupId)
+      .limit(1);
+
+    if (accessError || !teacherGroupAccess || teacherGroupAccess.length === 0) {
+      logger.warn('Teacher does not have access to this group', { teacherIds, groupId });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    logger.error('Error checking teacher group access', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, error instanceof Error ? error : undefined);
+    return false;
+  }
+}
+
 export async function getOwnTeacherData(): Promise<Teacher | null> {
     const logger = createServerLogger({ component: 'TeacherAPI', action: 'getOwnTeacherData' });
     
@@ -616,7 +666,8 @@ export async function getTeacherRankingGroupScorebook(rankingGroupId: number): P
 export async function getTeachingAssistantData(groupId: number): Promise<{
   assistants: TeachingAssistant[];
   availableStudents: { id: number; firstName: string; lastName: string }[];
-  pointEvents: { id: number; name: string; date: string }[];
+  pointEvents: { id: number; name: string; date: string; pointGroupId: number; pointGroup: { id: number; name: string; color: string } | null }[];
+  pointGroups: { id: number; name: string; color: string }[];
 }> {
   const logger = createServerLogger({ component: 'TeacherAPI', action: 'getTeachingAssistantData' });
   
@@ -642,27 +693,10 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
         .single();
 
       if (userRow) {
-        // Get all teacher records for this user
-        const { data: teacherRows } = await supabase
-          .from('teacher')
-          .select('id')
-          .eq('linked_user', userRow.id);
+        // Check teacher access using centralized function
+        hasAccess = await checkTeacherGroupAccess(teacher, groupId);
 
-        if (teacherRows && teacherRows.length > 0) {
-          const teacherIds = teacherRows.map(t => t.id);
-          const { data: teacherGroupAccess } = await supabase
-            .from('teacher_student_group_pair')
-            .select('group_id')
-            .in('teacher_id', teacherIds)
-            .eq('group_id', groupId)
-            .limit(1);
-
-          if (teacherGroupAccess && teacherGroupAccess.length > 0) {
-            hasAccess = true;
-          }
-        }
-
-        // Check teaching assistant access
+        // Check teaching assistant access if not a teacher
         if (!hasAccess) {
           const { data: taRow } = await supabase
             .from('teaching_assistant')
@@ -721,10 +755,20 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
       throw new Error('Failed to fetch group students');
     }
 
-    // Get point events for this group
+    // Get point events for this group with point group information
     const { data: pointEvents, error: eventsError } = await supabase
       .from('point_event')
-      .select('id, name, date')
+      .select(`
+        id,
+        name,
+        date,
+        point_group_id,
+        point_group (
+          id,
+          name,
+          color
+        )
+      `)
       .eq('student_group_id', groupId);
 
     if (eventsError) {
@@ -757,8 +801,23 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
     const formattedPointEvents = pointEvents?.map(event => ({
       id: event.id,
       name: event.name || '',
-      date: event.date || ''
+      date: event.date || '',
+      pointGroupId: event.point_group_id || 0,
+      pointGroup: event.point_group ? {
+        id: event.point_group.id,
+        name: event.point_group.name,
+        color: event.point_group.color
+      } : null
     })) || [];
+
+    // Get unique point groups for filtering
+    const uniquePointGroups = Array.from(
+      new Map(
+        formattedPointEvents
+          .filter(event => event.pointGroup)
+          .map(event => [event.pointGroup!.id, event.pointGroup!])
+      ).values()
+    );
 
     logger.info('Teaching assistant data retrieved successfully', {
       teacherId: teacher.id,
@@ -771,7 +830,8 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
     return {
       assistants: formattedAssistants,
       availableStudents,
-      pointEvents: formattedPointEvents
+      pointEvents: formattedPointEvents,
+      pointGroups: uniquePointGroups
     };
   } catch (error) {
     logger.error('Failed to get teaching assistant data', {
@@ -801,34 +861,9 @@ export async function assignTeachingAssistant(
 
     const supabase = await supabaseServiceClient();
     
-    // Get all teacher records for this user
-    if (!teacher.linkedUserId) {
-      logger.warn('Teacher has no linked user ID');
-      throw new Error('Teacher not properly linked to user');
-    }
-
-    const { data: allTeachers, error: teachersError } = await supabase
-      .from('teacher')
-      .select('id')
-      .eq('linked_user', teacher.linkedUserId);
-
-    if (teachersError) {
-      logger.error('Error fetching teacher records:', { teachersError });
-      throw new Error('Failed to verify teacher access');
-    }
-
-    const teacherIds = allTeachers?.map(t => t.id) || [];
-    
-    // Check if any teacher record has access to this group
-    const { data: teacherGroupAccess, error: accessError } = await supabase
-      .from('teacher_student_group_pair')
-      .select('group_id')
-      .in('teacher_id', teacherIds)
-      .eq('group_id', groupId)
-      .limit(1);
-
-    if (accessError || !teacherGroupAccess || teacherGroupAccess.length === 0) {
-      logger.warn('Teacher does not have access to this group', { teacherIds, groupId });
+    // Check if teacher has access to this group using centralized function
+    const hasAccess = await checkTeacherGroupAccess(teacher, groupId);
+    if (!hasAccess) {
       throw new Error('Access denied to this group');
     }
 
@@ -926,16 +961,9 @@ export async function updateTeachingAssistant(
 
     const supabase = await supabaseServiceClient();
     
-    // Check if teacher has access to this group
-    const { data: teacherGroupAccess, error: accessError } = await supabase
-      .from('teacher_student_group_pair')
-      .select('group_id')
-      .eq('teacher_id', teacher.id)
-      .eq('group_id', groupId)
-      .single();
-
-    if (accessError || !teacherGroupAccess) {
-      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+    // Check if teacher has access to this group using centralized function
+    const hasAccess = await checkTeacherGroupAccess(teacher, groupId);
+    if (!hasAccess) {
       throw new Error('Access denied to this group');
     }
 
@@ -1024,16 +1052,9 @@ export async function removeTeachingAssistant(groupId: number, assistantId: numb
 
     const supabase = await supabaseServiceClient();
     
-    // Check if teacher has access to this group
-    const { data: teacherGroupAccess, error: accessError } = await supabase
-      .from('teacher_student_group_pair')
-      .select('group_id')
-      .eq('teacher_id', teacher.id)
-      .eq('group_id', groupId)
-      .single();
-
-    if (accessError || !teacherGroupAccess) {
-      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+    // Check if teacher has access to this group using centralized function
+    const hasAccess = await checkTeacherGroupAccess(teacher, groupId);
+    if (!hasAccess) {
       throw new Error('Access denied to this group');
     }
 
@@ -1100,16 +1121,9 @@ export async function clearTeachingAssistantPointEvents(groupId: number, assista
 
     const supabase = await supabaseServiceClient();
     
-    // Check if teacher has access to this group
-    const { data: teacherGroupAccess, error: accessError } = await supabase
-      .from('teacher_student_group_pair')
-      .select('group_id')
-      .eq('teacher_id', teacher.id)
-      .eq('group_id', groupId)
-      .single();
-
-    if (accessError || !teacherGroupAccess) {
-      logger.warn('Teacher does not have access to this group', { teacherId: teacher.id, groupId });
+    // Check if teacher has access to this group using centralized function
+    const hasAccess = await checkTeacherGroupAccess(teacher, groupId);
+    if (!hasAccess) {
       throw new Error('Access denied to this group');
     }
 
