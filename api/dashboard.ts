@@ -1,8 +1,7 @@
 "use server";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
-import { Timeframe } from "@/types/domain";
 import { SimpleDashboardData } from "./service/dashboard";
-import { createServerLogger, logDatabaseQuery } from "@/utils/serverLogger";
+import { createServerLogger } from "@/utils/serverLogger";
 import { DashboardService } from "./service/dashboard";
 
 /**
