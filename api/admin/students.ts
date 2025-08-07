@@ -66,6 +66,7 @@ export async function getSchoolStudents(schoolId: number): Promise<AdminStudentD
         birthdate,
         gender,
         powerschool_id,
+        link_code,
         student_group_pair (
           student_group_id
         )
@@ -85,6 +86,7 @@ export async function getSchoolStudents(schoolId: number): Promise<AdminStudentD
       birthdate: student.birthdate,
       gender: student.gender,
       powerschoolId: student.powerschool_id,
+      linkCode: student.link_code,
       groupIds: student.student_group_pair?.map(pair => pair.student_group_id) || []
     })) || [];
 

@@ -9,6 +9,7 @@ export interface AdminStudentData {
   birthdate?: string;
   gender?: string;
   powerschoolId?: number;
+  linkCode?: string;
   schoolId: number;
   groupIds: number[];
 }
@@ -119,6 +120,7 @@ export class AdminQueryBuilder {
           birthdate,
           gender,
           powerschool_id,
+          link_code,
           school_id,
           student_group_pair (
             student_group_id
@@ -139,6 +141,7 @@ export class AdminQueryBuilder {
         birthdate: student.birthdate,
         gender: student.gender,
         powerschoolId: student.powerschool_id,
+        linkCode: student.link_code,
         schoolId: student.school_id,
         groupIds: student.student_group_pair?.map(pair => pair.student_group_id) || []
       })) || [];
@@ -169,6 +172,7 @@ export class AdminQueryBuilder {
           birthdate,
           gender,
           powerschool_id,
+          link_code,
           school_id,
           student_group_pair (
             student_group_id
@@ -193,6 +197,7 @@ export class AdminQueryBuilder {
         birthdate: student.birthdate,
         gender: student.gender,
         powerschoolId: student.powerschool_id,
+        linkCode: student.link_code,
         schoolId: student.school_id,
         groupIds: student.student_group_pair?.map(pair => pair.student_group_id) || []
       };

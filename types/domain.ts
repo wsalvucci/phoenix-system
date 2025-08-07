@@ -248,6 +248,7 @@ export type AdminStudentData = {
   birthdate?: string | null;
   gender?: string | null;
   powerschoolId?: number;
+  linkCode?: string;
   groupIds?: number[];
   totalPoints?: number;
 };
