@@ -5,6 +5,7 @@ import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { createClient } from "@/utils/supabase/server";
 import { UserContextResolver } from "./core/user-context";
 import { createServerLogger } from "@/utils/serverLogger";
+import { TeacherTimeframe } from "@/types/domain";
 
 export async function getOwnStudentData(): Promise<Student | null> {
     const logger = createServerLogger({ component: 'StudentAPI', action: 'getOwnStudentData' });
@@ -300,6 +301,79 @@ export async function getStudentRecentEvents(limit: number = 10) {
             error: error instanceof Error ? error.message : 'Unknown error' 
         }, error instanceof Error ? error : undefined);
         return null;
+    }
+}
+
+/**
+ * Gets the list of student groups where the current student is a teaching assistant,
+ * including whether access is full or limited and which point events are allowed when limited.
+ */
+export async function getStudentTeachingAssistantGroups(): Promise<{
+    group: { id: number; name: string };
+    fullAccess: boolean;
+    allowedPointEventIds: number[] | null;
+}[]> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentTeachingAssistantGroups' });
+    try {
+        const authClient = createClient();
+        const supabase = await supabaseServiceClient();
+
+        const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+        if (authError || !supabaseUser) return [];
+
+        const { data: userRow, error: userError } = await supabase
+            .from('user')
+            .select('id')
+            .eq('supabase_id', supabaseUser.id)
+            .single();
+        if (userError || !userRow) return [];
+
+        // Find student record(s) linked to this user, then match teaching_assistant by student_id
+        const { data: linkedStudents, error: lsError } = await supabase
+            .from('student')
+            .select('id')
+            .eq('linkedUser', userRow.id);
+        if (lsError || !linkedStudents || linkedStudents.length === 0) return [];
+        const studentIds = linkedStudents.map(s => s.id);
+
+        const { data: assistants, error: taError } = await supabase
+            .from('teaching_assistant')
+            .select('id, group_id, full_access')
+            .in('student_id', studentIds);
+        if (taError || !assistants || assistants.length === 0) return [];
+
+        const groupIds = Array.from(new Set(assistants.map(a => a.group_id)));
+        const { data: groups, error: groupsError } = await supabase
+            .from('student_group')
+            .select('id, name')
+            .in('id', groupIds);
+        if (groupsError) return [];
+        const idToGroup = new Map<number, { id: number; name: string }>();
+        (groups || []).forEach(g => idToGroup.set(g.id, { id: g.id, name: g.name }));
+
+        const results: { group: { id: number; name: string }; fullAccess: boolean; allowedPointEventIds: number[] | null }[] = [];
+        for (const ta of assistants) {
+            let allowed: number[] | null = null;
+            if (!ta.full_access) {
+                const { data: rows } = await supabase
+                    .from('teaching_assistant_point_event')
+                    .select('point_event_id')
+                    .eq('assistant_id', ta.id);
+                allowed = (rows || []).map(r => r.point_event_id);
+            }
+            const group = idToGroup.get(ta.group_id);
+            if (group) {
+                results.push({
+                    group,
+                    fullAccess: !!ta.full_access,
+                    allowedPointEventIds: allowed,
+                });
+            }
+        }
+        return results;
+    } catch (error) {
+        logger.error('Failed to get student TA groups', { error: error instanceof Error ? error.message : 'Unknown error' }, error instanceof Error ? error : undefined);
+        return [];
     }
 }
 

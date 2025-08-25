@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends } from "@/api/student";
+import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends, getStudentTeachingAssistantGroups } from "@/api/student";
 import { StudentDashboardData, StudentRecentEvent, rankToColor, rankToColorWithOpacity, StudentMonthlyTrends } from "@/types/domain";
 import dynamic from "next/dynamic";
 import "./victorian-theme.css";
@@ -57,6 +57,7 @@ export default async function StudentDashboard() {
     const dashboardData = await getStudentDashboardData();
     const recentEvents = await getStudentRecentEvents(5);
     const monthlyTrends: StudentMonthlyTrends | null = await getStudentMonthlyTrends();
+  const taGroups = await getStudentTeachingAssistantGroups();
 
     if (!dashboardData) {
         return (
@@ -233,6 +234,23 @@ export default async function StudentDashboard() {
                                 >
                                     Compare Rankings
                                 </Link>
+                            {taGroups.length > 0 && (
+                              <div className="pt-2">
+                                <div className="victorian-subtitle font-medium text-sm mb-2">Teaching Assistant Scorebooks</div>
+                                <div className="space-y-2">
+                                  {taGroups.map((g) => (
+                                    <Link
+                                      key={g.group.id}
+                                      href={`/student/scorebook/${g.group.id}`}
+                                      className="victorian-button-secondary inline-flex items-center justify-between w-full px-4 py-3 rounded-lg"
+                                    >
+                                      <span>{g.group.name}</span>
+                                      <span className="text-xs text-gray-500">{g.fullAccess ? 'All events' : 'Limited events'}</span>
+                                    </Link>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             </div>
                         </div>
                     </div>

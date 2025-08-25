@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { DateTime } from "luxon"
 import { getTeacherRankingGroupScorebook } from "@/api/teacher"
 import { RankingGroupScorebookData } from "@/types/domain"
@@ -25,6 +26,10 @@ type CurrentlyEditedPointEvent = {
 }
 
 export default function TeacherRankingGroup({ params: { groupId } }: { params: { groupId: string } }) {
+  const router = useRouter()
+  const [isTooSmall, setIsTooSmall] = useState<boolean>(false)
+  const MIN_WIDTH = 768
+
   const [rankingGroupData, setRankingGroupData] = useState<RankingGroupScorebookData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -46,6 +51,35 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
     queryKey: ["teacherRankingGroupScorebook", groupId],
     queryFn: () => wrapServerAction(getTeacherRankingGroupScorebook)(parseInt(groupId))
   });
+
+  useEffect(() => {
+    const check = () => setIsTooSmall(window.innerWidth < MIN_WIDTH)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Conditional rendering instead of early return to avoid hooks issues
+  const renderContent = () => {
+    if (isTooSmall) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 text-center">
+          <div className="max-w-md space-y-4">
+            <h1 className="text-2xl font-semibold">Use a larger screen</h1>
+            <p className="text-slate-600 dark:text-slate-300">The scorebook is only available on tablets and larger devices. Please switch to a larger screen.</p>
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded bg-blue-600 text-white px-4 py-2"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+      return renderContent()
+  }
 
   useEffect(() => {
     if (data) {

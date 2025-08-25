@@ -440,6 +440,14 @@ export async function featuredDashGetGlobalStats(
     return await getGlobalPointStats(schoolId, timeframeId, 20, 5, 0.33);
 }
 
+export async function mobileDashGetGlobalStats(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<GlobalPoints | null> {
+    // Uncapped: return all students with no privacy filters applied
+    return await getGlobalPointStats(schoolId, timeframeId, null, null, null);
+}
+
 async function getGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,

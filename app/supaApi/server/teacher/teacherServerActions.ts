@@ -166,56 +166,78 @@ export async function deletePointEvent(pointEventId: number): Promise<boolean> {
 }
 
 export async function newGetScorebookData(studentGroupId: number, timeframeId?: number | null): Promise<NewScorebookData> {
-    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
-    if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
     const supabase = await supabaseServiceClient();
-    const { data: studentGroupData, error: studentGroupDataError } = await supabase.from("student_group").select("*, student(*)").eq("id", studentGroupId).single();
-    if (studentGroupDataError) throw new Error(studentGroupDataError.message);
-    if (studentGroupData == null) throw new Error("No student group data");
-    
-    // Check if current user is a teaching assistant for this group
     const authClient = createClient();
-    const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
-    
+
+    // Determine who is accessing: teacher and/or teaching assistant
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData?.user) {
+        throw new Error("Not authenticated");
+    }
+
+    const { data: userRow, error: userError } = await supabase
+        .from("user")
+        .select("id")
+        .eq("supabase_id", authData.user.id)
+        .single();
+    if (userError || !userRow) throw new Error("User not found");
+
+    // Check teacher access
+    let hasTeacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+    // Check teaching assistant access and scope (support users who are both teacher and student)
     let accessiblePointEventIds: number[] | null = null;
-    
-    if (!authError && supabaseUser) {
-        // Get numeric user ID from user table
-        const { data: userRow, error: userError } = await supabase
-            .from("user")
+    if (!hasTeacherAccess) {
+        // Find all student records linked to this user
+        const { data: linkedStudents } = await supabase
+            .from("student")
             .select("id")
-            .eq("supabase_id", supabaseUser.id)
-            .single();
-            
-        if (!userError && userRow) {
-            // Check if user is a teaching assistant for this group
-            const { data: teachingAssistantData, error: taError } = await supabase
-                .from("teaching_assistant")
-                .select("id, full_access")
-                .eq("group_id", studentGroupId)
-                .eq("student_id", userRow.id)
-                .single();
-                
-            if (!taError && teachingAssistantData) {
-                if (!teachingAssistantData.full_access) {
-                    // Get specific point events this assistant has access to
-                    const { data: pointEventAccessData, error: accessError } = await supabase
-                        .from("teaching_assistant_point_event")
-                        .select("point_event_id")
-                        .eq("assistant_id", teachingAssistantData.id);
-                        
-                    if (!accessError && pointEventAccessData) {
-                        accessiblePointEventIds = pointEventAccessData.map(item => item.point_event_id);
-                    }
-                }
-                // If full_access is true, accessiblePointEventIds remains null (access to all)
-            }
+            .eq("linkedUser", userRow.id);
+
+        const studentIds: number[] = Array.isArray(linkedStudents) ? linkedStudents.map(s => s.id) : [];
+        if (studentIds.length === 0) {
+            throw new Error("Access denied to this student group");
+        }
+
+        // Find any TA rows for this group across linked students
+        const { data: assistants } = await supabase
+            .from("teaching_assistant")
+            .select("id, full_access, student_id")
+            .eq("group_id", studentGroupId)
+            .in("student_id", studentIds);
+
+        if (!assistants || assistants.length === 0) {
+            throw new Error("Access denied to this student group");
+        }
+
+        // If any assistant has full access, grant all events
+        if (assistants.some(a => a.full_access)) {
+            accessiblePointEventIds = null;
+        } else {
+            // Union allowed events across assistant records
+            const assistantIds = assistants.map(a => a.id);
+            const { data: pointEventAccessData } = await supabase
+                .from("teaching_assistant_point_event")
+                .select("point_event_id, assistant_id")
+                .in("assistant_id", assistantIds);
+            accessiblePointEventIds = Array.from(new Set((pointEventAccessData || []).map(r => r.point_event_id)));
         }
     }
-    
+
+    const { data: studentGroupData, error: studentGroupDataError } = await supabase
+        .from("student_group")
+        .select("*, student(*)")
+        .eq("id", studentGroupId)
+        .single();
+    if (studentGroupDataError) throw new Error(studentGroupDataError.message);
+    if (studentGroupData == null) throw new Error("No student group data");
+
     // Build point event query with optional timeframe filtering
-    let pointEventQuery = supabase.from("point_event").select("*, point_group (*), student_point (*, student (id, first_name, last_name, powerschool_id, student_group (*)))").eq("student_group_id", studentGroupId);
-    
+    let pointEventQuery = supabase
+        .from("point_event")
+        .select("*, point_group (*), student_point (*, student (id, first_name, last_name, powerschool_id, student_group (*)))")
+        .eq("student_group_id", studentGroupId);
+
     // Add timeframe filtering if timeframeId is provided
     if (timeframeId !== null && timeframeId !== undefined) {
         // Get the timeframe dates
@@ -233,7 +255,17 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
     }
     
     // Filter by accessible point events if user is a teaching assistant with limited access
-    if (accessiblePointEventIds !== null && accessiblePointEventIds.length > 0) {
+    if (accessiblePointEventIds !== null) {
+        // If assistant has limited list and it's empty, return no events
+        if (accessiblePointEventIds.length === 0) {
+            const empty: NewScorebookData = {
+                pointEvents: [],
+                students: [],
+                studentGroup: { id: studentGroupId, name: studentGroupData.name },
+                pointGroups: []
+            };
+            return empty;
+        }
         pointEventQuery = pointEventQuery.in("id", accessiblePointEventIds);
     }
     
@@ -293,6 +325,107 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
             color: pg.color
         })) : []
     };
+}
+
+export async function updateStudentPointsByAssistant(
+    studentGroupId: number,
+    pointEventId: number,
+    updates: { studentId: number; input: number; value: number; notes: string }[],
+): Promise<boolean> {
+    const supabase = await supabaseServiceClient();
+    const authClient = createClient();
+
+    // Auth and user lookup
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData?.user) {
+        console.error("User not authenticated", authError);
+        return false;
+    }
+
+    const { data: userRow, error: userError } = await supabase
+        .from("user")
+        .select("id")
+        .eq("supabase_id", authData.user.id)
+        .single();
+    if (userError || !userRow) {
+        console.error("Could not find user row for supabase_id", authData.user.id, userError);
+        return false;
+    }
+
+    // Verify point event belongs to the group
+    const { data: pointEvent, error: peError } = await supabase
+        .from("point_event")
+        .select("id, student_group_id")
+        .eq("id", pointEventId)
+        .single();
+    if (peError || !pointEvent || pointEvent.student_group_id !== studentGroupId) {
+        console.error("Point event not found or does not belong to group", { pointEventId, studentGroupId });
+        return false;
+    }
+
+    // Check teacher access first (teachers always allowed)
+    const isTeacher = await checkTeacherAccessToStudentGroup(studentGroupId);
+    let allowed = isTeacher;
+
+    // If not teacher, check assistant access
+    if (!allowed) {
+        // Find student records for this user
+        const { data: linkedStudents } = await supabase
+            .from("student")
+            .select("id")
+            .eq("linkedUser", userRow.id);
+        const studentIds: number[] = Array.isArray(linkedStudents) ? linkedStudents.map(s => s.id) : [];
+        if (studentIds.length === 0) {
+            console.error("No assistant access to group (no linked students)");
+            return false;
+        }
+
+        // Find TA rows
+        const { data: assistants } = await supabase
+            .from("teaching_assistant")
+            .select("id, full_access")
+            .eq("group_id", studentGroupId)
+            .in("student_id", studentIds);
+        if (!assistants || assistants.length === 0) {
+            console.error("No assistant access to group");
+            return false;
+        }
+
+        // If any assistant has full access, allow
+        if (assistants.some(a => a.full_access)) {
+            allowed = true;
+        } else {
+            const assistantIds = assistants.map(a => a.id);
+            const { data: accessRows } = await supabase
+                .from("teaching_assistant_point_event")
+                .select("point_event_id")
+                .in("assistant_id", assistantIds)
+                .eq("point_event_id", pointEventId);
+            if (!accessRows || accessRows.length === 0) {
+                console.error("Assistant does not have access to this event");
+                return false;
+            }
+            allowed = true;
+        }
+    }
+
+    if (!allowed) return false;
+
+    // Upsert student points
+    const rows = updates.map((u) => ({
+        student_id: u.studentId,
+        point_event_id: pointEventId,
+        input_score: u.input,
+        point_value: u.value,
+        notes: u.notes ?? null,
+    }));
+
+    const { error: upsertError } = await supabase.from("student_point").upsert(rows);
+    if (upsertError) {
+        console.error("Error updating student points as assistant", upsertError);
+        return false;
+    }
+    return true;
 }
 
 export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent, studentGroupId: number): Promise<boolean> {
@@ -769,33 +902,65 @@ export async function editRankingGroupPointEvent(
 }
 
 export async function getTeacherSchoolTimeframes(studentGroupId: number): Promise<TeacherTimeframe[]> {
-    const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
-    if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
-    
     const supabase = await supabaseServiceClient();
-    
+    const authClient = createClient();
+
+    // Allow if current user is a teacher for the group OR a TA in the group
+    let allowed = await checkTeacherAccessToStudentGroup(studentGroupId);
+
+    if (!allowed) {
+        const { data: authData } = await authClient.auth.getUser();
+        if (authData?.user) {
+            const { data: userRow } = await supabase
+                .from("user")
+                .select("id")
+                .eq("supabase_id", authData.user.id)
+                .single();
+            if (userRow) {
+                const { data: linkedStudents } = await supabase
+                    .from("student")
+                    .select("id")
+                    .eq("linkedUser", userRow.id);
+                const studentIds: number[] = Array.isArray(linkedStudents) ? linkedStudents.map(s => s.id) : [];
+                if (studentIds.length > 0) {
+                    const { data: assistants } = await supabase
+                        .from("teaching_assistant")
+                        .select("id")
+                        .eq("group_id", studentGroupId)
+                        .in("student_id", studentIds)
+                        .limit(1);
+                    if (assistants && assistants.length > 0) {
+                        allowed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!allowed) throw new Error("Teacher does not have access to this student group");
+
     // Get the school_id for this student group
     const { data: studentGroupData, error: studentGroupError } = await supabase
         .from("student_group")
         .select("school_id")
         .eq("id", studentGroupId)
         .single();
-    
+
     if (studentGroupError || !studentGroupData || !studentGroupData.school_id) {
         throw new Error("Student group not found or has no school");
     }
-    
+
     // Get all timeframes for this school
     const { data: timeframes, error: timeframesError } = await supabase
         .from("school_timeframes")
         .select("id, name, starts_at, ends_at, active")
         .eq("school_id", studentGroupData.school_id)
         .order("starts_at", { ascending: false });
-    
+
     if (timeframesError) {
         throw new Error("Failed to fetch timeframes");
     }
-    
+
     return timeframes.map(timeframe => ({
         id: timeframe.id,
         name: timeframe.name,

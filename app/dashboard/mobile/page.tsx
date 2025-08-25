@@ -6,7 +6,7 @@ export const dynamic = 'force-static';
 import { useEffect, useState } from "react";
 import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";
-import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
+import { mobileDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import Color from "color";
 
@@ -24,7 +24,7 @@ export default function MobileDashboard() {
     const [mobileDashData, setMobileDashData] = useState<GlobalPoints | null>(null);
 
     const updateData = async () => {
-        featuredDashGetGlobalStats(12, null).then((data) => {
+        mobileDashGetGlobalStats(12, null).then((data) => {
             setMobileDashData(data);
             console.log(data);
         });
@@ -79,7 +79,6 @@ export default function MobileDashboard() {
                 <div>
                     {
                         mobileDashData?.students
-                        .slice(0, 20)
                         .map((student, index) => {
                             return (
                                 <div key={student.id || index} className="my-1">{

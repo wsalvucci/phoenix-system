@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { DateTime } from "luxon"
 import CSVReader from "react-csv-reader"
 import Papa from 'papaparse';
 import { newGetScorebookData, editPointEvent, deletePointEvent, createPointEvent, getTeacherSchoolTimeframes } from "@/app/supaApi/server/teacher/teacherServerActions"
 import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServerActions"
 import { getTeachingAssistantData, assignTeachingAssistant, updateTeachingAssistant, removeTeachingAssistant, clearTeachingAssistantPointEvents } from "@/api/teacher"
+import { getScorebookAccess } from "@/api/scorebook"
 import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow, TeachingAssistant, TeachingAssistantManagementData } from "@/types/domain"
 
 type NewPointEventData = {
@@ -24,6 +26,10 @@ type TeachingAssistantModalData = {
 
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
+  const router = useRouter()
+  const [isTooSmall, setIsTooSmall] = useState<boolean>(false)
+  const MIN_WIDTH = 768
+
   const [scorebookData, setScorebookData] = useState<NewScorebookData | null>(null)
   const [currentStudentOrder, setCurrentStudentOrder] = useState<{ id: number, firstName: string, lastName: string }[]>([])
   const [timeframes, setTimeframes] = useState<TeacherTimeframe[]>([])
@@ -57,6 +63,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const [selectedPointGroupId, setSelectedPointGroupId] = useState<string>('');
   const [focusedStudentId, setFocusedStudentId] = useState<number | null>(null);
+  // Role awareness: teacher vs TA
+  const [accessRole, setAccessRole] = useState<"teacher" | "assistantFull" | "assistantLimited" | "none">("none")
+  const isTeacher = accessRole === "teacher"
+
+  // TA inline edits: map of eventId -> studentId -> value
+  const [taEdits, setTaEdits] = useState<Record<number, Record<number, number>>>({})
 
   // Teaching Assistant Management
   const [teachingAssistantData, setTeachingAssistantData] = useState<TeachingAssistantManagementData | null>(null);
@@ -73,6 +85,119 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [pointEventSearchTerm, setPointEventSearchTerm] = useState('');
   const [selectedPointGroupFilter, setSelectedPointGroupFilter] = useState<number>(0);
+
+  useEffect(() => {
+    const check = () => setIsTooSmall(window.innerWidth < MIN_WIDTH)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Conditional rendering instead of early return to avoid hooks issues
+  const renderContent = () => {
+    if (isTooSmall) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 text-center">
+          <div className="max-w-md space-y-4">
+            <h1 className="text-2xl font-semibold">Use a larger screen</h1>
+            <p className="text-slate-600 dark:text-slate-300">The scorebook is only available on tablets and larger devices. Please switch to a larger screen.</p>
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center justify-center rounded bg-blue-600 text-white px-4 py-2"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="h-dvh w-full flex flex-col text-slate-700 dark:text-slate-300">
+        <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
+          <div className="flex items-center space-x-4">
+            <a
+              href="/teacher"
+              className="flex items-center space-x-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="font-medium">Back to Teacher Dashboard</span>
+            </a>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div>
+              <h1 className="text-3xl font-bold">Group Scorebook</h1>
+              {scorebookData?.studentGroup && (
+                <div className="text-lg opacity-75">
+                  {scorebookData.studentGroup.name}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* Timeframe Filter (teacher only) */}
+            {isTeacher && (
+            <div className="flex items-center space-x-2">
+              <label htmlFor="timeframe" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Timeframe:
+              </label>
+              <select
+                id="timeframe"
+                value={selectedTimeframe || ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setSelectedTimeframe(value ? parseInt(value) : null)
+                }}
+                className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-black dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {timeframes.length === 0 ? (
+                  <option>Loading...</option>
+                ) : (
+                  <>
+                    <option value="">All Timeframes</option>
+                    {timeframes.map((timeframe) => (
+                      <option key={timeframe.id} value={timeframe.id}>
+                        {timeframe.name} {timeframe.active ? "(Active)" : ""}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+            )}
+            
+            {/* Action Buttons */}
+            <div className="flex space-x-2">
+              {isTeacher && addNewPointEventButton()}
+              {isTeacher && exportScorebookTemplateButton()}
+              {isTeacher && importScorebookTemplateButton()}
+              {isTeacher && teachingAssistantButton()}
+            </div>
+          </div>
+        </header>
+        
+        <main className="flex-1 overflow-hidden p-6">
+          {loading ? (
+            loadingScreen()
+          ) : (
+            scorebookTable()
+          )}
+        </main>
+
+        {/* Modals */}
+        {newPointEventModalOpen && addNewPointEventModal()}
+        {editPointEventModalOpen && editPointEventModal()}
+        {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
+        {importScorebookTemplateModalOpen && importScorebookTemplateModal()}
+        {teachingAssistantModalOpen && !isAddingAssistant && !editingAssistant && teachingAssistantManagementModal()}
+        {teachingAssistantModalOpen && (isAddingAssistant || editingAssistant) && teachingAssistantModal()}
+      </div>
+    )
+  }
 
   // Helper: Determine which students/events have changes
   function getChangedMatrix() {
@@ -157,6 +282,16 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       fetchTeachingAssistantData()
     }
   }, [selectedTimeframe, timeframes])
+
+  useEffect(() => {
+    const loadAccess = async () => {
+      try {
+        const access = await getScorebookAccess(parseInt(groupId))
+        setAccessRole(access.role)
+      } catch {}
+    }
+    loadAccess()
+  }, [groupId])
 
   const updateNewPointEventData = (
     pointGroupId: number,
@@ -324,12 +459,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   )
 
   const addNewPointEventButton = () => (
-    <button
-      onClick={() => setNewPointEventModalOpen(true)}
-      className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+    <a
+      href={`/scorebook/group/${groupId}`}
+      className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
     >
-      Add Point Event
-    </button>
+      Open Unified Scorebook
+    </a>
   )
 
   const exportScorebookTemplateButton = () => (
@@ -382,12 +517,6 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       <>
         {focusedStudentId && (
           <div className="mb-2 flex items-center gap-2">
-            <button
-              className="px-3 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium border border-blue-300 dark:border-blue-700"
-              onClick={() => setFocusedStudentId(null)}
-            >
-              Clear Focus
-            </button>
             <span className="text-xs text-slate-600 dark:text-slate-400">Showing only selected student</span>
           </div>
         )}
@@ -453,27 +582,50 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                           className="w-full h-1 rounded mt-1 mb-1"
                           style={{ backgroundColor: pointEvent.pointGroup.color }}
                         ></div>
-                        <div className="flex space-x-1 mt-1">
-                          <button
-                            onClick={() => {
-                              setCurrentlyEditedPointEvent(pointEvent)
-                              setUpdatedPointEvent(pointEvent)
-                              setEditPointEventModalOpen(true)
-                            }}
-                            className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setCurrentlyEditedPointEvent(pointEvent)
-                              setConfirmDeletePointEventDialogOpen(true)
-                            }}
-                            className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        {isTeacher ? (
+                          <div className="flex space-x-1 mt-1">
+                            <button
+                              onClick={() => {
+                                setCurrentlyEditedPointEvent(pointEvent)
+                                setUpdatedPointEvent(pointEvent)
+                                setEditPointEventModalOpen(true)
+                              }}
+                              className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setCurrentlyEditedPointEvent(pointEvent)
+                                setConfirmDeletePointEventDialogOpen(true)
+                              }}
+                              className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex space-x-1 mt-1">
+                            <button
+                              onClick={async () => {
+                                if (!scorebookData) return
+                                const current = scorebookData.pointEvents.find(e => e.id === pointEvent.id)
+                                if (!current) return
+                                const updates = current.studentPoints.map(sp => ({
+                                  studentId: sp.student.id,
+                                  input: sp.pointData.input,
+                                  value: (taEdits[pointEvent.id]?.[sp.student.id] ?? sp.pointData.value) as number,
+                                  notes: sp.pointData.notes,
+                                }))
+                                const ok = await import("@/app/supaApi/server/teacher/teacherServerActions").then(m => m.updateStudentPointsByAssistant(parseInt(groupId), pointEvent.id, updates as any))
+                                if (ok) fetchScorebookData()
+                              }}
+                              className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </th>
                   ))}
@@ -486,27 +638,54 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     className={
                       focusedStudentId === student.id
                         ? 'ring-2 ring-blue-400 dark:ring-blue-600 bg-blue-50 dark:bg-blue-950'
-                        : 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900'
+                        : ''
                     }
-                    onClick={() => !focusedStudentId && setFocusedStudentId(student.id)}
                   >
                     <td className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-50 dark:bg-gray-700 sticky left-0 z-10 shadow-sm font-medium">
-                      {student.lastName}, {student.firstName}
+                      <div className="flex items-center gap-2">
+                        <span>{student.lastName}, {student.firstName}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFocusedStudentId(prev => prev === student.id ? null : student.id)}
+                          aria-label={`${focusedStudentId === student.id ? 'Unfocus' : 'Focus on'} ${student.lastName}, ${student.firstName}`}
+                          className="ml-1 inline-flex items-center justify-center w-6 h-6 rounded border border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800"
+                          title={focusedStudentId === student.id ? 'Unfocus' : 'Focus'}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                            <path d="M12 8a4 4 0 100 8 4 4 0 000-8zm0-6a1 1 0 011 1v2a1 1 0 11-2 0V3a1 1 0 011-1zm0 18a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1zM3 11a1 1 0 011-1h2a1 1 0 110 2H4a1 1 0 01-1-1zm14 0a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zM5.636 5.636a1 1 0 011.414 0l1.414 1.414a1 1 0 11-1.414 1.414L5.636 7.05a1 1 0 010-1.414zm10.9 10.9a1 1 0 011.414 0l1.414 1.414a1 1 0 01-1.414 1.414l-1.414-1.414a1 1 0 010-1.414zM5.636 18.364a1 1 0 010-1.414l1.414-1.414a1 1 0 111.414 1.414L7.05 18.364a1 1 0 01-1.414 0zm10.9-10.9a1 1 0 010-1.414l1.414-1.414a1 1 0 111.414 1.414L17.95 7.05a1 1 0 01-1.414 0z"/>
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                     {filteredPointEvents.map((pointEvent) => {
                       const studentPoint = pointEvent.studentPoints.find(sp => sp.student.id === student.id)
-                      const value = studentPoint ? studentPoint.pointData.input : ''
+                      const value = studentPoint ? (isTeacher ? studentPoint.pointData.input : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.value)) : ''
                       let percentNum = 0;
-                      if (typeof value === 'number' && pointEvent.maxInput !== 0) {
-                        percentNum = (value / pointEvent.maxInput) * 100;
+                      if (typeof (studentPoint?.pointData.input) === 'number' && pointEvent.maxInput !== 0) {
+                        percentNum = ((studentPoint?.pointData.input as number) / pointEvent.maxInput) * 100;
                       }
-                      const percent = (typeof value === 'number' && pointEvent.maxInput !== 0)
+                      const percent = (typeof (studentPoint?.pointData.input) === 'number' && pointEvent.maxInput !== 0)
                         ? percentNum.toFixed(1) + '%'
                         : ''
                       const bgClass = getCellBgClass(percentNum);
                       return (
                         <td key={pointEvent.id} className={`border border-gray-300 dark:border-gray-600 px-3 py-2 text-center ${bgClass}`}>
-                          {showPercent ? percent : value}
+                          {isTeacher ? (
+                            showPercent ? percent : (value as any)
+                          ) : (
+                            <input
+                              type="number"
+                              className="w-20 text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-slate-700"
+                              value={typeof value === 'number' ? value : (typeof value === 'string' ? value : 0)}
+                              onChange={(e) => {
+                                const num = parseFloat(e.target.value) || 0
+                                setTaEdits(prev => ({
+                                  ...prev,
+                                  [pointEvent.id]: { ...(prev[pointEvent.id] || {}), [student.id]: num }
+                                }))
+                              }}
+                            />
+                          )}
                         </td>
                       )
                     })}
@@ -1235,87 +1414,5 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     return loadingScreen()
   }
 
-  return (
-    <div className="h-dvh w-full flex flex-col text-slate-700 dark:text-slate-300">
-      <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
-        <div className="flex items-center space-x-4">
-          <a
-            href="/teacher"
-            className="flex items-center space-x-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="font-medium">Back to Teacher Dashboard</span>
-          </a>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <div>
-            <h1 className="text-3xl font-bold">Group Scorebook</h1>
-            {scorebookData?.studentGroup && (
-              <div className="text-lg opacity-75">
-                {scorebookData.studentGroup.name}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {/* Timeframe Filter */}
-          <div className="flex items-center space-x-2">
-            <label htmlFor="timeframe" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Timeframe:
-            </label>
-            <select
-              id="timeframe"
-              value={selectedTimeframe || ""}
-              onChange={(e) => {
-                const value = e.target.value
-                setSelectedTimeframe(value ? parseInt(value) : null)
-              }}
-              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-black dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {timeframes.length === 0 ? (
-                <option>Loading...</option>
-              ) : (
-                <>
-                  <option value="">All Timeframes</option>
-                  {timeframes.map((timeframe) => (
-                    <option key={timeframe.id} value={timeframe.id}>
-                      {timeframe.name} {timeframe.active ? "(Active)" : ""}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex space-x-2">
-            {addNewPointEventButton()}
-            {exportScorebookTemplateButton()}
-            {importScorebookTemplateButton()}
-            {teachingAssistantButton()}
-          </div>
-        </div>
-      </header>
-      
-      <main className="flex-1 overflow-hidden p-6">
-        {loading ? (
-          loadingScreen()
-        ) : (
-          scorebookTable()
-        )}
-      </main>
-
-      {/* Modals */}
-      {newPointEventModalOpen && addNewPointEventModal()}
-      {editPointEventModalOpen && editPointEventModal()}
-      {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
-      {importScorebookTemplateModalOpen && importScorebookTemplateModal()}
-      {teachingAssistantModalOpen && !isAddingAssistant && !editingAssistant && teachingAssistantManagementModal()}
-      {teachingAssistantModalOpen && (isAddingAssistant || editingAssistant) && teachingAssistantModal()}
-    </div>
-  )
+  return renderContent()
 }
