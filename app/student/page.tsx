@@ -86,10 +86,6 @@ export default async function StudentDashboard() {
     return (
         <div className="victorian-scrollbar"
         style={{
-    //         background:
-    // `linear-gradient(217deg, rgb(255 0 0 / 80%), transparent 70.71%),
-    // linear-gradient(127deg, rgb(0 255 0 / 80%), transparent 70.71%),
-    // linear-gradient(336deg, rgb(0 0 255 / 80%), transparent 70.71%);`
             background: `
             linear-gradient(135deg, ${themeColor} 0%, ${themeColor} 4%, ${bgColor} 4%, ${bgColor} 5%, ${themeColor} 5%, ${themeColor} 9.5%, ${bgColor} 9.5%, ${bgColor} 10%, ${themeColor} 10%, ${themeColor} 10.25%, ${bgColor} 10.25%, ${bgColor} 10.5%, ${themeColor} 10.5%, ${themeColor} 10.75%, ${bgColor} 10.75%, transparent 50%),
             linear-gradient(-135deg, ${themeColor} 0%, ${themeColor} 4%, ${bgColor} 4%, ${bgColor} 5%, ${themeColor} 5%, ${themeColor} 9.5%, ${bgColor} 9.5%, ${bgColor} 10%, ${themeColor} 10%, ${themeColor} 10.25%, ${bgColor} 10.25%, ${bgColor} 10.5%, ${themeColor} 10.5%, ${themeColor} 10.75%, ${bgColor} 10.75%, transparent 50%)`
