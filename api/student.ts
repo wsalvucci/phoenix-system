@@ -1,5 +1,5 @@
 "use server";
-import { Student, StudentMonthlyTrends, MonthlyTrendData } from "@/types/domain";
+import { Student, StudentMonthlyTrends, MonthlyTrendData, percentileToRating } from "@/types/domain";
 import { getPhoenixUser } from "./user";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { createClient } from "@/utils/supabase/server";
@@ -262,7 +262,20 @@ export async function getStudentRecentEvents(limit: number = 10) {
 
         const supabase = await supabaseServiceClient();
         
-        // Get recent point events where the student participated
+        // Get the school's active timeframe
+        const { data: timeframe } = await supabase
+            .from('school_timeframes')
+            .select('*')
+            .eq('school_id', student.schoolId)
+            .eq('active', true)
+            .single();
+
+        if (!timeframe) {
+            logger.warn('No active timeframe found for school');
+            return [];
+        }
+        
+        // Get recent point events where the student participated, filtered by the active timeframe
         const { data: events } = await supabase
             .from('point_event')
             .select(`
@@ -277,6 +290,8 @@ export async function getStudentRecentEvents(limit: number = 10) {
                 student_point!inner(point_value, input_score)
             `)
             .eq('student_point.student_id', student.id)
+            .gte('date', timeframe.starts_at)
+            .lte('date', timeframe.ends_at)
             .order('date', { ascending: false })
             .limit(limit);
 
@@ -511,6 +526,10 @@ function calculatePointGroupRankings(
                 Math.min(studentsInGroup.length, studentIndex + 3)
             );
 
+            // Calculate percentile for letter grade (1 = best, outOf = worst)
+            const percentile = 1 - (studentRank - 1) / studentsInGroup.length;
+            const letterGrade = percentileToRating(percentile);
+
             pointGroupRankings.push({
                 pointGroupId: groupId,
                 pointGroupName: group.name,
@@ -518,6 +537,7 @@ function calculatePointGroupRankings(
                 points: studentPoints,
                 rank: studentRank,
                 outOf: studentsInGroup.length,
+                letterGrade,
                 nearbyStudents: nearbyStudents.map(s => ({
                     studentId: s.id,
                     firstName: s.first_name,
@@ -857,6 +877,19 @@ export async function getStudentMonthlyTrends(): Promise<StudentMonthlyTrends | 
 
         const supabase = await supabaseServiceClient();
         
+        // Get the school's active timeframe
+        const { data: timeframe } = await supabase
+            .from('school_timeframes')
+            .select('*')
+            .eq('school_id', student.schoolId)
+            .eq('active', true)
+            .single();
+
+        if (!timeframe) {
+            logger.warn('No active timeframe found for school');
+            return null;
+        }
+        
         // Get all students in the school for ranking calculations
         const { data: allStudents } = await supabase
             .from('student')
@@ -868,10 +901,7 @@ export async function getStudentMonthlyTrends(): Promise<StudentMonthlyTrends | 
             return null;
         }
 
-        // Get point events for the last 2 months only (current month and previous month)
-        const twoMonthsAgo = new Date();
-        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-        
+        // Get point events for the active timeframe only
         const { data: pointEvents } = await supabase
             .from('point_event')
             .select(`
@@ -886,10 +916,11 @@ export async function getStudentMonthlyTrends(): Promise<StudentMonthlyTrends | 
                 student_point(student_id, point_value, input_score)
             `)
             .eq('point_template.point_group.school_id', student.schoolId)
-            .gte('date', twoMonthsAgo.toISOString().split('T')[0]);
+            .gte('date', timeframe.starts_at)
+            .lte('date', timeframe.ends_at);
 
         if (!pointEvents || pointEvents.length === 0) {
-            logger.warn('No point events found in last 2 months');
+            logger.warn('No point events found in active timeframe');
             return null;
         }
 

@@ -244,8 +244,24 @@ export default async function StudentDashboard() {
                                                     <span style={{ color: rankToColor(ranking.rank) }}>{numberToOrdinal(ranking.rank)}</span> of {ranking.outOf}
                                                 </div>
                                             </div>
-                                            <div className="victorian-stat-number mb-3 text-lg" style={{ color: rankToColor(ranking.rank) }}>
-                                                {ranking.points.toLocaleString()} pts
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="text-2xl font-bold" style={{
+                                                    background: ranking.letterGrade.letter.startsWith('S') 
+                                                        ? `linear-gradient(45deg, #ff6b9d 0%, #c44569 12.5%, #feca57 25%, #ff9ff3 37.5%, #54a0ff 50%, #5f27cd 62.5%, #00d2d3 75%, #ff9f43 87.5%, #ff6b9d 100%)`
+                                                        : `linear-gradient(45deg, ${Color(ranking.letterGrade.color).lighten(0.6).toString()} 0%, ${Color(ranking.letterGrade.color).lighten(0.3).toString()} 25%, ${ranking.letterGrade.color} 40%, ${Color(ranking.letterGrade.color).darken(0.2).toString()} 60%, ${Color(ranking.letterGrade.color).darken(0.4).toString()} 75%, ${Color(ranking.letterGrade.color).lighten(0.3).toString()} 100%)`,
+                                                    backgroundSize: ranking.letterGrade.letter.startsWith('S') ? '25% 25%' : '200% 200%',
+                                                    WebkitBackgroundClip: 'text',
+                                                    WebkitTextFillColor: 'transparent',
+                                                    backgroundClip: 'text',
+                                                    textShadow: ranking.letterGrade.letter.startsWith('S')
+                                                        ? `2px 2px 3px rgba(0,0,0,0.3), -2px -2px 3px rgba(255,255,255,0.4)`
+                                                        : `2px 2px 3px rgba(0,0,0,0.2), -2px -2px 3px rgba(255,255,255,0.3)`
+                                                }}>
+                                                    {ranking.letterGrade.letter}
+                                                </div>
+                                                <div className="victorian-stat-number text-lg" style={{ color: rankToColor(ranking.rank) }}>
+                                                    {ranking.points.toLocaleString()} pts
+                                                </div>
                                             </div>
                                             <div className="space-y-1">
                                                 {ranking.nearbyStudents.slice(0, 3).map((nearby: { studentId: number; firstName: string; lastName: string; points: number; rank: number }) => (

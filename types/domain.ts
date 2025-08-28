@@ -624,9 +624,12 @@ export type StudentDashboardData = {
 
 export type PointGroupRanking = {
   pointGroupId: number;
+  pointGroupName: string;
+  pointGroupColor: string;
   points: number;
   rank: number;
   outOf: number;
+  letterGrade: Rating;
   nearbyStudents: {
     studentId: number;
     firstName: string;
