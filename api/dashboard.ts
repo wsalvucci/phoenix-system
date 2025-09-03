@@ -3,6 +3,7 @@ import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { SimpleDashboardData } from "./service/dashboard";
 import { createServerLogger } from "@/utils/serverLogger";
 import { DashboardService } from "./service/dashboard";
+import { GlobalPoints } from "./core/types";
 
 /**
  * Fetches timeframe data either by ID or gets the active timeframe for a school
@@ -105,7 +106,7 @@ export async function getTopScrollingDashboard(
         timeframeId: timeframeId?.toString() || 'active'
     });
 
-    logger.info('Starting top scrolling dashboard request', { schoolId, timeframeId });
+    logger.debug('Fetching top scrolling dashboard data', { schoolId, timeframeId });
     
     try {
         const supabase = await supabaseServiceClient();
@@ -113,19 +114,59 @@ export async function getTopScrollingDashboard(
         const dashboardData = await dashboardService.getTopScrollingDashboard(schoolId, timeframeId);
 
         const duration = Date.now() - startTime;
-        logger.info('Top scrolling dashboard retrieved successfully', { 
+        logger.info('Top scrolling dashboard data fetched successfully', { 
             schoolId, 
-            timeframeId,
+            timeframeId, 
             duration,
-            studentCount: dashboardData.students.length
+            studentCount: dashboardData.students.length 
         });
 
         return dashboardData;
     } catch (error) {
         const duration = Date.now() - startTime;
-        logger.error('Failed to get top scrolling dashboard', { 
+        logger.error('Failed to fetch top scrolling dashboard data', { 
             schoolId, 
-            timeframeId,
+            timeframeId, 
+            duration 
+        }, error as Error);
+        throw error;
+    }
+}
+
+export async function getGlobalDashboard(
+    schoolId: number,
+    timeframeId: number | null
+): Promise<GlobalPoints | null> {
+    const startTime = Date.now();
+    const logger = createServerLogger({ 
+        component: 'DashboardAPI', 
+        action: 'getGlobalDashboard',
+        schoolId: schoolId.toString(),
+        timeframeId: timeframeId?.toString() || 'active'
+    });
+
+    logger.debug('Fetching global dashboard data', { schoolId, timeframeId });
+    
+    try {
+        const supabase = await supabaseServiceClient();
+        const dashboardService = new DashboardService(supabase);
+        const globalData = await dashboardService.getGlobalDashboard(schoolId, timeframeId);
+
+        const duration = Date.now() - startTime;
+        logger.info('Global dashboard data fetched successfully', { 
+            schoolId, 
+            timeframeId, 
+            duration,
+            studentCount: globalData?.students.length || 0,
+            pointGroupCount: globalData?.pointGroups.length || 0
+        });
+
+        return globalData;
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('Failed to fetch global dashboard data', { 
+            schoolId, 
+            timeframeId, 
             duration 
         }, error as Error);
         throw error;

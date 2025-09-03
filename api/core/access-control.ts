@@ -10,6 +10,18 @@ export class AccessControlService {
         restrictions: {}
       }
     ],
+    dashboard: [
+      {
+        role: 'dashboard',
+        accessLevel: 'dashboard',
+        allowedFields: ['id', 'firstName', 'lastName', 'grade', 'totalPoints', 'rank', 'pointGroups', 'studentGroups'],
+        restrictions: {
+          maxTopLimit: 20,
+          maxPointGroupLimit: 20,
+          allowedAccessLevels: ['overall', 'pointGroup', 'groupRanking']
+        }
+      }
+    ],
     teacher: [
       {
         role: 'teacher',
@@ -154,6 +166,32 @@ export class AccessControlService {
     }
 
     return true;
+  }
+
+  static validateDashboardAccess(userContext: UserContext, accessType: 'overall' | 'pointGroup' | 'groupRanking'): boolean {
+    const config = this.getAccessConfig(userContext, 'dashboard');
+    if (!config) return false;
+
+    // Check if the access type is allowed
+    if (config.restrictions.allowedAccessLevels && 
+        !config.restrictions.allowedAccessLevels.includes(accessType)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  static getDashboardLimit(userContext: UserContext, limitType: 'overall' | 'pointGroup'): number {
+    const config = this.getAccessConfig(userContext, 'dashboard');
+    if (!config) return 20; // Default fallback
+
+    if (limitType === 'overall') {
+      return config.restrictions.maxTopLimit || 20;
+    } else if (limitType === 'pointGroup') {
+      return config.restrictions.maxPointGroupLimit || 20;
+    }
+
+    return 20; // Default fallback
   }
 
   static getTeacherStudentGroups(_teacherId: number): Promise<number[]> { // eslint-disable-line @typescript-eslint/no-unused-vars

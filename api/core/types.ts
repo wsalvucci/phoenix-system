@@ -1,6 +1,6 @@
-export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'groupLeader' | 'teachingAssistant';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'groupLeader' | 'teachingAssistant' | 'dashboard';
 
-export type AccessLevel = 'full' | 'nearby' | 'top' | 'own' | 'group';
+export type AccessLevel = 'full' | 'nearby' | 'top' | 'own' | 'group' | 'dashboard';
 
 export interface UserContext {
   userId: string; // Supabase user ID (string)
@@ -49,8 +49,10 @@ export interface DataAccessConfig {
   restrictions: {
     maxNearbyWindow?: number;
     maxTopLimit?: number;
+    maxPointGroupLimit?: number;
     allowedStudentGroups?: number[];
     allowedPointGroups?: number[];
+    allowedAccessLevels?: string[];
   };
 }
 
@@ -81,6 +83,16 @@ export interface StudentData {
     school_id: number;
   };
   rank: number;
+  pointGroups?: {
+    id: number;
+    name: string;
+    color: string;
+    points: number;
+  }[];
+  studentGroups?: {
+    id: number;
+    name: string;
+  }[];
 }
 
 // Top students response
@@ -111,4 +123,165 @@ export interface StudentPointsWithRankingResponse {
   students: StudentData[];
   totalCount: number;
   averagePoints: number;
+} 
+
+export type GlobalPoints = {
+    schoolId: number,
+    totalStudents: number,
+    timeframes: TimeframeData[],
+    grades: number[],
+    students: {
+        id: number,
+        firstName: string,
+        lastName: string,
+        rank: number,
+        lastMonthRank: number,
+        totalPoints: number,
+        lastMonthPoints: number,
+        grade: number,
+        gradeRank: number,
+        lastMonthGradeRank: number,
+        pointGroups: {
+            id: number,
+            points: number,
+            rank: number,
+            lastMonthPoints: number,
+            lastMonthRank: number
+        }[],
+        totalPointsByDay: Map<string, number>,
+        pointsEarnedEachDay: Map<string, number>,
+        monthToMonthChange: number,
+        studentGroups: number[]
+    }[],
+    pointGroups: {
+        id: number,
+        name: string,
+        color: string
+    }[],
+    studentGroups: {
+        id: number,
+        name: string,
+        totalStudents: number,
+        averagePoints: number,
+        lastMonthAveragePoints: number,
+        rawPoints: number,
+        lastMonthRawPoints: number,
+        pointGroups: {
+            id: number,
+            points: number
+        }[]
+    }[],
+    rankingGroups: {
+        id: number,
+        name: string,
+        studentGroups: {
+            id: number,
+            name: string,
+            totalStudents: number,
+            averagePoints: number,
+            lastMonthAveragePoints: number,
+            rawPoints: number,
+            lastMonthRawPoints: number,
+            pointGroups: {
+                id: number,
+                points: number
+            }[]
+        }[]
+    }[],
+    pointEvents: {
+        id: number,
+        name: string,
+        maxPoints: number,
+        date: string,
+        studentGroupId: number,
+        pointGroup: number,
+        students: {
+            id: number,
+            points: number
+        }[]
+    }[]
+}
+
+export type TimeframeData = {
+    id: number,
+    name: string,
+    startDate: string,
+    endDate: string,
+    isActive: boolean
+}
+
+export type PointEventData = {
+    id: number,
+    name: string,
+    date: string,
+    maxInput: number,
+    template: {
+        id: number,
+        pointGroupId: number,
+        conversionRule: {
+            name: string,
+            value: number
+        }
+    },
+    studentGroup: {
+        id: number,
+        name: string,
+        rankingGroups: number[],
+    },
+    studentPoints: {
+        studentId: number,
+        input: number
+    }[]
+}
+
+export type RankingGroupPointEventData = {
+    id: number,
+    name: string,
+    date: string,
+    groupPoints: {
+        groupId: number,
+        points: number
+    }[]
+}
+
+export type PointGroupData = {
+    id: number,
+    name: string,
+    color: string
+}
+
+export type StudentGroupData = {
+    id: number,
+    name: string,
+    students: number[]
+}
+
+export type RankingGroupData = {
+    id: number,
+    name: string,
+    studentGroups: number[],
+    timeframeStart: string | null,
+    timeframeEnd: string | null,
+}
+
+export type CompiledStudentPoints = {
+    id: number,
+    firstName: string,
+    lastName: string,
+    totalPoints: number,
+    lastMonthPoints: number,
+    grade: number,
+    pointGroups: {
+        id: number,
+        points: number,
+        lastMonthPoints: number
+    }[],
+    totalPointsByDay: Map<string, number>,
+    pointsEarnedEachDay: Map<string, number>,
+    monthToMonthImprovement: number,
+    rank: number,
+    lastMonthRank: number,
+    gradeRank: number,
+    lastMonthGradeRank: number,
+    studentGroups: number[]
 } 
