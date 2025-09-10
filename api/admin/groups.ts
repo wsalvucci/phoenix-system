@@ -249,7 +249,7 @@ export async function addStudentToGroup(schoolId: number, groupId: number, stude
     // Check if student is already in the group
     const { data: existingPair, error: existingError } = await serviceClient
       .from('student_group_pair')
-      .select('id')
+      .select('student_id')
       .eq('student_id', studentId)
       .eq('student_group_id', groupId)
       .single();
