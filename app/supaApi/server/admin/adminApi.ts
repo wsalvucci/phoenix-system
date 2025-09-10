@@ -196,7 +196,7 @@ export async function getAdminDashboardData(
                 totalPoints: schoolData.student_group.reduce((totalPoints, studentGroup) => {
                     return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
                         return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
-                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
                             if (studentPoint.student_id === student.id) {
                                 return totalPoints + pointValue
                             } else {
@@ -219,11 +219,11 @@ export async function getAdminDashboardData(
                         name: pointEvent.name || "",
                         date: pointEvent.date || "",
                         studentPoints: pointEvent.student_point.map((studentPoint) => {
-                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
                             return {
                                 studentId: studentPoint.student_id,
                                 value: pointValue,
-                                input: studentPoint.input_score || 0
+                                input: studentPoint.point_value || 0
                             }
                         })
                     }
@@ -311,7 +311,7 @@ export async function getAdminStudentDashboardData(
         studentGroup.point_event.forEach((pointEvent) => {
             pointEvent.student_point.forEach((studentPoint) => {
                 const curStudentData = formattedData.find((studentData) => studentData.studentId === studentPoint.student_id)
-                const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.input_score || 0)
+                const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
                 if (curStudentData) {
                     curStudentData.studentTotalPoints += pointValue
                     const curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
@@ -361,7 +361,7 @@ export async function getAdminStudentDashboardData(
                         },
                         maxInput: pointEvent.max_input || 0,
                         pointsEarned: {
-                            input: studentPoint.input_score || 0,
+                            input: studentPoint.point_value || 0,
                             value: pointValue
                         },
                         rank: 1, // Default rank for individual point events
@@ -420,7 +420,7 @@ export async function getAdminStudentDashboardData(
                                 },
                                 maxInput: pointEvent.max_input || 0,
                                 pointsEarned: {
-                                    input: studentPoint.input_score || 0,
+                                    input: studentPoint.point_value || 0,
                                     value: pointValue
                                 },
                                 rank: 1, // Default rank for individual point events

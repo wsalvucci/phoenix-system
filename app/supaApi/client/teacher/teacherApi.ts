@@ -22,15 +22,15 @@ export async function clientGetStudentGroup(studentGroupId: number): Promise<Stu
 
 export async function clientCreatePointEvent(
     studentGroupId: number,
-    pointTemplateId: number,
+    pointGroupId: number,
     date: string,
     name: string,
     maxInput: number,
 ): Promise<boolean> {
-    console.log("Creating point event", studentGroupId, pointTemplateId, date);
+    console.log("Creating point event", studentGroupId, pointGroupId, date);
     return createPointEvent(
         studentGroupId,
-        pointTemplateId,
+        pointGroupId,
         date,
         name,
         maxInput,

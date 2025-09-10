@@ -71,7 +71,7 @@ export async function getFeaturedDashData(schoolId: number, timeframeId: number 
                                 byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
                                         const pointGroup = cur.point_event?.point_template?.point_group
                                         const pointGroupId = pointGroup?.id
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         if (typeof pointGroupId !== 'number') return acc
                                         if (!acc[pointGroupId]) {
                                                 acc[pointGroupId] = {
@@ -85,14 +85,14 @@ export async function getFeaturedDashData(schoolId: number, timeframeId: number 
                                         return acc
                                 }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
                                 lastWeekTotal: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'days': 7 })) {
                                                 acc += pointValue
                                         }
                                         return acc
                                 }, 0),
                                 totalPoints: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         acc += pointValue
                                         return acc
                                 }, 0)
@@ -414,14 +414,14 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                 if (!acc[cur.id]) {
 
                         console.log("Points last week: " + cur.student_point.reduce((acc, cur) => {
-                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                 if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
                                         acc += pointValue
                                 }
                                 return acc
                         }, 0))
                         console.log("Points now: " + cur.student_point.reduce((acc, cur) => {
-                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                 acc += pointValue
                                 return acc
                         }, 0))
@@ -439,7 +439,7 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                 byPointGroup: Object.values(cur.student_point.reduce((acc, cur) => {
                                         const pointGroup = cur.point_event?.point_template?.point_group
                                         const pointGroupId = pointGroup?.id
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         if (typeof pointGroupId !== 'number') return acc
                                         if (!acc[pointGroupId]) {
                                                 acc[pointGroupId] = {
@@ -453,26 +453,26 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                         return acc
                                 }, {} as { [key: number]: { groupId: number, groupName: string, groupColor: string, totalPoints: number } })),
                                 lastWeekTotal: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
                                                 acc += pointValue
                                         }
                                         return acc
                                 }, 0),
                                 lastWeekPerWeekAvg: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
                                                 acc += pointValue
                                         }
                                         return acc
                                 }, 0) / (monthsPassed - 1),
                                 totalPoints: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         acc += pointValue
                                         return acc
                                 }, 0),
                                 currentPerWeekAvg: cur.student_point.reduce((acc, cur) => {
-                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.input_score ?? 0)
+                                        const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
                                         acc += pointValue
                                         return acc
                                 }, 0) / monthsPassed,

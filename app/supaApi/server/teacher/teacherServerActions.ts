@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function createPointEvent(
         studentGroupId: number,
-        pointTemplateId: number,
+        pointGroupId: number,
         date: string,
         name: string,
         maxInput: number,
@@ -19,9 +19,13 @@ export async function createPointEvent(
 
         const supabase = await supabaseServiceClient();
 
+        // Use the dummy template ID 38 since we plan to eliminate the template system
+        const templateId = 38;
+
         const { data: pointEventData, error: pointEventError } = await supabase.from("point_event").insert({
                 student_group_id: studentGroupId,
-                template_id: pointTemplateId,
+                template_id: templateId,
+                point_group_id: pointGroupId,
                 date: date,
                 name: name,
                 max_input: maxInput
@@ -302,7 +306,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                             powerschoolId: sp.student.powerschool_id
                         },
                         pointData: {
-                            input: sp.input_score ?? 0,
+                            input: sp.point_value, // Use point_value as input since input_score is no longer used
                             value: sp.point_value,
                             notes: sp.notes ?? ""
                         }
@@ -459,7 +463,7 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
                 name: scorebookPointEvent.name,
                 max_input: scorebookPointEvent.maxInput ?? 0,
                 student_group_id: studentGroupId,
-                template_id: scorebookPointEvent.pointGroup.id, // Using template_id to store point_group_id temporarily
+                template_id: 38, // Use dummy template ID 38
                 point_group_id: scorebookPointEvent.pointGroup.id
         });
 

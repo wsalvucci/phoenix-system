@@ -147,7 +147,7 @@ export async function getAllTimeframePointEvents(
     const supabase = await supabaseServiceClient();
 
     const { data: pointEvents, error: pointEventsError } = await supabase.from("point_event")
-        .select("*, student_group(id, name, school_id, ranking_group (id)), point_template (point_group_id, point_conversion_rule_type (*), conversion_rule_value), student_point (student_id, input_score)")
+        .select("*, student_group(id, name, school_id, ranking_group (id)), point_template (point_group_id, point_conversion_rule_type (*), conversion_rule_value), student_point (student_id, point_value)")
         .eq("student_group.school_id", schoolId)
         .gte("date", timeframe.startDate)
         .lte("date", timeframe.endDate);
@@ -177,7 +177,7 @@ export async function getAllTimeframePointEvents(
         },
         studentPoints: pointEvent.student_point.map((studentPoint) => ({
             studentId: studentPoint.student_id,
-            input: studentPoint.input_score ?? 0
+            input: studentPoint.point_value ?? 0
         })) ?? []
     }));
 }

@@ -173,6 +173,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {/* Action Buttons */}
             <div className="flex space-x-2">
               {isTeacher && addNewPointEventButton()}
+              {isTeacher && openUnifiedScorebookButton()}
               {isTeacher && exportScorebookTemplateButton()}
               {isTeacher && importScorebookTemplateButton()}
               {isTeacher && teachingAssistantButton()}
@@ -208,7 +209,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         let currentValue = '';
         if (event) {
           const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
-          if (sp) currentValue = sp.pointData.input.toString();
+          if (sp) currentValue = sp.pointData.value.toString();
         }
         return (student.scores[eIdx] || '') !== (currentValue || '');
       });
@@ -219,7 +220,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         let currentValue = '';
         if (event) {
           const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
-          if (sp) currentValue = sp.pointData.input.toString();
+          if (sp) currentValue = sp.pointData.value.toString();
         }
         return (student.scores[eIdx] || '') !== (currentValue || '');
       });
@@ -349,7 +350,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       // Get scores for each event
       const scores = scorebookData.pointEvents.map(event => {
         const studentPoint = event.studentPoints.find(sp => sp.student.id === student.id)
-        return studentPoint ? studentPoint.pointData.input.toString() : ''
+        return studentPoint ? studentPoint.pointData.value.toString() : ''
       })
       
       return [studentName, studentId.toString(), ...scores]
@@ -459,12 +460,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   )
 
   const addNewPointEventButton = () => (
-    <a
-      href={`/scorebook/group/${groupId}`}
+    <button
+      onClick={() => setNewPointEventModalOpen(true)}
       className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
     >
-      Open Unified Scorebook
-    </a>
+      Add New Point Event
+    </button>
   )
 
   const exportScorebookTemplateButton = () => (
@@ -483,6 +484,15 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     >
       Import Template
     </button>
+  )
+
+  const openUnifiedScorebookButton = () => (
+    <a
+      href={`/scorebook/group/${groupId}`}
+      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+    >
+      Open Unified Scorebook
+    </a>
   )
 
   const teachingAssistantButton = () => (
@@ -613,7 +623,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                                 if (!current) return
                                 const updates = current.studentPoints.map(sp => ({
                                   studentId: sp.student.id,
-                                  input: sp.pointData.input,
+                                  input: sp.pointData.value, // Use point_value as input since input_score is no longer used
                                   value: (taEdits[pointEvent.id]?.[sp.student.id] ?? sp.pointData.value) as number,
                                   notes: sp.pointData.notes,
                                 }))
@@ -659,12 +669,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     </td>
                     {filteredPointEvents.map((pointEvent) => {
                       const studentPoint = pointEvent.studentPoints.find(sp => sp.student.id === student.id)
-                      const value = studentPoint ? (isTeacher ? studentPoint.pointData.input : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.value)) : ''
+                      const value = studentPoint ? (isTeacher ? studentPoint.pointData.value : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.value)) : ''
                       let percentNum = 0;
-                      if (typeof (studentPoint?.pointData.input) === 'number' && pointEvent.maxInput !== 0) {
-                        percentNum = ((studentPoint?.pointData.input as number) / pointEvent.maxInput) * 100;
+                      if (typeof (studentPoint?.pointData.value) === 'number' && pointEvent.maxInput !== 0) {
+                        percentNum = ((studentPoint?.pointData.value as number) / pointEvent.maxInput) * 100;
                       }
-                      const percent = (typeof (studentPoint?.pointData.input) === 'number' && pointEvent.maxInput !== 0)
+                      const percent = (typeof (studentPoint?.pointData.value) === 'number' && pointEvent.maxInput !== 0)
                         ? percentNum.toFixed(1) + '%'
                         : ''
                       const bgClass = getCellBgClass(percentNum);
@@ -1350,7 +1360,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                             let currentValue = '';
                             if (event) {
                               const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
-                              if (sp) currentValue = sp.pointData.input.toString();
+                              if (sp) currentValue = sp.pointData.value.toString();
                             }
                             if ((student.scores[sidx] || '') !== (currentValue || '')) {
                               highlight = true;
