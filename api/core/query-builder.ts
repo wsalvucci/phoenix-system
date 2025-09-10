@@ -223,7 +223,7 @@ export class QueryBuilder {
   private async getTeacherStudentGroups(teacherId: number): Promise<number[]> {
     const { data, error } = await this.supabase
       .from('teacher_student_group_pair')
-      .select('student_group_id')
+      .select('group_id')
       .eq('teacher_id', teacherId);
 
     if (error) {
@@ -231,7 +231,7 @@ export class QueryBuilder {
       return [];
     }
 
-    return data?.map(item => item.student_group_id) || [];
+    return data?.map(item => item.group_id) || [];
   }
 
   /**

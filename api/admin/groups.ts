@@ -442,7 +442,7 @@ export async function addTeacherToGroup(schoolId: number, groupId: number, teach
     // Check if teacher is already in the group
     const { data: existingPair, error: existingError } = await serviceClient
       .from('teacher_student_group_pair')
-      .select('id')
+      .select('teacher_id')
       .eq('teacher_id', teacherId)
       .eq('group_id', groupId)
       .single();
