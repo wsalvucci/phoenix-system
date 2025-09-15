@@ -730,7 +730,19 @@ async function getGlobalPointStats(
 
     // 1. Sort Arrays
     const allStudentsRanked = [...pointsPerStudent].sort((a, b) => b.totalPoints - a.totalPoints);
-    const allStudentsRankedByLastMonth = [...pointsPerStudent].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+    
+    // Check if we should show ranking changes (at least 1 month since first points recorded)
+    const firstPointDate = pointData?.reduce((earliest, event) => {
+        const eventDate = DateTime.fromISO(event.date);
+        return eventDate.isValid && eventDate < earliest ? eventDate : earliest;
+    }, DateTime.now()) ?? DateTime.now();
+    
+    const oneMonthAfterFirstPoints = firstPointDate.plus({ months: 1 });
+    const shouldShowRankingChanges = DateTime.now() >= oneMonthAfterFirstPoints;
+    
+    const allStudentsRankedByLastMonth = shouldShowRankingChanges 
+        ? [...pointsPerStudent].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints)
+        : []; // Empty array means no last month ranking data
 
     const allStudentGrades = Array.from(new Set(pointsPerStudent.map(s => s.grade))); // More efficient way to get unique grades
 
@@ -765,7 +777,9 @@ async function getGlobalPointStats(
     allStudentsRanked.forEach((student, index) => overallRankMap.set(student.id, index + 1));
 
     const lastMonthRankMap = new Map<number, number>();
-    allStudentsRankedByLastMonth.forEach((student, index) => lastMonthRankMap.set(student.id, index + 1));
+    if (shouldShowRankingChanges) {
+        allStudentsRankedByLastMonth.forEach((student, index) => lastMonthRankMap.set(student.id, index + 1));
+    }
 
     const gradeRankMap = new Map<number, number>();
     const lastMonthGradeRankMap = new Map<number, number>();
@@ -774,9 +788,11 @@ async function getGlobalPointStats(
         const rankedInGrade = [...studentsInGrade].sort((a, b) => b.totalPoints - a.totalPoints);
         rankedInGrade.forEach((student, index) => gradeRankMap.set(student.id, index + 1));
 
-        // Sort within grade for last month
-        const rankedLastMonthInGrade = [...studentsInGrade].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
-        rankedLastMonthInGrade.forEach((student, index) => lastMonthGradeRankMap.set(student.id, index + 1));
+        // Sort within grade for last month (only if we should show ranking changes)
+        if (shouldShowRankingChanges) {
+            const rankedLastMonthInGrade = [...studentsInGrade].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+            rankedLastMonthInGrade.forEach((student, index) => lastMonthGradeRankMap.set(student.id, index + 1));
+        }
     });
 
     const pointGroupRankMap = new Map<number, Map<number, number>>();
@@ -788,11 +804,13 @@ async function getGlobalPointStats(
         rankedInPG.forEach((student, index) => pgRank.set(student.id, index + 1));
         pointGroupRankMap.set(pgId, pgRank);
 
-        // Sort within point group for last month
-        const rankedLastMonthInPG = [...studentsInGroup].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
-        const pgLastMonthRank = new Map<number, number>();
-        rankedLastMonthInPG.forEach((student, index) => pgLastMonthRank.set(student.id, index + 1));
-        lastMonthPointGroupRankMap.set(pgId, pgLastMonthRank);
+        // Sort within point group for last month (only if we should show ranking changes)
+        if (shouldShowRankingChanges) {
+            const rankedLastMonthInPG = [...studentsInGroup].sort((a, b) => b.lastMonthPoints - a.lastMonthPoints);
+            const pgLastMonthRank = new Map<number, number>();
+            rankedLastMonthInPG.forEach((student, index) => pgLastMonthRank.set(student.id, index + 1));
+            lastMonthPointGroupRankMap.set(pgId, pgLastMonthRank);
+        }
     });
 
     // --- Student Group Point Calculation (Logic moved to final mapping) ---
@@ -998,24 +1016,30 @@ async function getGlobalPointStats(
                 .filter(([date, points]) => DateTime.fromISO(date) <= DateTime.now().minus({ months: 1 }))
                 .reduce((acc, [date, points]) => acc + points, 0);
 
+            const currentRank = overallRankMap.get(student.id) ?? 0;
+            const currentGradeRank = gradeRankMap.get(student.id) ?? 0;
+            
             return {
                 id: student.id,
                 firstName: student.firstName,
                 lastName: student.lastName,
-                rank: overallRankMap.get(student.id) ?? 0, // Use Map
-                lastMonthRank: lastMonthRankMap.get(student.id) ?? 0, // Use Map
+                rank: currentRank, // Use Map
+                lastMonthRank: shouldShowRankingChanges ? (lastMonthRankMap.get(student.id) ?? 0) : currentRank, // Set to current rank if we shouldn't show changes
                 totalPoints: student.totalPoints,
                 lastMonthPoints: student.lastMonthPoints,
                 grade: student.grade,
-                gradeRank: gradeRankMap.get(student.id) ?? 0, // Use Map
-                lastMonthGradeRank: lastMonthGradeRankMap.get(student.id) ?? 0, // Use Map
-                pointGroups: student.pointGroups.map((pointGroup) => ({
-                    id: pointGroup.id,
-                    points: pointGroup.points,
-                    rank: pointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0, // Use nested Map
-                    lastMonthPoints: pointGroup.lastMonthPoints,
-                    lastMonthRank: lastMonthPointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0 // Use nested Map
-                })),
+                gradeRank: currentGradeRank, // Use Map
+                lastMonthGradeRank: shouldShowRankingChanges ? (lastMonthGradeRankMap.get(student.id) ?? 0) : currentGradeRank, // Set to current rank if we shouldn't show changes
+                pointGroups: student.pointGroups.map((pointGroup) => {
+                    const currentPointGroupRank = pointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0;
+                    return {
+                        id: pointGroup.id,
+                        points: pointGroup.points,
+                        rank: currentPointGroupRank, // Use nested Map
+                        lastMonthPoints: pointGroup.lastMonthPoints,
+                        lastMonthRank: shouldShowRankingChanges ? (lastMonthPointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? 0) : currentPointGroupRank // Set to current rank if we shouldn't show changes
+                    };
+                }),
                 totalPointsByDay: student.totalPointsByDay, // Keep Map format
                 pointsEarnedEachDay: student.pointsEarnedEachDay, // Keep Map format
                 monthToMonthChange: student.totalPoints - lastMonthPts,
