@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DateTime } from "luxon"
-import { getTeacherRankingGroupScorebook } from "@/api/teacher"
+import { 
+  getTeacherRankingGroupScorebook,
+  createRankingGroupPointEvent,
+  editRankingGroupPointEvent,
+  deleteRankingGroupPointEvent
+} from "@/api/teacher"
 import { RankingGroupScorebookData } from "@/types/domain"
 import { wrapServerAction } from "@/utils/serverActionWrapper"
 import { useQuery } from "@tanstack/react-query"
@@ -93,25 +98,77 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
   }
 
   const addNewPointEvent = async () => {
-    // TODO: Implement create ranking group point event
-    setNewPointEventModalOpen(false)
-    setNewPointEventData({
-      name: "",
-      date: DateTime.now().toFormat("yyyy-MM-dd")
-    })
-    // Refresh data
+    try {
+      await wrapServerAction(createRankingGroupPointEvent)(
+        parseInt(groupId),
+        newPointEventData.name,
+        newPointEventData.date
+      )
+      
+      setNewPointEventModalOpen(false)
+      setNewPointEventData({
+        name: "",
+        date: DateTime.now().toFormat("yyyy-MM-dd")
+      })
+      
+      // Refresh data by invalidating the query
+      window.location.reload()
+    } catch (error) {
+      console.error("Error creating point event:", error)
+      alert("Failed to create point event. Please try again.")
+    }
   }
 
   const saveEditedPointEventData = async () => {
-    // TODO: Implement edit ranking group point event
-    setEditPointEventModalOpen(false)
-    setCurrentlyEditedPointEvent({
-      id: -1,
-      name: "",
-      date: "",
-      points: []
-    })
-    // Refresh data
+    try {
+      // Convert points to the format expected by the API
+      const points = currentlyEditedPointEvent.points.map(point => ({
+        studentGroupId: point.studentGroupId,
+        pointId: point.pointId,
+        value: point.value
+      }))
+      
+      await wrapServerAction(editRankingGroupPointEvent)(
+        parseInt(groupId),
+        currentlyEditedPointEvent.id,
+        currentlyEditedPointEvent.name,
+        currentlyEditedPointEvent.date,
+        points
+      )
+      
+      setEditPointEventModalOpen(false)
+      setCurrentlyEditedPointEvent({
+        id: -1,
+        name: "",
+        date: "",
+        points: []
+      })
+      
+      // Refresh data by invalidating the query
+      window.location.reload()
+    } catch (error) {
+      console.error("Error editing point event:", error)
+      alert("Failed to edit point event. Please try again.")
+    }
+  }
+
+  const deletePointEvent = async (pointEventId: number) => {
+    if (!confirm("Are you sure you want to delete this point event? This action cannot be undone.")) {
+      return
+    }
+    
+    try {
+      await wrapServerAction(deleteRankingGroupPointEvent)(
+        parseInt(groupId),
+        pointEventId
+      )
+      
+      // Refresh data by invalidating the query
+      window.location.reload()
+    } catch (error) {
+      console.error("Error deleting point event:", error)
+      alert("Failed to delete point event. Please try again.")
+    }
   }
 
   const addNewPointEventButton = () => (
@@ -302,6 +359,12 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
                             className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
                           >
                             Edit
+                          </button>
+                          <button
+                            onClick={() => deletePointEvent(pointEvent.id)}
+                            className="bg-red-500 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+                          >
+                            Delete
                           </button>
                         </div>
                       </div>

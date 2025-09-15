@@ -1163,3 +1163,315 @@ export async function clearTeachingAssistantPointEvents(groupId: number, assista
     throw error;
   }
 }
+
+/**
+ * Creates a new point event for a ranking group
+ */
+export async function createRankingGroupPointEvent(
+  rankingGroupId: number, 
+  name: string, 
+  date: string
+): Promise<boolean> {
+  const logger = createServerLogger({ 
+    component: 'TeacherAPI', 
+    action: 'createRankingGroupPointEvent', 
+    rankingGroupId 
+  });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this ranking group
+    const { data: accessCheck, error: accessError } = await supabase
+      .from('teacher_ranking_group_pair')
+      .select('ranking_group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('ranking_group_id', rankingGroupId)
+      .single();
+
+    if (accessError || !accessCheck) {
+      logger.error('Teacher does not have access to this ranking group', { 
+        teacherId: teacher.id, 
+        rankingGroupId 
+      });
+      throw new Error('Access denied - teacher does not have access to this ranking group');
+    }
+
+    // Create the ranking group point event
+    const { data, error } = await supabase
+      .from('ranking_group_point_event')
+      .insert({
+        ranking_group_id: rankingGroupId,
+        name: name,
+        date: date
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Error creating ranking group point event', { 
+        rankingGroupId, 
+        name, 
+        date, 
+        error 
+      });
+      throw new Error('Failed to create point event');
+    }
+
+    logger.info('Ranking group point event created successfully', { 
+      teacherId: teacher.id,
+      rankingGroupId,
+      pointEventId: data.id,
+      name,
+      date
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Failed to create ranking group point event', { 
+      rankingGroupId, 
+      name, 
+      date,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Edits a ranking group point event and its student group points
+ */
+export async function editRankingGroupPointEvent(
+  rankingGroupId: number,
+  pointEventId: number,
+  name: string,
+  date: string,
+  points: {
+    studentGroupId: number;
+    pointId: number;
+    value: number;
+  }[]
+): Promise<boolean> {
+  const logger = createServerLogger({ 
+    component: 'TeacherAPI', 
+    action: 'editRankingGroupPointEvent', 
+    rankingGroupId,
+    pointEventId
+  });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this ranking group
+    const { data: accessCheck, error: accessError } = await supabase
+      .from('teacher_ranking_group_pair')
+      .select('ranking_group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('ranking_group_id', rankingGroupId)
+      .single();
+
+    if (accessError || !accessCheck) {
+      logger.error('Teacher does not have access to this ranking group', { 
+        teacherId: teacher.id, 
+        rankingGroupId 
+      });
+      throw new Error('Access denied - teacher does not have access to this ranking group');
+    }
+
+    // Verify the point event belongs to this ranking group
+    const { data: pointEventData, error: pointEventError } = await supabase
+      .from('ranking_group_point_event')
+      .select('id, ranking_group_id')
+      .eq('id', pointEventId)
+      .single();
+
+    if (pointEventError || !pointEventData) {
+      logger.error('Point event not found', { pointEventId, pointEventError });
+      throw new Error('Point event not found');
+    }
+
+    if (pointEventData.ranking_group_id !== rankingGroupId) {
+      logger.error('Point event does not belong to this ranking group', { 
+        pointEventId, 
+        pointEventRankingGroupId: pointEventData.ranking_group_id,
+        requestedRankingGroupId: rankingGroupId
+      });
+      throw new Error('Point event does not belong to this ranking group');
+    }
+
+    // Update the point event
+    const { error: updateError } = await supabase
+      .from('ranking_group_point_event')
+      .update({
+        name: name,
+        date: date
+      })
+      .eq('id', pointEventId);
+
+    if (updateError) {
+      logger.error('Error updating ranking group point event', { 
+        pointEventId, 
+        name, 
+        date, 
+        updateError 
+      });
+      throw new Error('Failed to update point event');
+    }
+
+    // Prepare student group points for upsert
+    const studentGroupPoints = points.map((point) => {
+      if (point.pointId === -1) {
+        // New point entry
+        return {
+          student_group_id: point.studentGroupId,
+          value: point.value,
+          ranking_group_point_event_id: pointEventId
+        };
+      } else {
+        // Update existing point entry
+        return {
+          id: point.pointId,
+          student_group_id: point.studentGroupId,
+          value: point.value,
+          ranking_group_point_event_id: pointEventId
+        };
+      }
+    });
+
+    // Upsert student group points
+    const { error: pointsError } = await supabase
+      .from('student_group_point')
+      .upsert(studentGroupPoints);
+
+    if (pointsError) {
+      logger.error('Error updating student group points', { 
+        pointEventId, 
+        pointsError 
+      });
+      throw new Error('Failed to update student group points');
+    }
+
+    logger.info('Ranking group point event updated successfully', { 
+      teacherId: teacher.id,
+      rankingGroupId,
+      pointEventId,
+      name,
+      date,
+      pointsCount: points.length
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Failed to edit ranking group point event', { 
+      rankingGroupId,
+      pointEventId,
+      name,
+      date,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a ranking group point event
+ */
+export async function deleteRankingGroupPointEvent(
+  rankingGroupId: number,
+  pointEventId: number
+): Promise<boolean> {
+  const logger = createServerLogger({ 
+    component: 'TeacherAPI', 
+    action: 'deleteRankingGroupPointEvent', 
+    rankingGroupId,
+    pointEventId
+  });
+  
+  try {
+    const teacher = await getOwnTeacherData();
+    if (!teacher) {
+      logger.warn('No teacher data found');
+      throw new Error('Teacher not found');
+    }
+
+    const supabase = await supabaseServiceClient();
+    
+    // Check if teacher has access to this ranking group
+    const { data: accessCheck, error: accessError } = await supabase
+      .from('teacher_ranking_group_pair')
+      .select('ranking_group_id')
+      .eq('teacher_id', teacher.id)
+      .eq('ranking_group_id', rankingGroupId)
+      .single();
+
+    if (accessError || !accessCheck) {
+      logger.error('Teacher does not have access to this ranking group', { 
+        teacherId: teacher.id, 
+        rankingGroupId 
+      });
+      throw new Error('Access denied - teacher does not have access to this ranking group');
+    }
+
+    // Verify the point event belongs to this ranking group
+    const { data: pointEventData, error: pointEventError } = await supabase
+      .from('ranking_group_point_event')
+      .select('id, ranking_group_id')
+      .eq('id', pointEventId)
+      .single();
+
+    if (pointEventError || !pointEventData) {
+      logger.error('Point event not found', { pointEventId, pointEventError });
+      throw new Error('Point event not found');
+    }
+
+    if (pointEventData.ranking_group_id !== rankingGroupId) {
+      logger.error('Point event does not belong to this ranking group', { 
+        pointEventId, 
+        pointEventRankingGroupId: pointEventData.ranking_group_id,
+        requestedRankingGroupId: rankingGroupId
+      });
+      throw new Error('Point event does not belong to this ranking group');
+    }
+
+    // Delete the point event (this will cascade delete student_group_point entries)
+    const { error: deleteError } = await supabase
+      .from('ranking_group_point_event')
+      .delete()
+      .eq('id', pointEventId);
+
+    if (deleteError) {
+      logger.error('Error deleting ranking group point event', { 
+        pointEventId, 
+        deleteError 
+      });
+      throw new Error('Failed to delete point event');
+    }
+
+    logger.info('Ranking group point event deleted successfully', { 
+      teacherId: teacher.id,
+      rankingGroupId,
+      pointEventId
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Failed to delete ranking group point event', { 
+      rankingGroupId,
+      pointEventId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}

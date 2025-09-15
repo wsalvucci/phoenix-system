@@ -8,6 +8,7 @@ import { FaMedal } from "react-icons/fa"
 import Color from "color";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
+import { useQuery } from "@tanstack/react-query";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 
@@ -55,17 +56,23 @@ export default function AnimatedFeatured(
         initGlobalDashData: GlobalPoints,
     }
 ) {
-    const [featuredDashData, setFeaturedDashData] = useState<GlobalPoints>(initFeaturedDashData)
+    const [selectedTimeframeId, setSelectedTimeframeId] = useState<number | null>(null);
+    
+    const { data: featuredDashData, isLoading, error } = useQuery({
+        queryKey: ["featured", selectedTimeframeId],
+        queryFn: () => featuredDashGetGlobalStats(12, selectedTimeframeId),
+        initialData: initFeaturedDashData
+    });
     const [curNavigationState, setCurNavigationState] = useState<NavigationState>({
         currentCategory: 1,
         pointGroups: {
             currentGroupIdx: 0,
-            groups: featuredDashData.pointGroups.map((pointGroup) => {
+            groups: featuredDashData?.pointGroups?.map((pointGroup) => {
                 return {
                     id: pointGroup.id,
                     title: pointGroup.name
                 }
-            })
+            }) || []
         },
         grades: {
             currentGradeIdx: 0,
@@ -91,7 +98,42 @@ export default function AnimatedFeatured(
     const [intervalLength, setIntervalLength] = useState<number>(20000)
     const [passedTime, setPassedTime] = useState<number>(0)
 
-    console.log(initFeaturedDashData)
+    console.log("=== CLIENT-SIDE FEATURED DASH DATA ===");
+    console.log("Timeframes count:", featuredDashData?.timeframes?.length);
+    console.log("Timeframes:", featuredDashData?.timeframes);
+    console.log("Active timeframe:", featuredDashData?.timeframes?.find(tf => tf.isActive));
+    console.log("Sample student data:", featuredDashData?.students?.slice(0, 3)?.map(s => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        totalPoints: s.totalPoints,
+        pointGroups: s.pointGroups?.map(pg => ({ id: pg.id, points: pg.points }))
+    })));
+    console.log("=====================================");
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-full w-full">
+                <p className="text-white text-2xl">Loading featured dashboard...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex justify-center items-center h-full w-full">
+                <p className="text-red-400 text-2xl">Error loading dashboard: {error.message}</p>
+            </div>
+        );
+    }
+
+    if (!featuredDashData) {
+        return (
+            <div className="flex justify-center items-center h-full w-full">
+                <p className="text-white text-2xl">No data available</p>
+            </div>
+        );
+    }
 
     function decrementDav() {
         setPassedTime(0)
@@ -261,11 +303,10 @@ export default function AnimatedFeatured(
         return () => clearInterval(timePassedInterval)
     }, [featuredDashData, paused, passedTime])
 
-    const updateData = async (timeframe: number | null = null) => {
-        featuredDashGetGlobalStats(12, timeframe).then((data) => {
-            if (data === null) return
-            setFeaturedDashData(data)
-        })
+    const updateData = (timeframe: number | null = null) => {
+        console.log("=== UPDATE DATA CALLED ===");
+        console.log("Requested timeframe ID:", timeframe);
+        setSelectedTimeframeId(timeframe);
     }
 
     const supabase = createClient();
@@ -304,13 +345,13 @@ export default function AnimatedFeatured(
             points: number
         }[] | null
     }) {
-        const percentOfFirst = student.points / firstPlacePoints
+        const percentOfFirst = (student.points || 0) / (firstPlacePoints || 1)
         let breakdownGradient : string | null = null
         if (breakdownPoints !== null) {
             breakdownGradient = backgroundGradient(breakdownPoints.map((pointGroup) => {
                 return {
                     color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
-                    percent: (pointGroup.points / student.points) * 100
+                    percent: ((pointGroup.points || 0) / (student.points || 1)) * 100
                 }
             }))
         }
@@ -389,7 +430,7 @@ export default function AnimatedFeatured(
                             })
                             acc.push({
                                 color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
-                                percent: (pointGroup.points / student.points) * 100 + curPct
+                                percent: ((pointGroup.points || 0) / (student.points || 1)) * 100 + curPct
                             })
                             return acc
                         }, [] as { color: string, percent: number }[])) : backgroundGradient([
@@ -417,7 +458,12 @@ export default function AnimatedFeatured(
                     <motion.div
                         className={`flex items-center ${monoFont.className}`}
                     >
-                        {Math.round(student.points * (curProgress[student.id]?.value ?? 0)).toLocaleString()}
+                        {(() => {
+                            const points = student.points || 0;
+                            const progress = curProgress[student.id]?.value ?? 0;
+                            const result = points * progress;
+                            return Math.round(isNaN(result) ? 0 : result).toLocaleString();
+                        })()}
                     </motion.div>
                 </motion.div>
             </motion.div>
@@ -429,7 +475,7 @@ export default function AnimatedFeatured(
             <AnimatePresence>
                 {
                     featuredDashData.students
-                    .sort((a, b) => b.totalPoints - a.totalPoints)
+                    .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
                     .slice(0, 20)
                     .map((student, index, array) => {
                         return (
@@ -437,19 +483,19 @@ export default function AnimatedFeatured(
                                 {
                                     student: {
                                         id: student.id,
-                                        points: student.totalPoints,
+                                        points: student.totalPoints || 0,
                                         firstName: student.firstName,
                                         lastName: student.lastName
                                     },
                                     index: index,
                                     rankChange: student.lastMonthRank - student.rank,
                                     arrayLength: array.length,
-                                    firstPlacePoints: array.at(0)?.totalPoints ?? Number.MAX_SAFE_INTEGER,
+                                    firstPlacePoints: array.at(0)?.totalPoints || 0,
                                     breakdownPoints: student.pointGroups.map((pointGroup) => {
                                         return {
                                             pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
                                             pointGroupId: pointGroup.id,
-                                            points: pointGroup.points
+                                            points: pointGroup.points || 0
                                         }
                                     })
                                 },
@@ -469,8 +515,8 @@ export default function AnimatedFeatured(
                     featuredDashData
                         .students
                         .sort((a, b) =>
-                            (b.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0) -
-                            (a.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0)
+                            (b.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0) -
+                            (a.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0)
                         )
                         .slice(0, 20)
                         .map((student, index, array) => {
@@ -479,14 +525,14 @@ export default function AnimatedFeatured(
                                     {
                                         student: {
                                             id: student.id,
-                                            points: student.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0,
+                                            points: student.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0,
                                             firstName: student.firstName,
                                             lastName: student.lastName
                                         },
                                         index: index,
                                         rankChange: null,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        firstPlacePoints: array.at(0)?.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0,
                                         breakdownPoints: null
                                     },
 
@@ -505,7 +551,7 @@ export default function AnimatedFeatured(
                     featuredDashData
                         .students
                         .filter((student) => student.grade === parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? ''))
-                        .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
+                        .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
                         .slice(0, 20)
                         .map((student, index, array) => {
                             return (
@@ -513,19 +559,19 @@ export default function AnimatedFeatured(
                                     {
                                         student: {
                                             id: student.id,
-                                            points: student.totalPoints ?? 0,
+                                            points: student.totalPoints || 0,
                                             firstName: student.firstName,
                                             lastName: student.lastName
                                         },
                                         index: index,
                                         rankChange: null,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.totalPoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        firstPlacePoints: array.at(0)?.totalPoints || 0,
                                         breakdownPoints: student.pointGroups.map((pointGroup) => {
                                             return {
                                                 pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
                                                 pointGroupId: pointGroup.id,
-                                                points: pointGroup.points
+                                                points: pointGroup.points || 0
                                             }
                                         })
                                     },
@@ -558,19 +604,19 @@ export default function AnimatedFeatured(
                                     {
                                         student: {
                                             id: studentGroup.id,
-                                            points: studentGroup.averagePoints ?? 0,
+                                            points: studentGroup.averagePoints || 0,
                                             firstName: studentGroup.name,
                                             lastName: ''
                                         },
                                         index: index,
                                         rankChange: null,
                                         arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.averagePoints ?? 0 ?? Number.MAX_SAFE_INTEGER,
+                                        firstPlacePoints: array.at(0)?.averagePoints || 0,
                                         breakdownPoints: featuredDashData.studentGroups.find((sg) => sg.id === studentGroup.id)?.pointGroups.map((pointGroup) => {
                                             return {
                                                 pointGroupColor: featuredDashData.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
                                                 pointGroupId: pointGroup.id,
-                                                points: pointGroup.points / (featuredDashData.studentGroups.find((sg) => sg.id === studentGroup.id)?.totalStudents ?? 0)
+                                                points: (pointGroup.points || 0) / (featuredDashData.studentGroups.find((sg) => sg.id === studentGroup.id)?.totalStudents || 1)
                                             }
                                         }) ?? null
                                     },
@@ -625,19 +671,27 @@ export default function AnimatedFeatured(
                 </select>
                 <select
                     className="px-3 py-1 bg-transparent text-white"
-                    defaultValue={featuredDashData.timeframes.find((timeframe) => timeframe.isActive)?.id}
+                    value={selectedTimeframeId || featuredDashData.timeframes.find((timeframe) => timeframe.isActive)?.id || ""}
                     onChange={(e) => {
-                        updateData(parseInt(e.target.value))
+                        const value = e.target.value;
+                        updateData(value === "" ? null : parseInt(value));
                     }}
                     >
+                        <option value="">Active Timeframe</option>
                         {
-                            featuredDashData.timeframes.map((timeframe) => {
-                                return (
-                                    <option className="text-black" key={timeframe.id} value={timeframe.id}>
-                                        {timeframe.name}
-                                    </option>
-                                )
-                            })
+                            (() => {
+                                console.log("=== RENDERING DROPDOWN ===");
+                                console.log("featuredDashData.timeframes:", featuredDashData.timeframes);
+                                console.log("Timeframes count for dropdown:", featuredDashData.timeframes.length);
+                                return featuredDashData.timeframes.map((timeframe) => {
+                                    console.log("Rendering timeframe:", timeframe);
+                                    return (
+                                        <option className="text-black" key={timeframe.id} value={timeframe.id}>
+                                            {timeframe.name} {timeframe.isActive ? "(Active)" : ""}
+                                        </option>
+                                    )
+                                })
+                            })()
                         }
                 </select>
             </div>

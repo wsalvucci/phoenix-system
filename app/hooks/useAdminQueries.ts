@@ -27,7 +27,10 @@ import {
   getSchoolRankingGroups,
   createRankingGroup,
   addStudentGroupToRankingGroup,
-  removeStudentGroupFromRankingGroup
+  removeStudentGroupFromRankingGroup,
+  addTeacherToRankingGroup,
+  removeTeacherFromRankingGroup,
+  updateRankingGroupTimeframe
 } from '@/api/admin/rankingGroups';
 import { 
   getSchoolPointGroups,
@@ -399,6 +402,7 @@ export const useCreateRankingGroup = () => {
       schoolId: number;
       groupData: {
         name: string;
+        timeframeId?: number | null;
       };
     }) => createRankingGroup(schoolId, groupData),
     onSuccess: (_, { schoolId }) => {
@@ -433,6 +437,48 @@ export const useRemoveStudentGroupFromRankingGroup = () => {
     }) => removeStudentGroupFromRankingGroup(studentGroupId, rankingGroupId),
     onSuccess: (_, { rankingGroupId }) => {
       // Invalidate ranking groups to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['admin', 'rankingGroups'] });
+    },
+  });
+};
+
+export const useAddTeacherToRankingGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ teacherId, rankingGroupId }: {
+      teacherId: number;
+      rankingGroupId: number;
+    }) => addTeacherToRankingGroup(teacherId, rankingGroupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'rankingGroups'] });
+    },
+  });
+};
+
+export const useRemoveTeacherFromRankingGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ teacherId, rankingGroupId }: {
+      teacherId: number;
+      rankingGroupId: number;
+    }) => removeTeacherFromRankingGroup(teacherId, rankingGroupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'rankingGroups'] });
+    },
+  });
+};
+
+export const useUpdateRankingGroupTimeframe = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ rankingGroupId, timeframeId }: {
+      rankingGroupId: number;
+      timeframeId: number | null;
+    }) => updateRankingGroupTimeframe(rankingGroupId, timeframeId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'rankingGroups'] });
     },
   });

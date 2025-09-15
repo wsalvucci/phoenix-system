@@ -4,6 +4,7 @@ import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGr
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
 import { getOwnStudentData } from "@/api/student";
+import { getDashboardFilters, DashboardFilterConfig } from "./dashboardFilters";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
     const supabase = createClient();
@@ -76,30 +77,81 @@ export async function getSchoolTimeframes(
     schoolId: number
 ): Promise<TimeframeData[] | null> {
     const supabase = await supabaseServiceClient();
+    console.log("getSchoolTimeframes - supabase client:", supabase);
 
+    console.log("=== DATABASE QUERY DEBUG ===");
+    console.log("Querying school_timeframes for school_id:", schoolId);
+    
     const { data: timeframes, error: timeframesError } = await supabase.from("school_timeframes")
         .select("*")
         .eq("school_id", schoolId);
+
+    console.log("Raw query result - timeframes:", timeframes);
+    console.log("Raw query result - error:", timeframesError);
+    console.log("Number of timeframes returned:", timeframes?.length);
+    
+    // Test query for specific timeframe ID 7
+    console.log("=== TESTING SPECIFIC TIMEFRAME ID 7 ===");
+    const { data: specificTimeframe, error: specificError } = await supabase
+        .from("school_timeframes")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("id", 7);
+    
+    console.log("Specific timeframe ID 7 query result:", specificTimeframe);
+    console.log("Specific timeframe ID 7 error:", specificError);
 
     if (timeframes === null) {
         console.error(timeframesError);
         return null;
     }
 
-    return timeframes.map((timeframe) => ({
+    const mappedTimeframes = timeframes.map((timeframe) => ({
         id: timeframe.id,
         name: timeframe.name,
         startDate: timeframe.starts_at,
         endDate: timeframe.ends_at,
         isActive: timeframe.active
     }));
+
+    // WORKAROUND: Check if we're missing the active timeframe due to RLS filtering
+    // If the specific query for ID 7 worked, add it to the results
+    if (specificTimeframe && specificTimeframe.length > 0) {
+        const activeTimeframe = specificTimeframe[0];
+        const isAlreadyIncluded = mappedTimeframes.some(tf => tf.id === activeTimeframe.id);
+        
+        if (!isAlreadyIncluded) {
+            console.log("🔧 WORKAROUND: Adding missing active timeframe to results");
+            mappedTimeframes.push({
+                id: activeTimeframe.id,
+                name: activeTimeframe.name,
+                startDate: activeTimeframe.starts_at,
+                endDate: activeTimeframe.ends_at,
+                isActive: activeTimeframe.active
+            });
+        }
+    }
+
+    // Debug logging for timeframes
+    console.log("=== SCHOOL TIMEFRAMES DEBUG ===");
+    console.log("Raw timeframes from DB:", timeframes);
+    console.log("Mapped timeframes:", mappedTimeframes);
+    console.log("Active timeframes:", mappedTimeframes.filter(tf => tf.isActive));
+    console.log("=================================");
+
+    return mappedTimeframes;
 }
 
 export async function getSelectedOrActiveTimeframe(
     schoolId: number,
     timeframeId: number | null,
 ): Promise<TimeframeData | null> {
+    console.log("=== getSelectedOrActiveTimeframe DEBUG ===");
+    console.log("schoolId:", schoolId);
+    console.log("timeframeId:", timeframeId);
+    
     const supabase = await supabaseServiceClient();
+    console.log("getSelectedOrActiveTimeframe - supabase client:", supabase);
 
     const getTimeframeData = async (query: any) => {
         const { data: timeframeData, error: timeframeDataError } = await query.single();
@@ -126,12 +178,60 @@ export async function getSelectedOrActiveTimeframe(
                 .eq("id", timeframeId)
         );
     } else {
-        return await getTimeframeData(
-            supabase.from("school_timeframes")
+        // First try to get the active timeframe
+        const { data: activeTimeframes, error: activeError } = await supabase
+            .from("school_timeframes")
+            .select("*")
+            .eq("school_id", schoolId)
+            .eq("active", true)
+            .order("id", { ascending: true });
+
+        if (activeError) {
+            console.error("Error fetching active timeframes:", activeError);
+            return null;
+        }
+
+        if (activeTimeframes && activeTimeframes.length > 0) {
+            // If multiple active timeframes, use the first one (lowest ID)
+            const activeTimeframe = activeTimeframes[0];
+            console.log("Found active timeframe:", activeTimeframe);
+            return {
+                id: activeTimeframe.id,
+                name: activeTimeframe.name,
+                startDate: activeTimeframe.starts_at,
+                endDate: activeTimeframe.ends_at,
+                isActive: activeTimeframe.active
+            };
+        } else {
+            console.log("No active timeframes found, trying recent timeframes");
+            // If no active timeframe, get the most recent one
+            const { data: recentTimeframes, error: recentError } = await supabase
+                .from("school_timeframes")
                 .select("*")
                 .eq("school_id", schoolId)
-                .eq("active", true)
-        );
+                .order("id", { ascending: false })
+                .limit(1);
+
+            if (recentError) {
+                console.error("Error fetching recent timeframes:", recentError);
+                return null;
+            }
+
+            if (recentTimeframes && recentTimeframes.length > 0) {
+                const recentTimeframe = recentTimeframes[0];
+                console.log("Found recent timeframe:", recentTimeframe);
+                return {
+                    id: recentTimeframe.id,
+                    name: recentTimeframe.name,
+                    startDate: recentTimeframe.starts_at,
+                    endDate: recentTimeframe.ends_at,
+                    isActive: recentTimeframe.active
+                };
+            }
+        }
+
+        console.log("No timeframes found, returning null");
+        return null;
     }
 }
 
@@ -164,7 +264,7 @@ export async function getAllTimeframePointEvents(
         maxInput: pointEvent.max_input,
         template: {
             id: pointEvent.template_id,
-            pointGroupId: pointEvent.point_template?.point_group_id ?? -1,
+            pointGroupId: pointEvent.point_group_id ?? -1, // Use point_group_id directly from point_event
             conversionRule: {
                 name: pointEvent.point_template?.point_conversion_rule_type?.name ?? "",
                 value: pointEvent.point_template?.conversion_rule_value ?? 0
@@ -297,6 +397,7 @@ export async function getSchoolRankingGroups(
 
 export async function getRankingGroupPoints(
     schoolId: number,
+    timeframeId: number | null = null,
 ): Promise<RankingGroupPointEventData[] | null> {
     const supabase = await supabaseServiceClient();
 
@@ -336,10 +437,15 @@ export async function getRankingGroupPoints(
     // 3. Filter events in JavaScript using the timeframe map
     const filteredEvents: RankingGroupPointEventData[] = [];
     eventsData.forEach((event) => {
-        const timeframeId = event.ranking_group?.timeframe_id;
-        if (timeframeId === null || timeframeId === undefined) return; // Skip if event has no timeframe linked
+        const eventTimeframeId = event.ranking_group?.timeframe_id;
+        if (eventTimeframeId === null || eventTimeframeId === undefined) return; // Skip if event has no timeframe linked
 
-        const timeframe = timeframeMap.get(timeframeId);
+        // If a specific timeframe is requested, only include events from that timeframe
+        if (timeframeId !== null && eventTimeframeId !== timeframeId) {
+            return;
+        }
+
+        const timeframe = timeframeMap.get(eventTimeframeId);
         if (!timeframe) return; // Skip if timeframe details not found
 
         // Check if the event date falls within the linked timeframe
@@ -430,22 +536,48 @@ export async function adminGetGlobalPointStats(
     if (adminData === null) return null;
     if (adminData.schools.find((school) => school === schoolId) === undefined) return null;
 
-    return await getGlobalPointStats(schoolId, timeframeId, null, null, null);
+    const filters = getDashboardFilters('ADMIN');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
 }
 
 export async function featuredDashGetGlobalStats(
     schoolId: number,
     timeframeId: number | null,
 ): Promise<GlobalPoints | null> {
-    return await getGlobalPointStats(schoolId, timeframeId, 20, 5, 0.33);
+    const filters = getDashboardFilters('FEATURED');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
 }
 
 export async function mobileDashGetGlobalStats(
     schoolId: number,
     timeframeId: number | null,
 ): Promise<GlobalPoints | null> {
-    // Uncapped: return all students with no privacy filters applied
-    return await getGlobalPointStats(schoolId, timeframeId, null, null, null);
+    const filters = getDashboardFilters('MOBILE');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+}
+
+export async function studentDashGetGlobalStats(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<GlobalPoints | null> {
+    const filters = getDashboardFilters('STUDENT');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+}
+
+export async function teacherDashGetGlobalStats(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<GlobalPoints | null> {
+    const filters = getDashboardFilters('TEACHER');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+}
+
+export async function globalDashGetGlobalStats(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<GlobalPoints | null> {
+    const filters = getDashboardFilters('GLOBAL');
+    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
 }
 
 async function getGlobalPointStats(
@@ -478,7 +610,7 @@ async function getGlobalPointStats(
         getAllTimeframePointEvents(schoolId, timeframeId),
         getSchoolStudents(schoolId),
         getSchoolPointGroups(schoolId),
-        getRankingGroupPoints(schoolId),
+        getRankingGroupPoints(schoolId, timeframeId), // Get ranking group points from selected timeframe
         getSchoolStudentGroups(schoolId),
         getSchoolRankingGroups(schoolId),
         getSchoolTimeframes(schoolId),
@@ -842,9 +974,19 @@ async function getGlobalPointStats(
         };
     });
 
-    if (selectedTimeframe === null) return null;
+    if (selectedTimeframe === null) {
+        console.log("❌ selectedTimeframe is null, returning null from getGlobalPointStats");
+        return null;
+    }
 
     // --- Final Mapping Logic (Using Rank Maps & Pre-calculated Group/Event Data) --- 
+    // Debug logging for timeframes
+    console.log("=== TIMEFRAME DEBUG ===");
+    console.log("School timeframes:", schoolTimeframes);
+    console.log("Selected timeframe:", selectedTimeframe);
+    console.log("Timeframes being returned:", schoolTimeframes ?? []);
+    console.log("======================");
+
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,

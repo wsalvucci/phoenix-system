@@ -20,7 +20,11 @@ export default function TopCards() {
         queryFn: () => getTopScrollingDashboard(12, selectedTimeframeId)
     })
 
-    console.log(data?.students)
+    console.log("=== TOPCARDS DASHBOARD DEBUG ===");
+    console.log("Timeframes count:", data?.timeframes?.length);
+    console.log("Timeframes:", data?.timeframes);
+    console.log("Active timeframes:", data?.timeframes?.filter(tf => tf.active));
+    console.log("=================================");
 
     const pinnedItemRef = useRef<HTMLDivElement>(null);
     const [pinnedItemHeight, setPinnedItemHeight] = useState(0);

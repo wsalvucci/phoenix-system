@@ -1,6 +1,7 @@
 "use client";
 import { metalStyle, metalStyleGradient, rankToColor, shinyBackgroundStyle } from "@/app/dataClasses";
 import { getGlobalDashboard } from "@/api/dashboard";
+import { globalDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/api/core/types";
 import { createClient } from "@/utils/supabase/client";
 import { DateTime } from "luxon";
@@ -33,7 +34,7 @@ export default function GlobalDashboard() {
         const updateData = async (timeframeId: number | null) => {
                 console.log("Updating data");
                 setFetchError(null);
-                getGlobalDashboard(12, timeframeId).then((data) => {
+                globalDashGetGlobalStats(12, timeframeId).then((data) => {
                         console.log(data)
                         if (data === null) {
                                 setFetchError("No data returned from server");

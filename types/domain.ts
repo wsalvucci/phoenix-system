@@ -279,6 +279,13 @@ export type AdminRankingGroupData = {
   id: number;
   name: string;
   schoolId: number;
+  timeframeId: number | null;
+  timeframe: {
+    id: number;
+    name: string;
+    startsAt: string;
+    endsAt: string;
+  } | null;
   studentGroupIds: number[];
 };
 
