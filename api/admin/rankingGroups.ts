@@ -274,7 +274,9 @@ export async function createRankingGroup(schoolId: number, groupData: {
       timeframeId: newRankingGroup.timeframe_id,
       timeframe: null, // Will be populated by the caller if needed
       studentGroupIds: [],
-      studentGroups: []
+      studentGroups: [],
+      teacherIds: [],
+      teachers: []
     };
 
     logger.info('Ranking group created successfully', { 

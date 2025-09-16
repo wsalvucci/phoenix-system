@@ -287,6 +287,17 @@ export type AdminRankingGroupData = {
     endsAt: string;
   } | null;
   studentGroupIds: number[];
+  studentGroups: {
+    id: number;
+    name: string;
+    archived: boolean;
+  }[];
+  teacherIds: number[];
+  teachers: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  }[];
 };
 
 export type AdminPointGroupData = {
