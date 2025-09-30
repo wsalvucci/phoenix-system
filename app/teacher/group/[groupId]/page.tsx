@@ -203,6 +203,15 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   // Helper: Determine which students/events have changes
   function getChangedMatrix() {
     if (!importPreview || !scorebookData) return { changedStudents: [], changedEvents: [] };
+    
+    // Helper function to normalize values for comparison
+    const normalizeValue = (value: string | undefined | null): string => {
+      if (!value || value.trim() === '' || value === 'null' || value === 'undefined') {
+        return '0';
+      }
+      return value.trim();
+    };
+    
     const changedStudents: boolean[] = importPreview.students.map((student, sIdx) => {
       return importPreview.eventIds.some((eventId, eIdx) => {
         const event = scorebookData.pointEvents.find(e => e.id.toString() === eventId);
@@ -211,9 +220,14 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
           if (sp) currentValue = sp.pointData.value.toString();
         }
-        return (student.scores[eIdx] || '') !== (currentValue || '');
+        
+        const csvValue = normalizeValue(student.scores[eIdx]);
+        const dbValue = normalizeValue(currentValue);
+        
+        return csvValue !== dbValue;
       });
     });
+    
     const changedEvents: boolean[] = importPreview.eventIds.map((eventId, eIdx) => {
       return importPreview.students.some((student, sIdx) => {
         const event = scorebookData.pointEvents.find(e => e.id.toString() === eventId);
@@ -222,9 +236,14 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
           if (sp) currentValue = sp.pointData.value.toString();
         }
-        return (student.scores[eIdx] || '') !== (currentValue || '');
+        
+        const csvValue = normalizeValue(student.scores[eIdx]);
+        const dbValue = normalizeValue(currentValue);
+        
+        return csvValue !== dbValue;
       });
     });
+    
     return { changedStudents, changedEvents };
   }
 
@@ -952,20 +971,45 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const handleImportScorebookData = async () => {
     if (!importPreview) return;
     setImportLoading(true);
+    
     // Convert importPreview to ImportedScorebook (array of event objects)
-    const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => ({
-      pointEventId: parseInt(eventId),
-      name: importPreview.eventNames[eventIdx] || '',
-      date: '', // Not available from import
-      template: { type: '', value: 0 }, // Not available from import
-      studentPoints: importPreview.students.map(student => ({
-        id: parseInt(student.studentId),
-        lastName: student.studentName.split(',')[0]?.trim() || '',
-        firstName: student.studentName.split(',')[1]?.trim() || '',
-        input: student.scores[eventIdx] ? parseFloat(student.scores[eventIdx]) : 0,
-        value: student.scores[eventIdx] ? parseFloat(student.scores[eventIdx]) : 0
-      }))
-    }));
+    const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => {
+      return {
+        pointEventId: parseInt(eventId),
+        name: importPreview.eventNames[eventIdx] || '',
+        date: '', // Not available from import
+        template: { type: '', value: 0 }, // Not available from import
+        studentPoints: importPreview.students.map((student) => {
+          const parsedStudentId = parseInt(student.studentId);
+          const studentNameParts = student.studentName.split(',');
+          const lastName = studentNameParts[0]?.trim() || '';
+          const firstName = studentNameParts[1]?.trim() || '';
+          
+          // Normalize empty/blank values to 0 for consistency
+          const normalizeValue = (value: string | undefined | null): number => {
+            if (!value || value.trim() === '' || value === 'null' || value === 'undefined') {
+              return 0;
+            }
+            const parsed = parseFloat(value);
+            return isNaN(parsed) ? 0 : parsed;
+          };
+          
+          const scoreValue = normalizeValue(student.scores[eventIdx]);
+          
+          return {
+            id: parsedStudentId,
+            lastName,
+            firstName,
+            input: scoreValue,
+            value: scoreValue
+          };
+        }).filter(student => {
+          // Filter out students with invalid IDs
+          return !isNaN(student.id) && student.id > 0;
+        })
+      };
+    });
+    
     try {
       const result = await importPhoenixScorebookData(parseInt(groupId), imported);
       if (typeof result === 'string') {
@@ -993,6 +1037,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           setImportPreview(null);
           return;
         }
+        
         // First row: headers (Student Name, Student ID, event IDs...)
         // Second row: sub-headers (blank, blank, event names...)
         const eventIds = rows[0].slice(2);
@@ -1347,7 +1392,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStudents.slice(0, 5).map((student, idx) => (
+                    {filteredStudents.map((student, idx) => (
                       <tr key={idx}>
                         <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentName}</td>
                         <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentId}</td>
@@ -1362,9 +1407,21 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                               const sp = event.studentPoints.find(sp => sp.student.id === parseInt(student.studentId));
                               if (sp) currentValue = sp.pointData.value.toString();
                             }
-                            if ((student.scores[sidx] || '') !== (currentValue || '')) {
+                            
+                            // Normalize values for comparison (same logic as getChangedMatrix)
+                            const normalizeValue = (value: string | undefined | null): string => {
+                              if (!value || value.trim() === '' || value === 'null' || value === 'undefined') {
+                                return '0';
+                              }
+                              return value.trim();
+                            };
+                            
+                            const csvValue = normalizeValue(student.scores[sidx]);
+                            const dbValue = normalizeValue(currentValue);
+                            
+                            if (csvValue !== dbValue) {
                               highlight = true;
-                              tooltip = `Current: ${currentValue || '(none)'}`;
+                              tooltip = `Current: ${currentValue || '0'}`;
                             }
                           }
                           return (
@@ -1383,7 +1440,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 </table>
               </div>
               <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                Showing first 5 students. Total: {filteredStudents.length} students
+                Showing all {filteredStudents.length} students
               </div>
             </div>
           )}

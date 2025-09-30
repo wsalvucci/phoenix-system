@@ -980,35 +980,67 @@ export default async function importPhoenixScorebookData(
 ): Promise<string | void> {
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
-        if (!teacherAccess) return "Teacher not assigned to group";
+        if (!teacherAccess) {
+            return "Teacher not assigned to group";
+        }
 
         const supabase = await supabaseServiceClient();
+
+        // Check which students exist in the database
+        const studentIds = data.flatMap(event => event.studentPoints.map(student => student.id));
+        const uniqueStudentIds = [...new Set(studentIds)];
+
+        const { data: existingStudents, error: studentCheckError } = await supabase
+            .from('student')
+            .select('id')
+            .in('id', uniqueStudentIds);
+
+        if (studentCheckError) {
+            return "Error checking student existence";
+        }
+
+        const existingStudentIds = existingStudents?.map(s => s.id) || [];
+        const missingStudentIds = uniqueStudentIds.filter(id => !existingStudentIds.includes(id));
+        
+        if (missingStudentIds.length > 0) {
+            return `Students with IDs ${missingStudentIds.join(', ')} do not exist in the database`;
+        }
 
         // For each event in the imported data
         for (const event of data) {
             const pointEventId = event.pointEventId;
+            
             // For each student in this event
             for (const student of event.studentPoints) {
                 // Skip if no score or empty
                 if (student.input === undefined || student.input === null || String(student.input) === "") {
                     continue;
                 }
+                
+                // Validate student ID before database operation
+                if (!student.id || isNaN(student.id) || student.id <= 0) {
+                    return `Invalid student ID: ${student.id}`;
+                }
+                
+                const insertData = {
+                    created_at: DateTime.now().toISO(),
+                    point_value: student.value,
+                    student_id: student.id,
+                    input_score: student.input,
+                    notes: null,
+                    point_event_id: pointEventId
+                };
+                
                 // Upsert the student point
                 const { error: upsertError } = await supabase
                     .from('student_point')
-                    .upsert({
-                        created_at: DateTime.now().toISO(),
-                        point_value: student.value, // For now, use input as point value
-                        student_id: student.id,
-                        input_score: student.input,
-                        notes: null,
-                        point_event_id: pointEventId
-                    });
+                    .upsert(insertData);
+                    
                 if (upsertError) {
-                    console.error("Error importing student point", upsertError);
-                    return "Error importing student points";
+                    return `Error importing student point for student ${student.id}: ${upsertError.message}`;
                 }
             }
         }
+        
         return;
 }

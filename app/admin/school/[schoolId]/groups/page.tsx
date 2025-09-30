@@ -1,12 +1,199 @@
 "use client";
 
 import { useState } from 'react';
-import { useSchoolGroupsWithCounts, useCreateGroup, useUpdateGroup, useArchiveGroup, useDeleteGroup } from '@/app/hooks/useAdminQueries';
+import { useSchoolGroupsWithCounts, useCreateGroup, useUpdateGroup, useArchiveGroup, useDeleteGroup, useSchoolStudents, useAddStudentLeaderToGroup, useRemoveStudentLeaderFromGroup, useGroupStudentLeaders } from '@/app/hooks/useAdminQueries';
 import { LoadingState } from '@/components/LoadingLayout';
 import ThemeInput from '@/components/ThemeInput';
 import MotionButton from '@/components/MotionButton';
 import { AdminGroupWithCountsData } from '@/api/admin/groups';
 import Link from 'next/link';
+
+interface StudentLeadersDialogProps {
+  group: AdminGroupWithCountsData;
+  schoolId: number;
+  students: Array<{
+    id: number;
+    firstName: string;
+    lastName: string;
+    grade: number;
+    powerschoolId?: number;
+  }>;
+  onClose: () => void;
+  onAddLeader: (groupId: number, studentId: number) => void;
+  onRemoveLeader: (groupId: number, studentId: number) => void;
+}
+
+function StudentLeadersDialog({ 
+  group, 
+  schoolId, 
+  students, 
+  onClose, 
+  onAddLeader, 
+  onRemoveLeader 
+}: StudentLeadersDialogProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const { data: currentLeaders, isLoading: isLoadingLeaders } = useGroupStudentLeaders(schoolId, group.id);
+
+  const handleAddLeader = (studentId: number) => {
+    onAddLeader(group.id, studentId);
+    setSearchTerm('');
+    setShowSearchResults(false);
+  };
+
+  const handleRemoveLeader = (studentId: number) => {
+    onRemoveLeader(group.id, studentId);
+  };
+
+  // Get students who are not already leaders
+  const availableStudents = students.filter(student => 
+    !currentLeaders?.some(leader => leader.id === student.id)
+  );
+
+  // Filter students based on search term
+  const filteredStudents = availableStudents.filter(student => {
+    const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    return fullName.includes(searchLower) || 
+           student.firstName.toLowerCase().includes(searchLower) ||
+           student.lastName.toLowerCase().includes(searchLower) ||
+           (student.powerschoolId && student.powerschoolId.toString().includes(searchTerm));
+  });
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSearchResults(value.length > 0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setShowSearchResults(false);
+      setSearchTerm('');
+    }
+  };
+
+  // Close search results when clicking outside
+  const handleDialogClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setShowSearchResults(false);
+    }
+  };
+
+  // Prevent search results from closing when clicking on the search container
+  const handleSearchContainerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={handleDialogClick}>
+      <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <h3 className="text-lg font-semibold mb-4">
+          Manage Student Leaders: {group.name}
+        </h3>
+
+        {/* Current Leaders */}
+        <div className="mb-6">
+          <h4 className="text-md font-medium mb-3 text-slate-900 dark:text-slate-100">
+            Current Leaders ({currentLeaders?.length || 0})
+          </h4>
+          {isLoadingLeaders ? (
+            <div className="text-slate-500 dark:text-slate-400">Loading leaders...</div>
+          ) : currentLeaders && currentLeaders.length > 0 ? (
+            <div className="space-y-2">
+              {currentLeaders.map(leader => (
+                <div key={leader.id} className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                  <div>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {leader.firstName} {leader.lastName}
+                    </span>
+                    <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">
+                      Grade {leader.grade}
+                    </span>
+                    {leader.powerschoolId && (
+                      <span className="text-sm text-slate-500 dark:text-slate-500 ml-2">
+                        (ID: {leader.powerschoolId})
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemoveLeader(leader.id)}
+                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-slate-500 dark:text-slate-400 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+              No student leaders assigned to this group.
+            </div>
+          )}
+        </div>
+
+        {/* Add New Leader */}
+        <div className="mb-6">
+          <h4 className="text-md font-medium mb-3 text-slate-900 dark:text-slate-100">
+            Add New Leader
+          </h4>
+          <div className="relative" onClick={handleSearchContainerClick}>
+            <ThemeInput
+              placeholder="Search for a student by name or PowerSchool ID..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
+              className="w-full"
+            />
+            
+            {/* Search Results Dropdown */}
+            {showSearchResults && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-10">
+                {filteredStudents.length > 0 ? (
+                  filteredStudents.map(student => (
+                    <button
+                      key={student.id}
+                      onClick={() => handleAddLeader(student.id)}
+                      className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                    >
+                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                        {student.firstName} {student.lastName}
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Grade {student.grade}
+                        {student.powerschoolId && ` • ID: ${student.powerschoolId}`}
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm">
+                    {searchTerm.length > 0 ? 'No students found matching your search.' : 'Start typing to search for students...'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {availableStudents.length === 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              All students are already leaders of this group.
+            </p>
+          )}
+        </div>
+
+        {/* Close Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentGroupsManagementPage({ params: { schoolId } }: { params: { schoolId: string } }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,13 +209,20 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
     group: AdminGroupWithCountsData;
     show: boolean;
   } | null>(null);
+  const [leadersDialog, setLeadersDialog] = useState<{
+    group: AdminGroupWithCountsData;
+    show: boolean;
+  } | null>(null);
 
   // Queries
   const { data: groups, isLoading, error } = useSchoolGroupsWithCounts(parseInt(schoolId), showArchived);
+  const { data: students } = useSchoolStudents(parseInt(schoolId));
   const createGroupMutation = useCreateGroup();
   const updateGroupMutation = useUpdateGroup();
   const archiveGroupMutation = useArchiveGroup();
   const deleteGroupMutation = useDeleteGroup();
+  const addStudentLeaderMutation = useAddStudentLeaderToGroup();
+  const removeStudentLeaderMutation = useRemoveStudentLeaderFromGroup();
 
   // Create form state
   const [createForm, setCreateForm] = useState({
@@ -127,6 +321,34 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
     }
   };
 
+  // Handle add student leader
+  const handleAddStudentLeader = async (groupId: number, studentId: number) => {
+    try {
+      await addStudentLeaderMutation.mutateAsync({
+        schoolId: parseInt(schoolId),
+        groupId,
+        studentId
+      });
+    } catch (error) {
+      console.error('Failed to add student leader:', error);
+      alert('Failed to add student leader');
+    }
+  };
+
+  // Handle remove student leader
+  const handleRemoveStudentLeader = async (groupId: number, studentId: number) => {
+    try {
+      await removeStudentLeaderMutation.mutateAsync({
+        schoolId: parseInt(schoolId),
+        groupId,
+        studentId
+      });
+    } catch (error) {
+      console.error('Failed to remove student leader:', error);
+      alert('Failed to remove student leader');
+    }
+  };
+
   // Handle create group
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +404,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
 
     return (
       <div key={group.id}>
-        <div className="grid grid-cols-7 gap-4 py-3 px-6 border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <div className="grid grid-cols-8 gap-4 py-3 px-6 border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
           <div className="flex items-center" style={indentStyle}>
             <Link 
               href={`/admin/school/${schoolId}/editGroup/${group.id}`}
@@ -205,6 +427,17 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
             <span className="text-sm text-slate-600 dark:text-slate-400">
               {group.studentCount}
             </span>
+          </div>
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setLeadersDialog({
+                group,
+                show: true
+              })}
+              className="px-3 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm hover:bg-purple-500 transition-colors"
+            >
+              Manage Leaders
+            </button>
           </div>
           <div className="flex items-center justify-center">
             <button
@@ -487,7 +720,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
         {() => (
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-7 gap-4 py-4 px-6 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+            <div className="grid grid-cols-8 gap-4 py-4 px-6 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
               <div className="font-semibold text-slate-900 dark:text-slate-100">
                 Group Name
               </div>
@@ -496,6 +729,9 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
               </div>
               <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
                 Students
+              </div>
+              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+                Leaders
               </div>
               <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
                 Add Child
@@ -601,6 +837,18 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
             </div>
           </div>
         </div>
+      )}
+
+      {/* Student Leaders Dialog */}
+      {leadersDialog && (
+        <StudentLeadersDialog
+          group={leadersDialog.group}
+          schoolId={parseInt(schoolId)}
+          students={students || []}
+          onClose={() => setLeadersDialog(null)}
+          onAddLeader={handleAddStudentLeader}
+          onRemoveLeader={handleRemoveStudentLeader}
+        />
       )}
     </div>
   );

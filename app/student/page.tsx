@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends, getStudentTeachingAssistantGroups } from "@/api/student";
+import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroupsWithGrades } from "@/api/student";
 import { StudentDashboardData, StudentRecentEvent, rankToColor, rankToColorWithOpacity, StudentMonthlyTrends } from "@/types/domain";
 import dynamic from "next/dynamic";
 import "./victorian-theme.css";
@@ -61,7 +61,8 @@ export default async function StudentDashboard() {
     const dashboardData = await getStudentDashboardData();
     const recentEvents = await getStudentRecentEvents(5);
     const monthlyTrends: StudentMonthlyTrends | null = await getStudentMonthlyTrends();
-  const taGroups = await getStudentTeachingAssistantGroups();
+    const taGroups = await getStudentTeachingAssistantGroups();
+    const leaderGroups = await getStudentLeaderGroupsWithGrades();
 
     if (!dashboardData) {
         return (
@@ -215,9 +216,90 @@ export default async function StudentDashboard() {
                         </div>
                     </div>
 
+                    {/* Student Leader Groups */}
+                    {leaderGroups && leaderGroups.groups.length > 0 && (
+                        <div className="victorian-section victorian-fade-in victorian-delay-4">
+                            <div className="victorian-content">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <h3 className="victorian-title text-xl">Groups You Lead</h3>
+                                </div>
+                                <p className="victorian-subtitle mb-4 text-sm">
+                                    Letter grades for all students in your groups
+                                </p>
+                                <div className="space-y-6">
+                                    {leaderGroups.groups.map((group, groupIndex) => (
+                                        <div 
+                                            key={group.id}
+                                            className="victorian-content victorian-slide-in"
+                                            style={{ animationDelay: `${0.5 + groupIndex * 0.1}s` }}
+                                        >
+                                            <h4 className="victorian-title text-lg mb-4">{group.name}</h4>
+                                            <div className="space-y-3">
+                                                {group.students.map((student, studentIndex) => (
+                                                    <div 
+                                                        key={student.id}
+                                                        className="victorian-list-item p-4 rounded-lg border border-slate-200 dark:border-slate-600"
+                                                        style={{ animationDelay: `${0.6 + groupIndex * 0.1 + studentIndex * 0.05}s` }}
+                                                    >
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                                    {student.firstName} {student.lastName}
+                                                                </span>
+                                                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                                                    Grade {student.grade}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-sm text-slate-600 dark:text-slate-400">Total Grade</div>
+                                                                <div className="text-lg font-bold" style={{ color: student.totalPointsLetterGrade.color }}>
+                                                                    {student.totalPointsLetterGrade.letter}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Point Group Grades */}
+                                                        {student.pointGroupGrades.length > 0 && (
+                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                                {student.pointGroupGrades.map((pointGroup) => (
+                                                                    <div 
+                                                                        key={pointGroup.pointGroupId}
+                                                                        className="flex items-center gap-2 p-2 rounded bg-slate-50 dark:bg-slate-700"
+                                                                    >
+                                                                        <span 
+                                                                            className="w-3 h-3 rounded-full inline-block" 
+                                                                            style={{ backgroundColor: pointGroup.pointGroupColor }} 
+                                                                        />
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                                                                                {pointGroup.pointGroupName}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span 
+                                                                                    className="text-sm font-bold"
+                                                                                    style={{ color: pointGroup.letterGrade.color }}
+                                                                                >
+                                                                                    {pointGroup.letterGrade.letter}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Point Group Rankings */}
                     {pointGroupRankings.length > 0 && (
-                        <div className="victorian-section victorian-section-alt victorian-fade-in victorian-delay-4">
+                        <div className="victorian-section victorian-section-alt victorian-fade-in victorian-delay-5">
                             <div className="victorian-content">
                                 <div className="flex items-center gap-3 mb-4">
                                     <h3 className="victorian-title text-xl">Point Group Rankings</h3>
@@ -293,7 +375,7 @@ export default async function StudentDashboard() {
 
                     {/* Combined Recent Events with Rankings */}
                     {(pointEventRankings && pointEventRankings.length > 0) && (
-                        <div className="victorian-section victorian-fade-in victorian-delay-5">
+                        <div className="victorian-section victorian-fade-in victorian-delay-6">
                             <RecentEventsWithRankings 
                                 pointEventRankings={pointEventRankings} 
                                 initialCount={5}

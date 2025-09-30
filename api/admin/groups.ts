@@ -1125,6 +1125,312 @@ export async function deleteGroup(schoolId: number, groupId: number): Promise<vo
 } 
 
 /**
+ * Add a student leader to a group
+ */
+export async function addStudentLeaderToGroup(schoolId: number, groupId: number, studentId: number): Promise<void> {
+  const logger = createServerLogger({ component: 'AdminGroupsAPI', action: 'addStudentLeaderToGroup', schoolId, groupId, studentId });
+  
+  try {
+    // Get current user from regular client
+    const supabase = createClient();
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !supabaseUser) {
+      logger.error('User not authenticated', { authError });
+      throw new Error('User not authenticated');
+    }
+
+    // Use service client for database operations
+    const serviceClient = await supabaseServiceClient();
+    
+    // Verify admin access to school
+    const { data: userData, error: userError } = await serviceClient
+      .from('user')
+      .select(`
+        id,
+        admin_id,
+        admin (
+          admin_school_pair (
+            school_id
+          )
+        )
+      `)
+      .eq('supabase_id', supabaseUser.id)
+      .single();
+
+    if (userError || !userData || !userData.admin_id) {
+      logger.error('User is not an admin', { userId: supabaseUser.id });
+      throw new Error('Access denied - admin role required');
+    }
+
+    const adminSchools = userData.admin?.admin_school_pair || [];
+    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
+    
+    if (!hasAccess) {
+      logger.error('Access denied - admin does not have access to this school', { 
+        adminId: userData.admin_id, 
+        schoolId 
+      });
+      throw new Error('Access denied - admin does not have access to this school');
+    }
+
+    // Verify the group belongs to the school
+    const { data: group, error: groupError } = await serviceClient
+      .from('student_group')
+      .select('id')
+      .eq('id', groupId)
+      .eq('school_id', schoolId)
+      .single();
+
+    if (groupError || !group) {
+      logger.error('Group not found or does not belong to school', { groupId, schoolId });
+      throw new Error('Group not found');
+    }
+
+    // Verify the student belongs to the school
+    const { data: student, error: studentError } = await serviceClient
+      .from('student')
+      .select('id')
+      .eq('id', studentId)
+      .eq('school_id', schoolId)
+      .single();
+
+    if (studentError || !student) {
+      logger.error('Student not found or does not belong to school', { studentId, schoolId });
+      throw new Error('Student not found');
+    }
+
+    // Check if student is already a leader of this group
+    const { data: existingLeader, error: existingError } = await serviceClient
+      .from('student_group_leaders')
+      .select('student_id')
+      .eq('student_id', studentId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (existingError && existingError.code !== 'PGRST116') { // PGRST116 is "not found"
+      logger.error('Error checking existing student-group leader pair', { existingError });
+      throw new Error('Failed to check existing leadership relationship');
+    }
+
+    if (existingLeader) {
+      logger.warn('Student is already a leader of this group', { studentId, groupId });
+      return; // Already exists, no need to add
+    }
+
+    // Add student as leader of group
+    const { error: insertError } = await serviceClient
+      .from('student_group_leaders')
+      .insert([{ 
+        student_id: studentId, 
+        group_id: groupId 
+      }]);
+
+    if (insertError) {
+      logger.error('Error adding student leader to group', { insertError });
+      throw new Error('Failed to add student leader to group');
+    }
+
+    logger.info('Student leader added to group successfully', { studentId, groupId, schoolId });
+  } catch (error) {
+    logger.error('Failed to add student leader to group', { 
+      studentId, 
+      groupId, 
+      schoolId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Remove a student leader from a group
+ */
+export async function removeStudentLeaderFromGroup(schoolId: number, groupId: number, studentId: number): Promise<void> {
+  const logger = createServerLogger({ component: 'AdminGroupsAPI', action: 'removeStudentLeaderFromGroup', schoolId, groupId, studentId });
+  
+  try {
+    // Get current user from regular client
+    const supabase = createClient();
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !supabaseUser) {
+      logger.error('User not authenticated', { authError });
+      throw new Error('User not authenticated');
+    }
+
+    // Use service client for database operations
+    const serviceClient = await supabaseServiceClient();
+    
+    // Verify admin access to school
+    const { data: userData, error: userError } = await serviceClient
+      .from('user')
+      .select(`
+        id,
+        admin_id,
+        admin (
+          admin_school_pair (
+            school_id
+          )
+        )
+      `)
+      .eq('supabase_id', supabaseUser.id)
+      .single();
+
+    if (userError || !userData || !userData.admin_id) {
+      logger.error('User is not an admin', { userId: supabaseUser.id });
+      throw new Error('Access denied - admin role required');
+    }
+
+    const adminSchools = userData.admin?.admin_school_pair || [];
+    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
+    
+    if (!hasAccess) {
+      logger.error('Access denied - admin does not have access to this school', { 
+        adminId: userData.admin_id, 
+        schoolId 
+      });
+      throw new Error('Access denied - admin does not have access to this school');
+    }
+
+    // Remove student leader from group
+    const { error: deleteError } = await serviceClient
+      .from('student_group_leaders')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('group_id', groupId);
+
+    if (deleteError) {
+      logger.error('Error removing student leader from group', { deleteError });
+      throw new Error('Failed to remove student leader from group');
+    }
+
+    logger.info('Student leader removed from group successfully', { studentId, groupId, schoolId });
+  } catch (error) {
+    logger.error('Failed to remove student leader from group', { 
+      studentId, 
+      groupId, 
+      schoolId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw error;
+  }
+}
+
+/**
+ * Get student leaders for a specific group
+ */
+export async function getGroupStudentLeaders(schoolId: number, groupId: number): Promise<Array<{
+  id: number;
+  firstName: string;
+  lastName: string;
+  grade: number;
+  powerschoolId?: number;
+}>> {
+  const logger = createServerLogger({ component: 'AdminGroupsAPI', action: 'getGroupStudentLeaders', schoolId, groupId });
+  
+  try {
+    // Get current user from regular client
+    const supabase = createClient();
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !supabaseUser) {
+      logger.error('User not authenticated', { authError });
+      throw new Error('User not authenticated');
+    }
+
+    // Use service client for database operations
+    const serviceClient = await supabaseServiceClient();
+    
+    // Verify admin access to school
+    const { data: userData, error: userError } = await serviceClient
+      .from('user')
+      .select(`
+        id,
+        admin_id,
+        admin (
+          admin_school_pair (
+            school_id
+          )
+        )
+      `)
+      .eq('supabase_id', supabaseUser.id)
+      .single();
+
+    if (userError || !userData || !userData.admin_id) {
+      logger.error('User is not an admin', { userId: supabaseUser.id });
+      throw new Error('Access denied - admin role required');
+    }
+
+    const adminSchools = userData.admin?.admin_school_pair || [];
+    const hasAccess = adminSchools.some(pair => pair.school_id === schoolId);
+    
+    if (!hasAccess) {
+      logger.error('Access denied - admin does not have access to this school', { 
+        adminId: userData.admin_id, 
+        schoolId 
+      });
+      throw new Error('Access denied - admin does not have access to this school');
+    }
+
+    // Verify the group belongs to the school
+    const { data: group, error: groupError } = await serviceClient
+      .from('student_group')
+      .select('id')
+      .eq('id', groupId)
+      .eq('school_id', schoolId)
+      .single();
+
+    if (groupError || !group) {
+      logger.error('Group not found or does not belong to school', { groupId, schoolId });
+      throw new Error('Group not found');
+    }
+
+    // Get student leaders for this group
+    const { data: leaders, error: leadersError } = await serviceClient
+      .from('student_group_leaders')
+      .select(`
+        student (
+          id,
+          first_name,
+          last_name,
+          grade,
+          powerschool_id
+        )
+      `)
+      .eq('group_id', groupId);
+
+    if (leadersError) {
+      logger.error('Error fetching student leaders', { groupId, leadersError });
+      throw new Error('Failed to load student leaders');
+    }
+
+    const studentLeaders = leaders?.filter(l => l.student !== null).map(l => ({
+      id: l.student!.id,
+      firstName: l.student!.first_name,
+      lastName: l.student!.last_name,
+      grade: l.student!.grade,
+      powerschoolId: l.student!.powerschool_id
+    })) || [];
+
+    logger.info('Student leaders retrieved successfully', { 
+      groupId, 
+      schoolId,
+      leaderCount: studentLeaders.length
+    });
+
+    return studentLeaders;
+  } catch (error) {
+    logger.error('Failed to load student leaders', { 
+      groupId, 
+      schoolId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, error instanceof Error ? error : undefined);
+    throw new Error('Failed to load student leaders');
+  }
+}
+
+/**
  * Get a single group with detailed information including students, teachers, and child groups
  */
 export async function getGroupById(schoolId: number, groupId: number): Promise<AdminGroupData & {
@@ -1139,6 +1445,13 @@ export async function getGroupById(schoolId: number, groupId: number): Promise<A
     id: number;
     firstName: string;
     lastName: string;
+  }>;
+  studentLeaders: Array<{
+    id: number;
+    firstName: string;
+    lastName: string;
+    grade: number;
+    powerschoolId?: number;
   }>;
   childGroups: Array<{
     id: number;
@@ -1252,6 +1565,25 @@ export async function getGroupById(schoolId: number, groupId: number): Promise<A
       throw new Error('Failed to load teachers');
     }
 
+    // Get student leaders for this group
+    const { data: studentLeaders, error: studentLeadersError } = await serviceClient
+      .from('student_group_leaders')
+      .select(`
+        student (
+          id,
+          first_name,
+          last_name,
+          grade,
+          powerschool_id
+        )
+      `)
+      .eq('group_id', groupId);
+
+    if (studentLeadersError) {
+      logger.error('Error fetching student leaders', { groupId, studentLeadersError });
+      throw new Error('Failed to load student leaders');
+    }
+
     // Get child groups
     const { data: childGroups, error: childGroupsError } = await serviceClient
       .from('student_group')
@@ -1327,6 +1659,13 @@ export async function getGroupById(schoolId: number, groupId: number): Promise<A
         firstName: t.teacher!.first_name,
         lastName: t.teacher!.last_name
       })) || [],
+      studentLeaders: studentLeaders?.filter(sl => sl.student !== null).map(sl => ({
+        id: sl.student!.id,
+        firstName: sl.student!.first_name,
+        lastName: sl.student!.last_name,
+        grade: sl.student!.grade,
+        powerschoolId: sl.student!.powerschool_id
+      })) || [],
       childGroups: childGroups?.map(cg => {
         const counts = childGroupCounts.find(count => count.id === cg.id);
         return {
@@ -1344,6 +1683,7 @@ export async function getGroupById(schoolId: number, groupId: number): Promise<A
       schoolId,
       studentCount: result.students.length,
       teacherCount: result.teachers.length,
+      studentLeaderCount: result.studentLeaders.length,
       childGroupCount: result.childGroups.length
     });
 

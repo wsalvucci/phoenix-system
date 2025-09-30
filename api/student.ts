@@ -320,6 +320,273 @@ export async function getStudentRecentEvents(limit: number = 10) {
 }
 
 /**
+ * Gets the groups that the current student leads and the letter grades for all students in those groups
+ */
+export async function getStudentLeaderGroupsWithGrades(): Promise<{
+    groups: Array<{
+        id: number;
+        name: string;
+        students: Array<{
+            id: number;
+            firstName: string;
+            lastName: string;
+            grade: number;
+            totalPointsLetterGrade: { letter: string; color: string };
+            pointGroupGrades: Array<{
+                pointGroupId: number;
+                pointGroupName: string;
+                pointGroupColor: string;
+                letterGrade: { letter: string; color: string };
+            }>;
+        }>;
+    }>;
+} | null> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentLeaderGroupsWithGrades' });
+    
+    try {
+        const authClient = createClient();
+        const supabase = await supabaseServiceClient();
+        
+        // Get the authenticated user
+        const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
+        
+        if (authError || !supabaseUser) {
+            logger.warn('No authenticated user found');
+            return null;
+        }
+
+        // Get user data to check for student relationship - use the same approach as other functions
+        const { data: userData, error: userError } = await supabase
+            .from('user')
+            .select('id, student_id')
+            .eq('supabase_id', supabaseUser.id)
+            .single();
+
+        if (userError || !userData) {
+            logger.warn('User data not found');
+            return null;
+        }
+
+        // Check if user has any linked students
+        const { data: linkedStudents, error: lsError } = await supabase
+            .from('student')
+            .select('id')
+            .eq('linkedUser', userData.id);
+
+        if (lsError || !linkedStudents || linkedStudents.length === 0) {
+            logger.info('No students found linked to current user');
+            return { groups: [] };
+        }
+
+        const linkedStudentIds = linkedStudents.map(s => s.id);
+
+        // Get groups that any of these students lead
+        const { data: leaderGroups, error: leaderGroupsError } = await supabase
+            .from('student_group_leaders')
+            .select(`
+                group_id,
+                student_group (
+                    id,
+                    name
+                )
+            `)
+            .in('student_id', linkedStudentIds);
+
+        if (leaderGroupsError || !leaderGroups || leaderGroups.length === 0) {
+            logger.info('No linked students are leaders of any groups');
+            return { groups: [] };
+        }
+
+        const groupIds = leaderGroups.map(lg => lg.group_id);
+        
+        // Get all students in these groups with their points data
+        const { data: studentsInGroups, error: studentsError } = await supabase
+            .from('student_group_pair')
+            .select(`
+                student_group_id,
+                student (
+                    id,
+                    first_name,
+                    last_name,
+                    grade,
+                    school_id
+                )
+            `)
+            .in('student_group_id', groupIds);
+
+        if (studentsError) {
+            logger.error('Error fetching students in groups', { studentsError });
+            return null;
+        }
+
+        if (!studentsInGroups || studentsInGroups.length === 0) {
+            logger.info('No students found in leader groups');
+            return { groups: [] };
+        }
+
+        // Get all student IDs
+        const studentIds = studentsInGroups.map(sig => sig.student!.id);
+        
+        // Get total points for all students
+        const { data: totalPointsData, error: totalPointsError } = await supabase
+            .from('student_point')
+            .select(`
+                student_id,
+                point_value
+            `)
+            .in('student_id', studentIds);
+
+        if (totalPointsError) {
+            logger.error('Error fetching total points', { totalPointsError });
+            return null;
+        }
+
+        // Calculate total points per student
+        const studentTotalPoints = new Map<number, number>();
+        totalPointsData?.forEach(point => {
+            const currentTotal = studentTotalPoints.get(point.student_id) || 0;
+            studentTotalPoints.set(point.student_id, currentTotal + point.point_value);
+        });
+
+        // Get point groups data
+        const { data: pointGroupsData, error: pointGroupsError } = await supabase
+            .from('point_group')
+            .select(`
+                id,
+                name,
+                color,
+                school_id
+            `)
+            .eq('school_id', studentsInGroups[0].student!.school_id);
+
+        if (pointGroupsError) {
+            logger.error('Error fetching point groups', { pointGroupsError });
+            return null;
+        }
+
+        // Get point group points for all students
+        const { data: pointGroupPointsData, error: pointGroupPointsError } = await supabase
+            .from('student_point')
+            .select(`
+                student_id,
+                point_value,
+                point_event (
+                    point_template (
+                        point_group_id
+                    )
+                )
+            `)
+            .in('student_id', studentIds);
+
+        if (pointGroupPointsError) {
+            logger.error('Error fetching point group points', { pointGroupPointsError });
+            return null;
+        }
+
+        // Calculate point group points per student
+        const studentPointGroupPoints = new Map<number, Map<number, number>>();
+        pointGroupPointsData?.forEach(point => {
+            const pointGroupId = point.point_event?.point_template?.point_group_id;
+            if (pointGroupId) {
+                if (!studentPointGroupPoints.has(point.student_id)) {
+                    studentPointGroupPoints.set(point.student_id, new Map());
+                }
+                const studentGroups = studentPointGroupPoints.get(point.student_id)!;
+                const currentPoints = studentGroups.get(pointGroupId) || 0;
+                studentGroups.set(pointGroupId, currentPoints + point.point_value);
+            }
+        });
+
+        // Find the highest total points for percentile calculation
+        const allTotalPoints = Array.from(studentTotalPoints.values());
+        const highestTotalPoints = Math.max(...allTotalPoints, 1); // Avoid division by zero
+
+        // Find highest points for each point group
+        const highestPointGroupPoints = new Map<number, number>();
+        pointGroupsData?.forEach(pointGroup => {
+            const allGroupPoints: number[] = [];
+            studentPointGroupPoints.forEach(studentGroups => {
+                const points = studentGroups.get(pointGroup.id) || 0;
+                allGroupPoints.push(points);
+            });
+            highestPointGroupPoints.set(pointGroup.id, Math.max(...allGroupPoints, 1));
+        });
+
+        // Build the result
+        const groupsMap = new Map<number, any>();
+        
+        leaderGroups.forEach(leaderGroup => {
+            const groupId = leaderGroup.group_id;
+            const groupName = leaderGroup.student_group!.name;
+            
+            groupsMap.set(groupId, {
+                id: groupId,
+                name: groupName,
+                students: []
+            });
+        });
+
+        // Add students to their respective groups
+        studentsInGroups.forEach(sig => {
+            const student = sig.student!;
+            const groupId = sig.student_group_id;
+            const totalPoints = studentTotalPoints.get(student.id) || 0;
+            
+            // Calculate total points letter grade
+            const totalPointsPercentile = totalPoints / highestTotalPoints;
+            const totalPointsLetterGrade = percentileToRating(totalPointsPercentile);
+            
+            // Calculate point group letter grades
+            const pointGroupGrades = pointGroupsData?.map(pointGroup => {
+                const points = studentPointGroupPoints.get(student.id)?.get(pointGroup.id) || 0;
+                const percentile = points / (highestPointGroupPoints.get(pointGroup.id) || 1);
+                const letterGrade = percentileToRating(percentile);
+                
+                return {
+                    pointGroupId: pointGroup.id,
+                    pointGroupName: pointGroup.name,
+                    pointGroupColor: pointGroup.color,
+                    letterGrade
+                };
+            }) || [];
+
+            const studentData = {
+                id: student.id,
+                firstName: student.first_name,
+                lastName: student.last_name,
+                grade: student.grade,
+                totalPointsLetterGrade,
+                pointGroupGrades
+            };
+
+            groupsMap.get(groupId)!.students.push(studentData);
+        });
+
+        // Sort students within each group by total points (descending)
+        groupsMap.forEach(group => {
+            group.students.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
+        });
+
+        const result = {
+            groups: Array.from(groupsMap.values())
+        };
+
+        logger.info('Student leader groups with grades retrieved successfully', {
+            linkedStudentIds: linkedStudentIds,
+            groupCount: result.groups.length,
+            totalStudents: result.groups.reduce((sum, group) => sum + group.students.length, 0)
+        });
+
+        return result;
+    } catch (error) {
+        logger.error('Failed to get student leader groups with grades', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return null;
+    }
+}
+
+/**
  * Gets the list of student groups where the current student is a teaching assistant,
  * including whether access is full or limited and which point events are allowed when limited.
  */

@@ -21,7 +21,10 @@ import {
   addStudentToGroup,
   removeStudentFromGroup,
   addTeacherToGroup,
-  removeTeacherFromGroup
+  removeTeacherFromGroup,
+  addStudentLeaderToGroup,
+  removeStudentLeaderFromGroup,
+  getGroupStudentLeaders
 } from '@/api/admin/groups';
 import { 
   getSchoolRankingGroups,
@@ -347,6 +350,50 @@ export const useDeleteGroup = () => {
       // Invalidate and refetch groups list
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
     },
+  });
+};
+
+export const useAddStudentLeaderToGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, studentId }: {
+      schoolId: number;
+      groupId: number;
+      studentId: number;
+    }) => addStudentLeaderToGroup(schoolId, groupId, studentId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useRemoveStudentLeaderFromGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ schoolId, groupId, studentId }: {
+      schoolId: number;
+      groupId: number;
+      studentId: number;
+    }) => removeStudentLeaderFromGroup(schoolId, groupId, studentId),
+    onSuccess: (_, { schoolId, groupId }) => {
+      // Invalidate the specific group and all groups lists
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.groups(schoolId), groupId] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.groups(schoolId) });
+    },
+  });
+};
+
+export const useGroupStudentLeaders = (schoolId: number, groupId: number) => {
+  return useQuery({
+    queryKey: [...adminQueryKeys.groups(schoolId), groupId, 'leaders'],
+    queryFn: () => getGroupStudentLeaders(schoolId, groupId),
+    enabled: !!schoolId && !!groupId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 
