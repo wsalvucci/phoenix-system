@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { DateTime } from "luxon"
 import CSVReader from "react-csv-reader"
@@ -26,6 +26,21 @@ type TeachingAssistantModalData = {
 
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
+  // Add overscroll styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .table-container {
+        overscroll-behavior-x: contain;
+        scroll-behavior: smooth;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const router = useRouter()
   const [isTooSmall, setIsTooSmall] = useState<boolean>(false)
   const MIN_WIDTH = 768
@@ -85,6 +100,59 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
   const [pointEventSearchTerm, setPointEventSearchTerm] = useState('');
   const [selectedPointGroupFilter, setSelectedPointGroupFilter] = useState<number>(0);
+
+  // Table scroll navigation
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  
+  const scrollTable = (direction: 'left' | 'right') => {
+    if (tableScrollRef.current) {
+      const scrollAmount = 300; // pixels to scroll
+      const currentScroll = tableScrollRef.current.scrollLeft;
+      const newScroll = direction === 'left' 
+        ? currentScroll - scrollAmount 
+        : currentScroll + scrollAmount;
+      
+      tableScrollRef.current.scrollTo({
+        left: newScroll,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollToToday = () => {
+    if (!tableScrollRef.current || !scorebookData) return;
+    
+    const today = DateTime.now();
+    let closestEvent: NewScorebookPointEvent | null = null;
+    let minDaysDiff = Infinity;
+    
+    // Find the event closest to today
+    scorebookData.pointEvents.forEach(event => {
+      const eventDate = DateTime.fromISO(event.date);
+      const daysDiff = Math.abs(today.diff(eventDate, 'days').days);
+      
+      if (daysDiff < minDaysDiff) {
+        minDaysDiff = daysDiff;
+        closestEvent = event;
+      }
+    });
+    
+    if (closestEvent) {
+      // Find the column index for this event
+      const eventIndex = scorebookData.pointEvents.findIndex(e => e.id === closestEvent!.id);
+      if (eventIndex !== -1) {
+        // Calculate scroll position to center the event column
+        const columnWidth = 200; // Based on the w-[200px] class in the table
+        const studentColumnWidth = 200; // Approximate width of student name column
+        const scrollPosition = studentColumnWidth + (eventIndex * columnWidth) - (tableScrollRef.current.clientWidth / 2) + (columnWidth / 2);
+        
+        tableScrollRef.current.scrollTo({
+          left: scrollPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     const check = () => setIsTooSmall(window.innerWidth < MIN_WIDTH)
@@ -181,7 +249,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           </div>
         </header>
         
-        <main className="flex-1 overflow-hidden p-6">
+        <main className="flex-1 overflow-auto p-6">
           {loading ? (
             loadingScreen()
           ) : (
@@ -302,6 +370,16 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       fetchTeachingAssistantData()
     }
   }, [selectedTimeframe, timeframes])
+
+  // Auto-center table on closest event to today when data loads
+  useEffect(() => {
+    if (scorebookData && tableScrollRef.current) {
+      // Small delay to ensure table is rendered
+      setTimeout(() => {
+        scrollToToday()
+      }, 100)
+    }
+  }, [scorebookData])
 
   useEffect(() => {
     const loadAccess = async () => {
@@ -587,8 +665,45 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {showPercent ? 'Showing percent out of max points' : 'Showing raw point values'}
           </span>
         </div>
-        <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-full">
-          <div className="overflow-x-auto max-w-full h-full overflow-y-auto">
+        
+        {/* Table Navigation Buttons */}
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <button
+            onClick={() => scrollTable('left')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            title="Scroll table left"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Scroll Left
+          </button>
+          
+          <button
+            onClick={scrollToToday}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+            title="Go to event closest to today"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Go to Today
+          </button>
+          
+          <button
+            onClick={() => scrollTable('right')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            title="Scroll table right"
+          >
+            Scroll Right
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+          <div className="overflow-x-auto max-w-full h-full overflow-y-auto table-container" ref={tableScrollRef}>
             <table className="min-w-full bg-white dark:bg-gray-800">
               <thead className="sticky top-0 z-20">
                 <tr>
@@ -658,6 +773,14 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                       </div>
                     </th>
                   ))}
+                  {/* Invisible columns for overscroll */}
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <th key={`invisible-${i}`} className="w-[200px] min-w-[200px]" style={{ visibility: 'hidden' }}>
+                      <div className="h-20 w-full">
+                        <div>Invisible Content</div>
+                      </div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -718,6 +841,14 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         </td>
                       )
                     })}
+                    {/* Invisible cells for overscroll */}
+                    {Array.from({ length: 3 }, (_, i) => (
+                      <td key={`invisible-${i}`} className="w-[200px] min-w-[200px]" style={{ visibility: 'hidden' }}>
+                        <div className="h-12 w-full">
+                          <div>Invisible Content</div>
+                        </div>
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
