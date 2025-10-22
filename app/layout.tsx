@@ -30,7 +30,7 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <main className="min-h-screen flex flex-col items-center">
-              <ThemeToggle />
+              {/* <ThemeToggle /> */}
               {children}
               <Analytics />
             </main>
