@@ -996,6 +996,7 @@ export default async function importPhoenixScorebookData(
             .in('id', uniqueStudentIds);
 
         if (studentCheckError) {
+            console.error('Error checking student existence:', studentCheckError);
             return "Error checking student existence";
         }
 
@@ -1006,14 +1007,47 @@ export default async function importPhoenixScorebookData(
             return `Students with IDs ${missingStudentIds.join(', ')} do not exist in the database`;
         }
 
+        // Fetch existing student points for change detection
+        const pointEventIds = data.map(event => event.pointEventId);
+        
+        const { data: existingStudentPoints, error: existingPointsError } = await supabase
+            .from('student_point')
+            .select('student_id, point_event_id, point_value, input_score')
+            .in('point_event_id', pointEventIds);
+            
+        if (existingPointsError) {
+            console.error('Error fetching existing student points:', existingPointsError);
+            return "Error fetching existing student points";
+        }
+        
+        // Create a map for quick lookup of existing values
+        const existingPointsMap = new Map();
+        existingStudentPoints?.forEach(point => {
+            const key = `${point.point_event_id}-${point.student_id}`;
+            existingPointsMap.set(key, {
+                point_value: point.point_value,
+                input_score: point.input_score
+            });
+        });
+        
+        let processedEvents = 0;
+        let totalStudentPoints = 0;
+        let updatedStudentPoints = 0;
+        let skippedStudentPoints = 0;
+        const changesToProcess: any[] = [];
+
         // For each event in the imported data
         for (const event of data) {
+            processedEvents++;
             const pointEventId = event.pointEventId;
             
             // For each student in this event
             for (const student of event.studentPoints) {
+                totalStudentPoints++;
+                
                 // Skip if no score or empty
                 if (student.input === undefined || student.input === null || String(student.input) === "") {
+                    skippedStudentPoints++;
                     continue;
                 }
                 
@@ -1022,22 +1056,55 @@ export default async function importPhoenixScorebookData(
                     return `Invalid student ID: ${student.id}`;
                 }
                 
-                const insertData = {
-                    created_at: DateTime.now().toISO(),
-                    point_value: student.value,
-                    student_id: student.id,
-                    input_score: student.input,
-                    notes: null,
-                    point_event_id: pointEventId
+                // Check if this value is different from existing
+                const key = `${pointEventId}-${student.id}`;
+                const existingPoint = existingPointsMap.get(key);
+                
+                // Normalize values for comparison
+                const normalizeValue = (value: any): number => {
+                    if (value === null || value === undefined || value === '') return 0;
+                    const parsed = parseFloat(value);
+                    return isNaN(parsed) ? 0 : parsed;
                 };
                 
-                // Upsert the student point
+                const newPointValue = normalizeValue(student.value);
+                const newInputValue = normalizeValue(student.input);
+                const existingPointValue = existingPoint ? normalizeValue(existingPoint.point_value) : 0;
+                const existingInputValue = existingPoint ? normalizeValue(existingPoint.input_score) : 0;
+                
+                // Only process if values have changed
+                if (newPointValue !== existingPointValue || newInputValue !== existingInputValue) {
+                    const insertData = {
+                        created_at: DateTime.now().toISO(),
+                        point_value: newPointValue,
+                        student_id: student.id,
+                        input_score: newInputValue,
+                        notes: null,
+                        point_event_id: pointEventId
+                    };
+                    
+                    changesToProcess.push(insertData);
+                    updatedStudentPoints++;
+                } else {
+                    skippedStudentPoints++;
+                }
+            }
+        }
+        
+        // Process all changes in batches
+        if (changesToProcess.length > 0) {
+            const batchSize = 50; // Process 50 records at a time
+            
+            for (let i = 0; i < changesToProcess.length; i += batchSize) {
+                const batch = changesToProcess.slice(i, i + batchSize);
+                
                 const { error: upsertError } = await supabase
                     .from('student_point')
-                    .upsert(insertData);
+                    .upsert(batch);
                     
                 if (upsertError) {
-                    return `Error importing student point for student ${student.id}: ${upsertError.message}`;
+                    console.error('Batch upsert error:', upsertError);
+                    return `Error importing student points batch: ${upsertError.message}`;
                 }
             }
         }

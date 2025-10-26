@@ -26,13 +26,27 @@ type TeachingAssistantModalData = {
 
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
-  // Add overscroll styles
+  // Add overscroll styles and table hover effects
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
       .table-container {
         overscroll-behavior-x: contain;
         scroll-behavior: smooth;
+      }
+      
+      .table-cell-dimmed {
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+      }
+      
+      .table-cell-highlighted {
+        opacity: 1;
+        transition: opacity 0.2s ease;
+      }
+      
+      .table-cell-dimmed:hover {
+        opacity: 1;
       }
     `;
     document.head.appendChild(style);
@@ -73,6 +87,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   } | null>(null);
 
   const [importLoading, setImportLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    stage: string;
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
 
@@ -103,6 +123,34 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   // Table scroll navigation
   const tableScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Table hover state
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
+  
+  // Helper functions for table hover effects
+  const handleCellHover = (rowIndex: number, columnIndex: number) => {
+    setHoveredRow(rowIndex);
+    setHoveredColumn(columnIndex);
+  };
+  
+  const handleCellLeave = () => {
+    setHoveredRow(null);
+    setHoveredColumn(null);
+  };
+  
+  const getCellClassName = (rowIndex: number, columnIndex: number, baseClasses: string) => {
+    // Don't apply dimming to header row (-1) or student name column (-1)
+    const isHeaderRow = rowIndex === -1;
+    const isStudentColumn = columnIndex === -1;
+    
+    if (isHeaderRow || isStudentColumn) {
+      return baseClasses; // Return base classes without dimming
+    }
+    
+    const isHighlighted = hoveredRow === rowIndex || hoveredColumn === columnIndex;
+    return `${baseClasses} ${isHighlighted ? 'table-cell-highlighted' : 'table-cell-dimmed'}`;
+  };
   
   const scrollTable = (direction: 'left' | 'right') => {
     if (tableScrollRef.current) {
@@ -264,6 +312,37 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         {importScorebookTemplateModalOpen && importScorebookTemplateModal()}
         {teachingAssistantModalOpen && !isAddingAssistant && !editingAssistant && teachingAssistantManagementModal()}
         {teachingAssistantModalOpen && (isAddingAssistant || editingAssistant) && teachingAssistantModal()}
+        
+        {/* Global Import Progress Overlay */}
+        {importLoading && importProgress && !importScorebookTemplateModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96">
+              <h3 className="text-lg font-semibold mb-4 text-center">Importing Scorebook Data</h3>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {importProgress.message}
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {importProgress.current}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div 
+                    className="bg-blue-600 dark:bg-blue-400 h-3 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${importProgress.current}%` }}
+                  ></div>
+                </div>
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 text-center">
+                  Stage: {importProgress.stage} ({importProgress.current}/{importProgress.total})
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                Please wait while the import processes. This may take a moment for large datasets.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -707,11 +786,16 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             <table className="min-w-full bg-white dark:bg-gray-800">
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gray-50 dark:bg-gray-700 sticky left-0 z-30 shadow-sm">
+                  <th className={getCellClassName(-1, -1, "border-r border-gray-300 dark:border-gray-600 px-4 py-2 text-left bg-gray-50 dark:bg-gray-700 sticky left-0 z-30 shadow-sm")}>
                     Student
                   </th>
-                  {filteredPointEvents.map((pointEvent) => (
-                    <th key={pointEvent.id} className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 w-[200px]">
+                  {filteredPointEvents.map((pointEvent, columnIndex) => (
+                    <th 
+                      key={pointEvent.id} 
+                      className={getCellClassName(-1, columnIndex, "border border-gray-300 dark:border-gray-600 px-3 py-2 text-center bg-gray-50 dark:bg-gray-700 w-[200px]")}
+                      onMouseEnter={() => handleCellHover(-1, columnIndex)}
+                      onMouseLeave={handleCellLeave}
+                    >
                       <div className="flex flex-col items-center space-y-1">
                         <div className="text-sm font-bold text-center leading-tight min-h-[2.5rem] flex items-center justify-center">
                           {pointEvent.name}
@@ -775,7 +859,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                   ))}
                   {/* Invisible columns for overscroll */}
                   {Array.from({ length: 3 }, (_, i) => (
-                    <th key={`invisible-${i}`} className="w-[200px] min-w-[200px]" style={{ visibility: 'hidden' }}>
+                    <th 
+                      key={`invisible-${i}`} 
+                      className={getCellClassName(-1, filteredPointEvents.length + i, "w-[200px] min-w-[200px]")} 
+                      style={{ visibility: 'hidden' }}
+                      onMouseEnter={() => handleCellHover(-1, filteredPointEvents.length + i)}
+                      onMouseLeave={handleCellLeave}
+                    >
                       <div className="h-20 w-full">
                         <div>Invisible Content</div>
                       </div>
@@ -784,7 +874,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 </tr>
               </thead>
               <tbody>
-                {studentsToShow.map((student) => (
+                {studentsToShow.map((student, rowIndex) => (
                   <tr
                     key={student.id}
                     className={
@@ -793,14 +883,18 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         : ''
                     }
                   >
-                    <td className="border-r border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-50 dark:bg-gray-700 sticky left-0 z-10 shadow-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <span>{student.lastName}, {student.firstName}</span>
+                    <td 
+                      className={getCellClassName(rowIndex, -1, "border-r border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-50 dark:bg-gray-700 sticky left-0 z-10 shadow-sm font-medium whitespace-nowrap min-w-fit")}
+                      onMouseEnter={() => handleCellHover(rowIndex, -1)}
+                      onMouseLeave={handleCellLeave}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="whitespace-nowrap">{student.lastName}, {student.firstName}</span>
                         <button
                           type="button"
                           onClick={() => setFocusedStudentId(prev => prev === student.id ? null : student.id)}
                           aria-label={`${focusedStudentId === student.id ? 'Unfocus' : 'Focus on'} ${student.lastName}, ${student.firstName}`}
-                          className="ml-1 inline-flex items-center justify-center w-6 h-6 rounded border border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800"
+                          className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded border border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800 flex-shrink-0"
                           title={focusedStudentId === student.id ? 'Unfocus' : 'Focus'}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -809,7 +903,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         </button>
                       </div>
                     </td>
-                    {filteredPointEvents.map((pointEvent) => {
+                    {filteredPointEvents.map((pointEvent, columnIndex) => {
                       const studentPoint = pointEvent.studentPoints.find(sp => sp.student.id === student.id)
                       const value = studentPoint ? (isTeacher ? studentPoint.pointData.value : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.value)) : ''
                       let percentNum = 0;
@@ -821,7 +915,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         : ''
                       const bgClass = getCellBgClass(percentNum);
                       return (
-                        <td key={pointEvent.id} className={`border border-gray-300 dark:border-gray-600 px-3 py-2 text-center ${bgClass}`}>
+                        <td 
+                          key={pointEvent.id} 
+                          className={getCellClassName(rowIndex, columnIndex, `border border-gray-300 dark:border-gray-600 px-3 py-2 text-center ${bgClass}`)}
+                          onMouseEnter={() => handleCellHover(rowIndex, columnIndex)}
+                          onMouseLeave={handleCellLeave}
+                        >
                           {isTeacher ? (
                             showPercent ? percent : (value as any)
                           ) : (
@@ -843,7 +942,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     })}
                     {/* Invisible cells for overscroll */}
                     {Array.from({ length: 3 }, (_, i) => (
-                      <td key={`invisible-${i}`} className="w-[200px] min-w-[200px]" style={{ visibility: 'hidden' }}>
+                      <td 
+                        key={`invisible-${i}`} 
+                        className={getCellClassName(rowIndex, filteredPointEvents.length + i, "w-[200px] min-w-[200px]")} 
+                        style={{ visibility: 'hidden' }}
+                        onMouseEnter={() => handleCellHover(rowIndex, filteredPointEvents.length + i)}
+                        onMouseLeave={handleCellLeave}
+                      >
                         <div className="h-12 w-full">
                           <div>Invisible Content</div>
                         </div>
@@ -1100,62 +1205,102 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [importScorebookData, setImportScorebookData] = useState<ImportedScorebook | null>(null)
 
   const handleImportScorebookData = async () => {
-    if (!importPreview) return;
-    setImportLoading(true);
+    if (!importPreview) {
+      return;
+    }
     
-    // Convert importPreview to ImportedScorebook (array of event objects)
-    const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => {
-      return {
-        pointEventId: parseInt(eventId),
-        name: importPreview.eventNames[eventIdx] || '',
-        date: '', // Not available from import
-        template: { type: '', value: 0 }, // Not available from import
-        studentPoints: importPreview.students.map((student) => {
-          const parsedStudentId = parseInt(student.studentId);
-          const studentNameParts = student.studentName.split(',');
-          const lastName = studentNameParts[0]?.trim() || '';
-          const firstName = studentNameParts[1]?.trim() || '';
-          
-          // Normalize empty/blank values to 0 for consistency
-          const normalizeValue = (value: string | undefined | null): number => {
-            if (!value || value.trim() === '' || value === 'null' || value === 'undefined') {
-              return 0;
-            }
-            const parsed = parseFloat(value);
-            return isNaN(parsed) ? 0 : parsed;
-          };
-          
-          const scoreValue = normalizeValue(student.scores[eventIdx]);
-          
-          return {
-            id: parsedStudentId,
-            lastName,
-            firstName,
-            input: scoreValue,
-            value: scoreValue
-          };
-        }).filter(student => {
-          // Filter out students with invalid IDs
-          return !isNaN(student.id) && student.id > 0;
-        })
-      };
+    setImportLoading(true);
+    setImportProgress({
+      stage: 'preparing',
+      current: 0,
+      total: 100,
+      message: 'Preparing import data...'
     });
     
     try {
+      // Convert importPreview to ImportedScorebook (array of event objects)
+      setImportProgress({
+        stage: 'converting',
+        current: 25,
+        total: 100,
+        message: 'Converting data format...'
+      });
+      
+      const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => {
+        return {
+          pointEventId: parseInt(eventId),
+          name: importPreview.eventNames[eventIdx] || '',
+          date: '', // Not available from import
+          template: { type: '', value: 0 }, // Not available from import
+          studentPoints: importPreview.students.map((student) => {
+            const parsedStudentId = parseInt(student.studentId);
+            const studentNameParts = student.studentName.split(',');
+            const lastName = studentNameParts[0]?.trim() || '';
+            const firstName = studentNameParts[1]?.trim() || '';
+            
+            // Normalize empty/blank values to 0 for consistency
+            const normalizeValue = (value: string | undefined | null): number => {
+              if (!value || value.trim() === '' || value === 'null' || value === 'undefined') {
+                return 0;
+              }
+              const parsed = parseFloat(value);
+              return isNaN(parsed) ? 0 : parsed;
+            };
+            
+            const scoreValue = normalizeValue(student.scores[eventIdx]);
+            
+            return {
+              id: parsedStudentId,
+              lastName,
+              firstName,
+              input: scoreValue,
+              value: scoreValue
+            };
+          }).filter(student => {
+            // Filter out students with invalid IDs
+            return !isNaN(student.id) && student.id > 0;
+          })
+        };
+      });
+      
+      setImportProgress({
+        stage: 'uploading',
+        current: 50,
+        total: 100,
+        message: 'Sending data to server...'
+      });
+      
       const result = await importPhoenixScorebookData(parseInt(groupId), imported);
+      
       if (typeof result === 'string') {
         alert(`Import failed: ${result}`);
         setImportLoading(false);
+        setImportProgress(null);
         return;
       }
+      
+      setImportProgress({
+        stage: 'completing',
+        current: 100,
+        total: 100,
+        message: 'Import completed successfully!'
+      });
+      
+      // Show success message with summary
+      const totalRecords = imported.reduce((sum, event) => sum + event.studentPoints.length, 0);
+      alert(`Import completed successfully!\n\nSummary:\n• ${imported.length} events processed\n• ${totalRecords} total student records analyzed\n• Only changed values were updated\n• Data refreshed in scorebook`);
+      
       setImportScorebookTemplateModalOpen(false);
       setImportPreview(null);
       fetchScorebookData();
+      
     } catch (error) {
       console.error('Import error:', error);
       alert('An error occurred during import. Please try again.');
+      setImportProgress(null);
     } finally {
       setImportLoading(false);
+      setImportProgress(null);
     }
   }
 
@@ -1178,7 +1323,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           studentId: row[1],
           scores: row.slice(2)
         }));
+        
         setImportPreview({ eventIds, eventNames, students });
+      },
+      error: (error) => {
+        console.error('CSV parsing error:', error);
+        alert('Error parsing CSV file: ' + error.message);
       },
       skipEmptyLines: true
     });
@@ -1575,6 +1725,29 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               </div>
             </div>
           )}
+          {/* Progress Indicator */}
+          {importProgress && (
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  {importProgress.message}
+                </span>
+                <span className="text-sm text-blue-600 dark:text-blue-400">
+                  {importProgress.current}%
+                </span>
+              </div>
+              <div className="w-full bg-blue-200 dark:bg-blue-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${importProgress.current}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                Stage: {importProgress.stage} ({importProgress.current}/{importProgress.total})
+              </div>
+            </div>
+          )}
+
           <div className="flex space-x-4 mt-6">
             <button
               onClick={() => handleImportScorebookData()}
