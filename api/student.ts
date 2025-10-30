@@ -199,13 +199,11 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
                 name,
                 date,
                 max_input,
-                point_template!inner(
-                    point_group_id,
-                    point_group!inner(id, name, color, school_id)
-                ),
+                point_group:point_group_id (id, name, color),
+                point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
-            .eq('point_template.point_group.school_id', student.schoolId)
+            .eq('point_group.school_id', student.schoolId)
             .gte('date', timeframe.starts_at)
             .lte('date', timeframe.ends_at);
 
@@ -214,10 +212,10 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
             return null;
         }
 
-        // Get point groups for ranking calculations
+        // Get point groups for ranking calculations (include parent to roll up categories)
         const { data: pointGroups } = await supabase
             .from('point_group')
-            .select('id, name, color')
+            .select('id, name, color, parent_id')
             .eq('school_id', student.schoolId);
 
         if (!pointGroups) {
@@ -283,10 +281,7 @@ export async function getStudentRecentEvents(limit: number = 10) {
                 name,
                 date,
                 max_input,
-                point_template!inner(
-                    point_group_id,
-                    point_group!inner(id, name, color)
-                ),
+                point_group:point_group_id (id, name, color),
                 student_point!inner(point_value, input_score)
             `)
             .eq('student_point.student_id', student.id)
@@ -299,16 +294,16 @@ export async function getStudentRecentEvents(limit: number = 10) {
             return [];
         }
 
-        return events.map(event => ({
+        return events.map((event: any) => ({
             id: event.id,
             name: event.name || 'Unnamed Event',
             date: event.date,
             maxPoints: event.max_input,
             points: event.student_point[0]?.point_value || 0,
             pointGroup: {
-                id: event.point_template.point_group.id,
-                name: event.point_template.point_group.name,
-                color: event.point_template.point_group.color
+                id: event.point_group?.id,
+                name: event.point_group?.name,
+                color: event.point_group?.color
             }
         }));
     } catch (error) {
@@ -470,11 +465,9 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
             .select(`
                 student_id,
                 point_value,
-                point_event (
-                    point_template (
-                        point_group_id
-                    )
-                )
+            point_event (
+                point_group_id
+            )
             `)
             .in('student_id', studentIds);
 
@@ -486,7 +479,7 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
         // Calculate point group points per student
         const studentPointGroupPoints = new Map<number, Map<number, number>>();
         pointGroupPointsData?.forEach(point => {
-            const pointGroupId = point.point_event?.point_template?.point_group_id;
+            const pointGroupId = point.point_event?.point_group_id;
             if (pointGroupId) {
                 if (!studentPointGroupPoints.has(point.student_id)) {
                     studentPointGroupPoints.set(point.student_id, new Map());
@@ -679,9 +672,28 @@ function calculateStudentStats(
         studentPointGroups.set(s.id, new Map());
     });
 
-    // Calculate points from events
+    // Build a quick lookup to roll up groups to their top-level parent (Academics/Athletics/Activities)
+    const groupById: Map<number, { id: number; name: string; color: string; parent_id: number | null }> = new Map();
+    pointGroups.forEach((g: any) => {
+        groupById.set(g.id, { id: g.id, name: g.name, color: g.color, parent_id: g.parent_id ?? null });
+    });
+
+    function getTopLevelGroupId(groupId: number): number {
+        let current: { id: number; parent_id: number | null } | undefined = groupById.get(groupId);
+        const visited = new Set<number>();
+        while (current && current.parent_id && !visited.has(current.parent_id)) {
+            visited.add(current.id);
+            const parent = groupById.get(current.parent_id);
+            if (!parent) break;
+            current = parent as any;
+        }
+        return current ? current.id : groupId;
+    }
+
+    // Calculate points from events, rolling up to top-level category
     pointEvents.forEach(event => {
-        const pointGroupId = event.point_template.point_group_id;
+        const rawGroupId = (event.point_group && event.point_group.id) || event.point_group_id;
+        const topLevelGroupId = typeof rawGroupId === 'number' ? getTopLevelGroupId(rawGroupId) : rawGroupId;
         
         event.student_point.forEach((sp: any) => {
             const currentPoints = studentPoints.get(sp.student_id) || 0;
@@ -689,8 +701,8 @@ function calculateStudentStats(
             
             const groupPoints = studentPointGroups.get(sp.student_id);
             if (groupPoints) {
-                const currentGroupPoints = groupPoints.get(pointGroupId) || 0;
-                groupPoints.set(pointGroupId, currentGroupPoints + sp.point_value);
+                const currentGroupPoints = groupPoints.get(topLevelGroupId) || 0;
+                groupPoints.set(topLevelGroupId, currentGroupPoints + sp.point_value);
             }
         });
     });
@@ -850,9 +862,9 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
                 rank: studentRank,
                 outOf: participants.length,
                 pointGroup: {
-                    id: event.point_template.point_group.id,
-                    name: event.point_template.point_group.name,
-                    color: event.point_template.point_group.color
+                    id: (event.point_group && event.point_group.id) || event.point_group_id,
+                    name: event.point_group?.name || 'Unknown',
+                    color: event.point_group?.color || '#999999'
                 }
             });
         }
@@ -938,13 +950,11 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
                 name,
                 date,
                 max_input,
-                point_template!inner(
-                    point_group_id,
-                    point_group!inner(id, name, color, school_id)
-                ),
+                point_group:point_group_id (id, name, color),
+                point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
-            .eq('point_template.point_group.school_id', student.schoolId)
+            .eq('point_group.school_id', student.schoolId)
             .gte('date', timeframe.starts_at)
             .lte('date', timeframe.ends_at);
 
@@ -953,10 +963,10 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
             return null;
         }
 
-        // Get point groups for ranking calculations
+        // Get point groups for ranking calculations (include parent to roll up categories)
         const { data: pointGroups } = await supabase
             .from('point_group')
-            .select('id, name, color')
+            .select('id, name, color, parent_id')
             .eq('school_id', student.schoolId);
 
         if (!pointGroups) {
@@ -1039,13 +1049,11 @@ export async function getSchoolGlobalStats(schoolId: number, timeframeId?: numbe
                 name,
                 date,
                 max_input,
-                point_template!inner(
-                    point_group_id,
-                    point_group!inner(id, name, color, school_id)
-                ),
+                point_group:point_group_id (id, name, color, school_id),
+                point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
-            .eq('point_template.point_group.school_id', schoolId)
+            .eq('point_group.school_id', schoolId)
             .gte('date', timeframe.starts_at)
             .lte('date', timeframe.ends_at);
 
@@ -1066,7 +1074,7 @@ export async function getSchoolGlobalStats(schoolId: number, timeframeId?: numbe
 
         // Calculate points from events
         pointEvents.forEach(event => {
-            const pointGroupId = event.point_template.point_group_id;
+            const pointGroupId = (event.point_group && event.point_group.id) || event.point_group_id;
             
             event.student_point.forEach((sp: any) => {
                 const currentPoints = studentPoints.get(sp.student_id) || 0;
@@ -1082,8 +1090,8 @@ export async function getSchoolGlobalStats(schoolId: number, timeframeId?: numbe
 
         // Get unique point groups
         const pointGroups = new Map<number, { id: number, name: string, color: string }>();
-        pointEvents.forEach(event => {
-            const group = event.point_template.point_group;
+        pointEvents.forEach((event: any) => {
+            const group = event.point_group;
             if (!pointGroups.has(group.id)) {
                 pointGroups.set(group.id, {
                     id: group.id,
@@ -1176,13 +1184,11 @@ export async function getStudentMonthlyTrends(): Promise<StudentMonthlyTrends | 
                 name,
                 date,
                 max_input,
-                point_template!inner(
-                    point_group_id,
-                    point_group!inner(id, name, color, school_id)
-                ),
+                point_group:point_group_id (id, name, color, school_id),
+                point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
-            .eq('point_template.point_group.school_id', student.schoolId)
+            .eq('point_group.school_id', student.schoolId)
             .gte('date', timeframe.starts_at)
             .lte('date', timeframe.ends_at);
 

@@ -151,45 +151,45 @@ export type Rating = {
 
 export function percentileToRating(percentile: number): Rating {
     if (percentile >= 0.97) {
-        return { letter: "S+", color: "#FFA700" }
+        return { letter: "S+", color: "#E69500" }
     } else if (percentile >= 0.95) {
-        return { letter: "S", color: "#FFA700" }
+        return { letter: "S", color: "#E69500" }
     } else if (percentile >= 0.93) {
-        return { letter: "S-", color: "#FFA700" }
+        return { letter: "S-", color: "#E69500" }
     } else if (percentile >= 0.9) {
-        return { letter: "A+", color: "#0CD4F2" }
+        return { letter: "A+", color: "#0BB5D1" }
     } else if (percentile >= 0.85) {
-        return { letter: "A", color: "#0CD4F2" }
+        return { letter: "A", color: "#0BB5D1" }
     } else if (percentile >= 0.8) {
-        return { letter: "A-", color: "#0CD4F2" }
+        return { letter: "A-", color: "#0BB5D1" }
     } else if (percentile >= 0.75) {
-        return { letter: "B+", color: "#1BF20C" }
+        return { letter: "B+", color: "#169A0A" }
     } else if (percentile >= 0.7) {
-        return { letter: "B", color: "#1BF20C" }
+        return { letter: "B", color: "#169A0A" }
     } else if (percentile >= 0.65) {
-        return { letter: "B-", color: "#1BF20C" }
+        return { letter: "B-", color: "#169A0A" }
     } else if (percentile >= 0.6) {
-        return { letter: "C+", color: "#F2EB0C" }
+        return { letter: "C+", color: "#C6B800" }
     } else if (percentile >= 0.55) {
-        return { letter: "C", color: "#F2EB0C" }
+        return { letter: "C", color: "#C6B800" }
     } else if (percentile >= 0.5) {
-        return { letter: "C-", color: "#F2EB0C" }
+        return { letter: "C-", color: "#C6B800" }
     } else if (percentile >= 0.45) {
-        return { letter: "D+", color: "#F2920C" }
+        return { letter: "D+", color: "#C36A06" }
     } else if (percentile >= 0.4) {
-        return { letter: "D", color: "#F2920C" }
+        return { letter: "D", color: "#C36A06" }
     } else if (percentile >= 0.35) {
-        return { letter: "D-", color: "#F2920C" }
+        return { letter: "D-", color: "#C36A06" }
     } else if (percentile >= 0.25) {
-        return { letter: "E", color: "#F49A92" }
+        return { letter: "E", color: "#C75F56" }
     } else if (percentile >= 0.2) {
-        return { letter: "E-", color: "#F49A92" }
+        return { letter: "E-", color: "#C75F56" }
     } else if (percentile >= 0.15) {
-        return { letter: "F+", color: "#F49A92" }
+        return { letter: "F+", color: "#C75F56" }
     } else if (percentile >= 0.1) {
-        return { letter: "F", color: "#F4DBF1" }
+        return { letter: "F", color: "#B978B0" }
     } else {
-        return { letter: "F-", color: "#F4DBF1" }
+        return { letter: "F-", color: "#B978B0" }
     }
 }
 
@@ -713,21 +713,21 @@ export type StudentRankingData = {
  */
 export function rankToColor(rank: number): string {
   if (rank === 1) {
-    return "#FFD700"; // Gold
+    return "#E6C200"; // Darker Gold
   } else if (rank === 2) {
-    return "#C0C0C0"; // Silver
+    return "#8F8F8F"; // Darker Silver
   } else if (rank === 3) {
-    return "#CD7F32"; // Bronze
+    return "#A05F28"; // Darker Bronze
   } else if (rank === 4) {
-    return "#800080"; // Purple
+    return "#5E0F5E"; // Darker Purple
   } else if (rank === 5) {
-    return "#008080"; // Teal
+    return "#006B6B"; // Darker Teal
   } else if (rank <= 10) {
-    return "#DC143C"; // Crimson
+    return "#A1122A"; // Darker Crimson
   } else if (rank <= 20) {
-    return "#40D13B"; // Green
+    return "#2D9927"; // Darker Green
   } else {
-    return "#FFFFFF"; // White
+    return "#444444"; // Neutral dark for low tiers (avoid white in light mode)
   }
 }
 

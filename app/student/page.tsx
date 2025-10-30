@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroupsWithGrades } from "@/api/student";
 import { StudentDashboardData, StudentRecentEvent, rankToColor, rankToColorWithOpacity, StudentMonthlyTrends } from "@/types/domain";
 import dynamic from "next/dynamic";
+import PointGroupBreakdownBar from "./PointGroupBreakdownBar";
 import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
 import Color from "color";
@@ -189,11 +190,11 @@ export default async function StudentDashboard() {
                             </div>
 
                             {/* Quick Actions */}
+                            {taGroups.length > 0 && (
                             <div className="victorian-content victorian-delay-3">
                                 <div className="flex items-center gap-3 mb-4">
                                     <h3 className="victorian-title text-xl">Quick Actions</h3>
                                 </div>
-                                {taGroups.length > 0 && (
                                 <div className="space-y-3">
                                   <div className="pt-2">
                                     <div className="victorian-subtitle font-medium text-sm mb-2">Teaching Assistant Scorebooks</div>
@@ -211,8 +212,8 @@ export default async function StudentDashboard() {
                                     </div>
                                   </div>
                                 </div>
-                                )}
                             </div>
+                            )}
                         </div>
                     </div>
 
@@ -299,7 +300,7 @@ export default async function StudentDashboard() {
 
                     {/* Point Group Rankings */}
                     {pointGroupRankings.length > 0 && (
-                        <div className="victorian-section victorian-section-alt victorian-fade-in victorian-delay-5">
+                        <div className="victorian-section victorian-section-alt victorian-fade-in victorian-delay-6">
                             <div className="victorian-content">
                                 <div className="flex items-center gap-3 mb-4">
                                     <h3 className="victorian-title text-xl">Point Group Rankings</h3>
@@ -307,6 +308,11 @@ export default async function StudentDashboard() {
                                 <p className="victorian-subtitle mb-4 text-sm">
                                     Your performance in different academic categories
                                 </p>
+                                <div className="mb-4">
+                                    <PointGroupBreakdownBar
+                                        segments={pointGroupRankings.map(r => ({ color: r.pointGroupColor, value: r.points }))}
+                                    />
+                                </div>
                                 <div className="victorian-grid-compact">
                                     {pointGroupRankings.map((ranking, index) => (
                                         <div 
