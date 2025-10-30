@@ -40,11 +40,18 @@ export default function StickyHeader({ student, totalPoints, monthlyTrends, time
                             <div className="victorian-header-points victorian-stat-number text-white text-xl md:text-2xl">
                                 {totalPoints.toLocaleString()}pts
                             </div>
-                            {monthlyTrends?.currentMonth && (
-                                <div className="text-green-400 text-xs mt-1">
-                                    +{monthlyTrends.currentMonth.pointIncrease}pts ({Math.round(monthlyTrends.currentMonth.percentageIncrease)}%)
-                                </div>
-                            )}
+                            {monthlyTrends?.currentMonth && (() => {
+                                const inc = monthlyTrends.currentMonth.pointIncrease;
+                                const pct = Math.round(monthlyTrends.currentMonth.percentageIncrease);
+                                const incSign = inc > 0 ? '+' : inc < 0 ? '-' : '';
+                                const pctSign = pct > 0 ? '+' : pct < 0 ? '-' : '';
+                                const colorClass = inc > 0 ? 'text-green-400' : inc < 0 ? 'text-red-400' : 'text-gray-300';
+                                return (
+                                    <div className={`${colorClass} text-xs mt-1`}>
+                                        {incSign}{Math.abs(inc)}pts ({pctSign}{Math.abs(pct)}%)
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

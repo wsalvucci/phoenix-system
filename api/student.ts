@@ -1259,9 +1259,12 @@ function calculateMonthlyTrends(student: Student, allStudents: any[], pointEvent
     const currentMonthPoints = monthlyData.get(currentMonthKey)?.studentPoints.get(student.id) || 0;
     const previousMonthPoints = monthlyData.get(previousMonthKey)?.studentPoints.get(student.id) || 0;
     
-    // Calculate changes
-    const pointIncrease = currentMonthPoints - previousMonthPoints;
-    const percentageIncrease = previousMonthPoints > 0 ? ((currentMonthPoints - previousMonthPoints) / previousMonthPoints) * 100 : 0;
+    // Calculate changes for display in header
+    // We treat the monthly "increase" as points earned in the current month (never negative)
+    const pointIncrease = currentMonthPoints;
+    // Percentage is relative to previous month but never negative
+    const rawPct = previousMonthPoints > 0 ? ((currentMonthPoints / previousMonthPoints) - 1) * 100 : 0;
+    const percentageIncrease = Math.max(0, rawPct);
     
     // For ranking, we need to calculate cumulative points up to current month
     const allStudentCumulativePoints = new Map<number, number>();

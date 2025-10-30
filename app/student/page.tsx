@@ -87,11 +87,8 @@ export default async function StudentDashboard() {
 
     return (
         <div className="victorian-scrollbar"
-        style={{
-            background: `
-            linear-gradient(135deg, ${themeColor} 0%, ${themeColor} 4%, ${bgColor} 4%, ${bgColor} 5%, ${themeColor} 5%, ${themeColor} 9.5%, ${bgColor} 9.5%, ${bgColor} 10%, ${themeColor} 10%, ${themeColor} 10.25%, ${bgColor} 10.25%, ${bgColor} 10.5%, ${themeColor} 10.5%, ${themeColor} 10.75%, ${bgColor} 10.75%, transparent 50%),
-            linear-gradient(-135deg, ${themeColor} 0%, ${themeColor} 4%, ${bgColor} 4%, ${bgColor} 5%, ${themeColor} 5%, ${themeColor} 9.5%, ${bgColor} 9.5%, ${bgColor} 10%, ${themeColor} 10%, ${themeColor} 10.25%, ${bgColor} 10.25%, ${bgColor} 10.5%, ${themeColor} 10.5%, ${themeColor} 10.75%, ${bgColor} 10.75%, transparent 50%)`
-        }}>
+        >
+            
                 {/* Victorian Header */}
                             <StickyHeader 
                 student={student}
@@ -99,9 +96,17 @@ export default async function StudentDashboard() {
                 monthlyTrends={monthlyTrends}
                 timeframe={dashboardData.timeframe}
             />
-
-                <div className="container mx-auto px-4 py-4 pt-6">
-                    {/* Academic Achievement Overview */}
+            <div
+                className="w-full h-dvh fixed top-0 left-0 z-0 pointer-events-none"
+                style={{
+                    background: `
+                        linear-gradient(135deg, ${themeColor} 0%, ${themeColor} 20%, ${bgColor} 20%, ${bgColor} 21%, ${themeColor} 21%, ${themeColor} 25.5%, ${bgColor} 25.5%, ${bgColor} 26%, ${themeColor} 26%, ${themeColor} 26.25%, ${bgColor} 26.25%, ${bgColor} 26.5%, ${themeColor} 26.5%, ${themeColor} 25.75%, ${bgColor} 26.75%, transparent 50%),
+                        linear-gradient(-135deg, ${themeColor} 0%, ${themeColor} 20%, ${bgColor} 20%, ${bgColor} 21%, ${themeColor} 21%, ${themeColor} 25.5%, ${bgColor} 25.5%, ${bgColor} 26%, ${themeColor} 26%, ${themeColor} 26.25%, ${bgColor} 26.25%, ${bgColor} 26.5%, ${themeColor} 26.5%, ${themeColor} 25.75%, ${bgColor} 26.75%, transparent 50%)`
+                }}
+                aria-hidden="true"
+            />
+            <div className="container mx-auto px-4 py-4 pt-6">
+                { }
                     <div className="victorian-section victorian-fade-in">
                         <div className="victorian-grid">
 
