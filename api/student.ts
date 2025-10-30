@@ -199,7 +199,7 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
                 name,
                 date,
                 max_input,
-                point_group:point_group_id (id, name, color),
+                point_group!inner(id, name, color),
                 point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
@@ -281,7 +281,7 @@ export async function getStudentRecentEvents(limit: number = 10) {
                 name,
                 date,
                 max_input,
-                point_group:point_group_id (id, name, color),
+                point_group!inner(id, name, color),
                 student_point!inner(point_value, input_score)
             `)
             .eq('student_point.student_id', student.id)
@@ -950,7 +950,7 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
                 name,
                 date,
                 max_input,
-                point_group:point_group_id (id, name, color),
+                point_group!inner(id, name, color),
                 point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
@@ -1049,7 +1049,7 @@ export async function getSchoolGlobalStats(schoolId: number, timeframeId?: numbe
                 name,
                 date,
                 max_input,
-                point_group:point_group_id (id, name, color, school_id),
+                point_group!inner(id, name, color),
                 point_group_id,
                 student_point(student_id, point_value, input_score)
             `)
@@ -1073,8 +1073,9 @@ export async function getSchoolGlobalStats(schoolId: number, timeframeId?: numbe
         });
 
         // Calculate points from events
-        pointEvents.forEach(event => {
-            const pointGroupId = (event.point_group && event.point_group.id) || event.point_group_id;
+        pointEvents.forEach((event: any) => {
+            const pointGroupId: number | null = (event.point_group && event.point_group.id) || event.point_group_id || null;
+            if (pointGroupId === null) return; // skip events with no point group
             
             event.student_point.forEach((sp: any) => {
                 const currentPoints = studentPoints.get(sp.student_id) || 0;
