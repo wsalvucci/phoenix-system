@@ -806,6 +806,9 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         <div className="text-xs text-gray-500 dark:text-gray-500">
                           Max: {pointEvent.maxInput}
                         </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                          ID: {pointEvent.id}
+                        </div>
                         <div 
                           className="w-full h-1 rounded mt-1 mb-1"
                           style={{ backgroundColor: pointEvent.pointGroup.color }}
@@ -1226,10 +1229,103 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         message: 'Converting data format...'
       });
       
-      const imported: ImportedScorebook = importPreview.eventIds.map((eventId, eventIdx) => {
+      // Validate and filter events with invalid pointEventIds
+      const invalidEvents: Array<{ index: number; name: string; eventId: string }> = [];
+      const eventsWithValidIds = importPreview.eventIds
+        .map((eventId, eventIdx) => {
+          const parsedEventId = parseInt(eventId);
+          const eventName = importPreview.eventNames[eventIdx] || `Event ${eventIdx + 1}`;
+          
+          // Check if eventId is valid
+          if (!eventId || eventId.trim() === '' || isNaN(parsedEventId) || parsedEventId <= 0) {
+            invalidEvents.push({
+              index: eventIdx,
+              name: eventName,
+              eventId: eventId || '(empty)'
+            });
+            return null; // Mark for filtering
+          }
+          
+          return {
+            eventId: parsedEventId,
+            originalIndex: eventIdx
+          };
+        })
+        .filter((item): item is { eventId: number; originalIndex: number } => item !== null);
+      
+      // Detect duplicate event IDs
+      const eventIdToIndices = new Map<number, number[]>();
+      eventsWithValidIds.forEach(({ eventId, originalIndex }) => {
+        if (!eventIdToIndices.has(eventId)) {
+          eventIdToIndices.set(eventId, []);
+        }
+        eventIdToIndices.get(eventId)!.push(originalIndex);
+      });
+      
+      const duplicateEvents: Array<{ eventId: number; indices: number[]; names: string[] }> = [];
+      eventIdToIndices.forEach((indices, eventId) => {
+        if (indices.length > 1) {
+          duplicateEvents.push({
+            eventId,
+            indices,
+            names: indices.map(idx => importPreview.eventNames[idx] || `Event ${idx + 1}`)
+          });
+        }
+      });
+      
+      // Report invalid events to user
+      if (invalidEvents.length > 0) {
+        const invalidEventDetails = invalidEvents
+          .map(e => `"${e.name}" (ID: ${e.eventId})`)
+          .join(', ');
+        const errorMessage = `Invalid point event IDs found. The following events have invalid or missing IDs and will be skipped: ${invalidEventDetails}. Please check your import data.`;
+        alert(errorMessage);
+      }
+      
+      // Report duplicate event IDs to user
+      if (duplicateEvents.length > 0) {
+        const duplicateDetails = duplicateEvents.map(dup => {
+          const eventDetails = dup.indices.map((idx, i) => {
+            const name = dup.names[i];
+            const column = idx + 1; // 1-indexed for user display
+            return `column ${column} ("${name}")`;
+          }).join(', ');
+          return `Event ID ${dup.eventId} appears in ${dup.indices.length} columns: ${eventDetails}`;
+        }).join('\n');
+        
+        const warningMessage = `Duplicate point event IDs detected. The following event IDs appear multiple times:\n\n${duplicateDetails}\n\nOnly the first occurrence will be used for each event ID. Please check your CSV file.`;
+        alert(warningMessage);
+      }
+      
+      // Check if we have any valid events left
+      if (eventsWithValidIds.length === 0) {
+        alert('No valid point events found to import. All events have invalid IDs.');
+        setImportLoading(false);
+        setImportProgress(null);
+        return;
+      }
+      
+      // Filter out duplicate event IDs, keeping only the first occurrence of each
+      const seenEventIds = new Set<number>();
+      const uniqueEventsWithValidIds = eventsWithValidIds.filter(({ eventId }) => {
+        if (seenEventIds.has(eventId)) {
+          return false; // Skip duplicate
+        }
+        seenEventIds.add(eventId);
+        return true;
+      });
+      
+      // If duplicates were filtered, warn the user
+      if (uniqueEventsWithValidIds.length < eventsWithValidIds.length) {
+        const filteredCount = eventsWithValidIds.length - uniqueEventsWithValidIds.length;
+        console.warn(`Filtered out ${filteredCount} duplicate event ID(s) during import`);
+      }
+      
+      // Build imported data using only valid, unique events
+      const imported: ImportedScorebook = uniqueEventsWithValidIds.map(({ eventId, originalIndex }) => {
         return {
-          pointEventId: parseInt(eventId),
-          name: importPreview.eventNames[eventIdx] || '',
+          pointEventId: eventId,
+          name: importPreview.eventNames[originalIndex] || '',
           date: '', // Not available from import
           template: { type: '', value: 0 }, // Not available from import
           studentPoints: importPreview.students.map((student) => {
@@ -1247,7 +1343,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               return isNaN(parsed) ? 0 : parsed;
             };
             
-            const scoreValue = normalizeValue(student.scores[eventIdx]);
+            const scoreValue = normalizeValue(student.scores[originalIndex]);
             
             return {
               id: parsedStudentId,

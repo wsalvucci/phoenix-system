@@ -1008,12 +1008,71 @@ export default async function importPhoenixScorebookData(
         }
 
         // Fetch existing student points for change detection
-        const pointEventIds = data.map(event => event.pointEventId);
+        // Filter out invalid pointEventIds (NaN, undefined, null, non-positive numbers)
+        const invalidEventIds: Array<{ id: any; name: string }> = [];
+        const validPointEventIds = data
+            .map(event => {
+                const eventId = event.pointEventId;
+                // Check if eventId is valid
+                if (eventId === undefined || eventId === null || isNaN(eventId) || eventId <= 0 || !Number.isInteger(eventId)) {
+                    invalidEventIds.push({
+                        id: eventId,
+                        name: event.name || 'Unknown event'
+                    });
+                    return null;
+                }
+                return eventId;
+            })
+            .filter((id): id is number => id !== null);
+        
+        // Detect duplicate event IDs
+        const eventIdToEvents = new Map<number, Array<{ name: string; index: number }>>();
+        data.forEach((event, index) => {
+            const eventId = event.pointEventId;
+            if (eventId !== undefined && eventId !== null && !isNaN(eventId) && eventId > 0 && Number.isInteger(eventId)) {
+                if (!eventIdToEvents.has(eventId)) {
+                    eventIdToEvents.set(eventId, []);
+                }
+                eventIdToEvents.get(eventId)!.push({
+                    name: event.name || 'Unknown event',
+                    index: index + 1 // 1-indexed for user display
+                });
+            }
+        });
+        
+        const duplicateEvents: Array<{ eventId: number; events: Array<{ name: string; index: number }> }> = [];
+        eventIdToEvents.forEach((events, eventId) => {
+            if (events.length > 1) {
+                duplicateEvents.push({ eventId, events });
+            }
+        });
+        
+        // Report invalid event IDs if any were found
+        if (invalidEventIds.length > 0) {
+            const invalidDetails = invalidEventIds
+                .map(e => `"${e.name}" (ID: ${e.id})`)
+                .join(', ');
+            return `Invalid point event IDs detected: ${invalidDetails}. Please check your import data.`;
+        }
+        
+        // Report duplicate event IDs if any were found
+        if (duplicateEvents.length > 0) {
+            const duplicateDetails = duplicateEvents.map(dup => {
+                const eventDetails = dup.events.map(e => `position ${e.index} ("${e.name}")`).join(', ');
+                return `Event ID ${dup.eventId} appears ${dup.events.length} times: ${eventDetails}`;
+            }).join('; ');
+            return `Duplicate point event IDs detected: ${duplicateDetails}. Each event ID should appear only once. Please check your import data.`;
+        }
+        
+        // Check if we have any valid event IDs to query
+        if (validPointEventIds.length === 0) {
+            return "No valid point event IDs found in import data. All event IDs are invalid or missing.";
+        }
         
         const { data: existingStudentPoints, error: existingPointsError } = await supabase
             .from('student_point')
             .select('student_id, point_event_id, point_value, input_score')
-            .in('point_event_id', pointEventIds);
+            .in('point_event_id', validPointEventIds);
             
         if (existingPointsError) {
             console.error('Error fetching existing student points:', existingPointsError);
@@ -1037,9 +1096,27 @@ export default async function importPhoenixScorebookData(
         const changesToProcess: any[] = [];
 
         // For each event in the imported data
-        for (const event of data) {
+        // Filter out events with invalid pointEventIds before processing
+        const validEvents = data.filter(event => {
+            const eventId = event.pointEventId;
+            return eventId !== undefined && eventId !== null && !isNaN(eventId) && eventId > 0 && Number.isInteger(eventId);
+        });
+        
+        // Report if any events were filtered out
+        if (validEvents.length < data.length) {
+            const filteredCount = data.length - validEvents.length;
+            console.warn(`Filtered out ${filteredCount} event(s) with invalid pointEventIds during processing`);
+        }
+        
+        for (const event of validEvents) {
             processedEvents++;
             const pointEventId = event.pointEventId;
+            
+            // Defensive check - skip if somehow invalid (shouldn't happen after filtering)
+            if (!pointEventId || isNaN(pointEventId) || pointEventId <= 0) {
+                console.warn(`Skipping event with invalid pointEventId: ${pointEventId} (event: ${event.name || 'Unknown'})`);
+                continue;
+            }
             
             // For each student in this event
             for (const student of event.studentPoints) {
@@ -1060,11 +1137,11 @@ export default async function importPhoenixScorebookData(
                 const key = `${pointEventId}-${student.id}`;
                 const existingPoint = existingPointsMap.get(key);
                 
-                // Normalize values for comparison
+                // Normalize values for comparison (round to avoid floating point precision issues)
                 const normalizeValue = (value: any): number => {
                     if (value === null || value === undefined || value === '') return 0;
                     const parsed = parseFloat(value);
-                    return isNaN(parsed) ? 0 : parsed;
+                    return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100; // Round to 2 decimal places
                 };
                 
                 const newPointValue = normalizeValue(student.value);
@@ -1072,8 +1149,12 @@ export default async function importPhoenixScorebookData(
                 const existingPointValue = existingPoint ? normalizeValue(existingPoint.point_value) : 0;
                 const existingInputValue = existingPoint ? normalizeValue(existingPoint.input_score) : 0;
                 
-                // Only process if values have changed
-                if (newPointValue !== existingPointValue || newInputValue !== existingInputValue) {
+                // Only process if values have changed (using epsilon comparison for floating point)
+                const epsilon = 0.01;
+                const pointValueChanged = Math.abs(newPointValue - existingPointValue) > epsilon;
+                const inputValueChanged = Math.abs(newInputValue - existingInputValue) > epsilon;
+                
+                if (pointValueChanged || inputValueChanged) {
                     const insertData = {
                         created_at: DateTime.now().toISO(),
                         point_value: newPointValue,
@@ -1098,13 +1179,31 @@ export default async function importPhoenixScorebookData(
             for (let i = 0; i < changesToProcess.length; i += batchSize) {
                 const batch = changesToProcess.slice(i, i + batchSize);
                 
-                const { error: upsertError } = await supabase
-                    .from('student_point')
-                    .upsert(batch);
+                // Delete existing records for the specific student-event pairs in this batch
+                // Since there's no unique constraint, we need to delete existing records first
+                // to prevent duplicates when inserting. We must delete each pair individually
+                // to avoid deleting records for other students/events.
+                for (const change of batch) {
+                    const { error: deleteError } = await supabase
+                        .from('student_point')
+                        .delete()
+                        .eq('student_id', change.student_id)
+                        .eq('point_event_id', change.point_event_id);
                     
-                if (upsertError) {
-                    console.error('Batch upsert error:', upsertError);
-                    return `Error importing student points batch: ${upsertError.message}`;
+                    if (deleteError) {
+                        console.error('Delete error for student_point:', deleteError);
+                        return `Error deleting existing student point (student: ${change.student_id}, event: ${change.point_event_id}): ${deleteError.message}`;
+                    }
+                }
+                
+                // Insert the new/updated records
+                const { error: insertError } = await supabase
+                    .from('student_point')
+                    .insert(batch);
+                    
+                if (insertError) {
+                    console.error('Batch insert error:', insertError);
+                    return `Error importing student points batch: ${insertError.message}`;
                 }
             }
         }
