@@ -29,7 +29,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground">
         <QueryProvider>
           <ThemeProvider>
-            <main className="min-h-screen flex flex-col items-center">
+            <main className="min-h-screen flex flex-col items-center w-full max-w-full overflow-x-hidden">
               {/* <ThemeToggle /> */}
               {children}
               <Analytics />

@@ -56,7 +56,9 @@ export async function createPointEvent(
                 }
         }).filter((studentPoint) => studentPoint !== null);
 
-        const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").upsert(newStudentPoints)
+        const { data: studentPointsData, error: studentPointsError } = await supabase.from("student_point").upsert(newStudentPoints, {
+                onConflict: 'student_id,point_event_id'
+        })
 
         if (studentPointsError) {
                 console.error("Error creating student points", studentPointsError);
@@ -424,7 +426,9 @@ export async function updateStudentPointsByAssistant(
         notes: u.notes ?? null,
     }));
 
-    const { error: upsertError } = await supabase.from("student_point").upsert(rows);
+    const { error: upsertError } = await supabase.from("student_point").upsert(rows, {
+        onConflict: 'student_id,point_event_id'
+    });
     if (upsertError) {
         console.error("Error updating student points as assistant", upsertError);
         return false;
@@ -481,7 +485,9 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
                 notes: studentPoint.pointData.notes
         }));
 
-        const { error: studentPointsError } = await supabase.from("student_point").upsert(studentPointsToUpdate);
+        const { error: studentPointsError } = await supabase.from("student_point").upsert(studentPointsToUpdate, {
+                onConflict: 'student_id,point_event_id'
+        });
 
         if (studentPointsError) {
                 console.error("Error updating student points", studentPointsError);

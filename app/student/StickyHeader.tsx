@@ -17,25 +17,25 @@ interface StickyHeaderProps {
 
 export default function StickyHeader({ student, totalPoints, monthlyTrends, timeframe }: StickyHeaderProps) {
     return (
-        <div className="victorian-header">
-            <div className="container mx-auto px-4 victorian-header-content">
-                <div className="flex items-start justify-between victorian-header-main">
-                    <div className="space-y-2 victorian-fade-in">
-                        <div className="flex items-center gap-3">
-                            <h1 className="victorian-header-name text-2xl md:text-3xl font-bold text-white">
+        <div className="victorian-header w-full max-w-full overflow-x-hidden">
+            <div className="container mx-auto px-4 victorian-header-content max-w-full">
+                <div className="flex items-start justify-between victorian-header-main min-w-0">
+                    <div className="space-y-2 victorian-fade-in flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <h1 className="victorian-header-name text-2xl md:text-3xl font-bold text-white truncate">
                                 {student.firstName} {student.lastName}
                             </h1>
                         </div>
-                        <div className="victorian-header-details flex items-center gap-4 text-white/90 text-sm">
-                            <span className="flex items-center gap-2">
+                        <div className="victorian-header-details flex items-center gap-4 text-white/90 text-sm flex-wrap">
+                            <span className="flex items-center gap-2 flex-shrink-0">
                                 Grade {student.grade}
                             </span>
-                            <span className="flex items-center gap-2">
+                            <span className="flex items-center gap-2 truncate min-w-0">
                                 {timeframe.name}
                             </span>
                         </div>
                     </div>
-                    <div className="text-right victorian-fade-in victorian-delay-1">
+                    <div className="text-right victorian-fade-in victorian-delay-1 flex-shrink-0 ml-2">
                         <div className="victorian-stat">
                             <div className="victorian-header-points victorian-stat-number text-white text-xl md:text-2xl">
                                 {totalPoints.toLocaleString()}pts

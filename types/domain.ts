@@ -665,11 +665,40 @@ export type PointEventRanking = {
   points: number;
   rank: number;
   outOf: number;
+  studentPointId: number;
   pointGroup: {
     id: number;
     name: string;
     color: string;
   };
+};
+
+export type StudentGroupWithChildren = {
+  id: number;
+  name: string;
+  parentId: number | null;
+  childGroups: Array<{ id: number; name: string }>;
+};
+
+export type SharedPointData = {
+  eventId: number;
+  eventName: string | null;
+  eventDate: string | null;
+  pointGroup: {
+    id: number;
+    name: string;
+    color: string;
+  };
+  sharedPoints: Array<{
+    studentPointId: number;
+    pointValue: number;
+    inputScore: number | null;
+    sharer: {
+      id: number;
+      firstName: string;
+      lastName: string;
+    };
+  }>;
 };
 
 export type StudentRecentEvent = {

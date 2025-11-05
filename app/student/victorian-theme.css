@@ -4,6 +4,13 @@
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  max-width: 100vw;
+  box-sizing: border-box;
+}
+
+html *, body * {
+  box-sizing: border-box;
 }
 
 /* Prevent overscroll on scrollable containers */
@@ -11,6 +18,8 @@ html, body {
 .victorian-scrollbar,
 .victorian-section {
   overscroll-behavior: contain;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Import modern traditional font */
@@ -132,6 +141,8 @@ html, body {
   background: var(--victorian-burgundy);
   border-bottom: 3px solid var(--victorian-gold);
   overflow: hidden;
+  overflow-x: hidden;
+  max-width: 100%;
   padding-left: 1rem;
   padding-right: 1rem;
   contain: layout style;
@@ -263,6 +274,8 @@ html, body {
   position: relative;
   padding: 2rem 0;
   margin: 1rem 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .victorian-section::before {
@@ -740,22 +753,28 @@ html, body {
   display: grid;
   gap: 2rem;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .victorian-grid-compact {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Victorian Responsive Design */
 @media (max-width: 768px) {
   .victorian-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .victorian-grid-compact {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
   }
 }
 

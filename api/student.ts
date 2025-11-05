@@ -201,7 +201,7 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
                 max_input,
                 point_group!inner(id, name, color),
                 point_group_id,
-                student_point(student_id, point_value, input_score)
+                student_point(id, student_id, point_value, input_score)
             `)
             .eq('point_group.school_id', student.schoolId)
             .gte('date', timeframe.starts_at)
@@ -861,6 +861,7 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
                 points: studentPoints,
                 rank: studentRank,
                 outOf: participants.length,
+                studentPointId: studentParticipation.id,
                 pointGroup: {
                     id: (event.point_group && event.point_group.id) || event.point_group_id,
                     name: event.point_group?.name || 'Unknown',
@@ -952,7 +953,7 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
                 max_input,
                 point_group!inner(id, name, color),
                 point_group_id,
-                student_point(student_id, point_value, input_score)
+                student_point(id, student_id, point_value, input_score)
             `)
             .eq('point_group.school_id', student.schoolId)
             .gte('date', timeframe.starts_at)
@@ -1306,4 +1307,567 @@ function calculateMonthlyTrends(student: Student, allStudents: any[], pointEvent
     }
     
     return trends;
+}
+
+/**
+ * Gets all groups that the current student belongs to, with hierarchical structure
+ */
+export async function getStudentGroups(): Promise<Array<{
+    id: number;
+    name: string;
+    parentId: number | null;
+    childGroups: Array<{ id: number; name: string }>;
+}>> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentGroups' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+        
+        // Get all groups the student belongs to via student_group_pair
+        const { data: groupPairs, error: pairsError } = await supabase
+            .from('student_group_pair')
+            .select(`
+                student_group_id,
+                student_group!inner(
+                    id,
+                    name,
+                    parent_id
+                )
+            `)
+            .eq('student_id', student.id);
+
+        if (pairsError) {
+            logger.error('Error fetching student groups', { error: pairsError });
+            return [];
+        }
+
+        if (!groupPairs || groupPairs.length === 0) {
+            logger.info('Student is not in any groups');
+            return [];
+        }
+
+        // Get all groups with their parent/child relationships
+        const groupIds = groupPairs.map(p => p.student_group_id);
+        const { data: allGroups, error: groupsError } = await supabase
+            .from('student_group')
+            .select('id, name, parent_id')
+            .in('id', groupIds);
+
+        if (groupsError) {
+            logger.error('Error fetching group details', { error: groupsError });
+            return [];
+        }
+
+        // Build a map of groups
+        const groupMap = new Map<number, { id: number; name: string; parentId: number | null; childGroups: Array<{ id: number; name: string }> }>();
+        allGroups?.forEach(group => {
+            groupMap.set(group.id, {
+                id: group.id,
+                name: group.name,
+                parentId: group.parent_id,
+                childGroups: []
+            });
+        });
+
+        // Build parent-child relationships
+        allGroups?.forEach(group => {
+            if (group.parent_id && groupMap.has(group.parent_id)) {
+                const parent = groupMap.get(group.parent_id)!;
+                parent.childGroups.push({ id: group.id, name: group.name });
+            }
+        });
+
+        // Return only top-level groups (groups without parents, or groups the student is directly in)
+        const topLevelGroups = Array.from(groupMap.values())
+            .filter(group => group.parentId === null || groupIds.includes(group.id));
+
+        logger.info('Student groups retrieved successfully', { 
+            studentId: student.id,
+            groupCount: topLevelGroups.length
+        });
+
+        return topLevelGroups;
+    } catch (error) {
+        logger.error('Failed to get student groups', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
+ * Helper function to get all child group IDs recursively for a parent group
+ */
+async function getAllChildGroupIds(parentGroupId: number): Promise<number[]> {
+    const supabase = await supabaseServiceClient();
+    const childIds: number[] = [];
+
+    async function getChildren(parentId: number) {
+        const { data: children, error } = await supabase
+            .from('student_group')
+            .select('id')
+            .eq('parent_id', parentId);
+
+        if (error || !children) return;
+
+        for (const child of children) {
+            childIds.push(child.id);
+            await getChildren(child.id); // Recursively get grandchildren
+        }
+    }
+
+    await getChildren(parentGroupId);
+    return childIds;
+}
+
+/**
+ * Share a student point to one or more groups
+ * Automatically includes all child groups when a parent is selected
+ */
+export async function shareStudentPoint(studentPointId: number, groupIds: number[]): Promise<{ success: boolean; error?: string }> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'shareStudentPoint' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return { success: false, error: 'Student not found' };
+        }
+
+        const supabase = await supabaseServiceClient();
+
+        // Verify the student_point belongs to the current student
+        const { data: studentPoint, error: pointError } = await supabase
+            .from('student_point')
+            .select('student_id')
+            .eq('id', studentPointId)
+            .single();
+
+        if (pointError || !studentPoint) {
+            logger.warn('Student point not found', { studentPointId });
+            return { success: false, error: 'Point not found' };
+        }
+
+        if (studentPoint.student_id !== student.id) {
+            logger.warn('Student does not own this point', { studentPointId, studentId: student.id });
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        // Get all groups to share to (including child groups)
+        const allGroupIds = new Set<number>();
+        for (const groupId of groupIds) {
+            allGroupIds.add(groupId);
+            const childIds = await getAllChildGroupIds(groupId);
+            childIds.forEach(id => allGroupIds.add(id));
+        }
+
+        // Check which groups already have this point shared
+        const { data: existingShares, error: existingError } = await supabase
+            .from('shared_point')
+            .select('shared_group_id')
+            .eq('student_point_id', studentPointId)
+            .in('shared_group_id', Array.from(allGroupIds));
+
+        const existingGroupIds = new Set((existingShares || []).map(s => s.shared_group_id));
+
+        // Insert new shares (only for groups that don't already have it)
+        const newShares = Array.from(allGroupIds)
+            .filter(id => !existingGroupIds.has(id))
+            .map(groupId => ({
+                student_point_id: studentPointId,
+                shared_group_id: groupId,
+                pinned: false
+            }));
+
+        if (newShares.length > 0) {
+            const { error: insertError } = await supabase
+                .from('shared_point')
+                .insert(newShares);
+
+            if (insertError) {
+                logger.error('Error sharing points', { error: insertError });
+                return { success: false, error: 'Failed to share points' };
+            }
+        }
+
+        logger.info('Student point shared successfully', { 
+            studentPointId,
+            groupCount: allGroupIds.size,
+            newShares: newShares.length
+        });
+
+        return { success: true };
+    } catch (error) {
+        logger.error('Failed to share student point', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return { success: false, error: 'An error occurred' };
+    }
+}
+
+/**
+ * Unshare a student point from one or more groups
+ * Also removes shares from all child groups
+ */
+export async function unshareStudentPoint(studentPointId: number, groupIds: number[]): Promise<{ success: boolean; error?: string }> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'unshareStudentPoint' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return { success: false, error: 'Student not found' };
+        }
+
+        const supabase = await supabaseServiceClient();
+
+        // Verify the student_point belongs to the current student
+        const { data: studentPoint, error: pointError } = await supabase
+            .from('student_point')
+            .select('student_id')
+            .eq('id', studentPointId)
+            .single();
+
+        if (pointError || !studentPoint) {
+            logger.warn('Student point not found', { studentPointId });
+            return { success: false, error: 'Point not found' };
+        }
+
+        if (studentPoint.student_id !== student.id) {
+            logger.warn('Student does not own this point', { studentPointId, studentId: student.id });
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        // Get all groups to unshare from (including child groups)
+        const allGroupIds = new Set<number>();
+        for (const groupId of groupIds) {
+            allGroupIds.add(groupId);
+            const childIds = await getAllChildGroupIds(groupId);
+            childIds.forEach(id => allGroupIds.add(id));
+        }
+
+        // Delete shares for these groups
+        const { error: deleteError } = await supabase
+            .from('shared_point')
+            .delete()
+            .eq('student_point_id', studentPointId)
+            .in('shared_group_id', Array.from(allGroupIds));
+
+        if (deleteError) {
+            logger.error('Error unsharing points', { error: deleteError });
+            return { success: false, error: 'Failed to unshare points' };
+        }
+
+        logger.info('Student point unshared successfully', { 
+            studentPointId,
+            groupCount: allGroupIds.size
+        });
+
+        return { success: true };
+    } catch (error) {
+        logger.error('Failed to unshare student point', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return { success: false, error: 'An error occurred' };
+    }
+}
+
+/**
+ * Get all points that have been shared to groups the student belongs to
+ * Returns points grouped by point event, sorted by date (newest first)
+ * Within each event, points are sorted by point value (descending)
+ */
+export async function getSharedPointsForStudent(): Promise<Array<{
+    eventId: number;
+    eventName: string | null;
+    eventDate: string | null;
+    pointGroup: {
+        id: number;
+        name: string;
+        color: string;
+    };
+    sharedPoints: Array<{
+        studentPointId: number;
+        pointValue: number;
+        inputScore: number | null;
+        sharer: {
+            id: number;
+            firstName: string;
+            lastName: string;
+        };
+    }>;
+}>> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getSharedPointsForStudent' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+
+        // Get all groups the student belongs to
+        const { data: groupPairs, error: pairsError } = await supabase
+            .from('student_group_pair')
+            .select('student_group_id')
+            .eq('student_id', student.id);
+
+        if (pairsError || !groupPairs || groupPairs.length === 0) {
+            logger.info('Student is not in any groups');
+            return [];
+        }
+
+        const studentGroupIds = groupPairs.map(p => p.student_group_id);
+
+        // Get all shared points for groups the student is in
+        // Join with student_point, point_event, student (sharer), and point_group
+        const { data: sharedPoints, error: sharedError } = await supabase
+            .from('shared_point')
+            .select(`
+                student_point_id,
+                student_point!inner(
+                    id,
+                    point_value,
+                    input_score,
+                    point_event_id,
+                    student_id,
+                    student:student!inner(
+                        id,
+                        first_name,
+                        last_name
+                    ),
+                    point_event:point_event(
+                        id,
+                        name,
+                        date,
+                        point_group_id,
+                        point_group:point_group(
+                            id,
+                            name,
+                            color
+                        )
+                    )
+                )
+            `)
+            .in('shared_group_id', studentGroupIds);
+
+        if (sharedError) {
+            logger.error('Error fetching shared points', { error: sharedError });
+            return [];
+        }
+
+        if (!sharedPoints || sharedPoints.length === 0) {
+            logger.info('No shared points found');
+            return [];
+        }
+
+        // Remove duplicates by student_point_id (same point can be shared to multiple groups)
+        const uniquePoints = new Map<number, typeof sharedPoints[0]>();
+        sharedPoints.forEach(sp => {
+            const studentPointId = sp.student_point?.id;
+            if (studentPointId && !uniquePoints.has(studentPointId)) {
+                uniquePoints.set(studentPointId, sp);
+            }
+        });
+
+        // Group by point_event_id
+        const eventMap = new Map<number, {
+            eventId: number;
+            eventName: string | null;
+            eventDate: string | null;
+            pointGroup: { id: number; name: string; color: string };
+            sharedPoints: Array<{
+                studentPointId: number;
+                pointValue: number;
+                inputScore: number | null;
+                sharer: { id: number; firstName: string; lastName: string };
+            }>;
+        }>();
+
+        uniquePoints.forEach((sp) => {
+            const studentPoint = sp.student_point as any;
+            const pointEvent = studentPoint.point_event as any;
+            const sharer = studentPoint.student as any;
+            const pointGroup = pointEvent.point_group as any;
+
+            if (!eventMap.has(pointEvent.id)) {
+                eventMap.set(pointEvent.id, {
+                    eventId: pointEvent.id,
+                    eventName: pointEvent.name,
+                    eventDate: pointEvent.date,
+                    pointGroup: {
+                        id: pointGroup.id,
+                        name: pointGroup.name,
+                        color: pointGroup.color
+                    },
+                    sharedPoints: []
+                });
+            }
+
+            const event = eventMap.get(pointEvent.id)!;
+            event.sharedPoints.push({
+                studentPointId: studentPoint.id,
+                pointValue: studentPoint.point_value,
+                inputScore: studentPoint.input_score,
+                sharer: {
+                    id: sharer.id,
+                    firstName: sharer.first_name,
+                    lastName: sharer.last_name
+                }
+            });
+        });
+
+        // Convert to array and sort
+        const events = Array.from(eventMap.values());
+        
+        // Sort events by date (reverse chronological - newest first)
+        events.sort((a, b) => {
+            const dateA = a.eventDate ? new Date(a.eventDate).getTime() : 0;
+            const dateB = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+            return dateB - dateA;
+        });
+
+        // Sort points within each event by point value (descending)
+        events.forEach(event => {
+            event.sharedPoints.sort((a, b) => b.pointValue - a.pointValue);
+        });
+
+        logger.info('Shared points retrieved successfully', { 
+            studentId: student.id,
+            eventCount: events.length,
+            totalPoints: uniquePoints.size
+        });
+
+        return events;
+    } catch (error) {
+        logger.error('Failed to get shared points for student', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
+ * Get groups that a point is already shared to
+ */
+export async function getPointSharedGroups(studentPointId: number): Promise<number[]> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getPointSharedGroups' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return [];
+        }
+
+        const supabase = await supabaseServiceClient();
+
+        // Verify the student_point belongs to the current student
+        const { data: studentPoint, error: pointError } = await supabase
+            .from('student_point')
+            .select('student_id')
+            .eq('id', studentPointId)
+            .single();
+
+        if (pointError || !studentPoint) {
+            logger.warn('Student point not found', { studentPointId });
+            return [];
+        }
+
+        if (studentPoint.student_id !== student.id) {
+            logger.warn('Student does not own this point', { studentPointId, studentId: student.id });
+            return [];
+        }
+
+        // Get existing shares
+        const { data: existingShares, error: sharesError } = await supabase
+            .from('shared_point')
+            .select('shared_group_id')
+            .eq('student_point_id', studentPointId);
+
+        if (sharesError) {
+            logger.error('Error fetching existing shares', { error: sharesError });
+            return [];
+        }
+
+        return (existingShares || []).map(s => s.shared_group_id);
+    } catch (error) {
+        logger.error('Failed to get point shared groups', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return [];
+    }
+}
+
+/**
+ * Check if multiple student points are shared (returns a record of studentPointId -> boolean)
+ */
+export async function checkPointsSharedStatus(studentPointIds: number[]): Promise<Record<number, boolean>> {
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'checkPointsSharedStatus' });
+    
+    try {
+        const student = await getStudentDataWithContext();
+        if (!student) {
+            logger.warn('No student data found');
+            return {};
+        }
+
+        if (studentPointIds.length === 0) {
+            return {};
+        }
+
+        const supabase = await supabaseServiceClient();
+
+        // Verify all student_points belong to the current student
+        const { data: studentPoints, error: pointsError } = await supabase
+            .from('student_point')
+            .select('id, student_id')
+            .in('id', studentPointIds)
+            .eq('student_id', student.id);
+
+        if (pointsError || !studentPoints) {
+            logger.warn('Error verifying student points', { error: pointsError });
+            return {};
+        }
+
+        const validPointIds = studentPoints.map(sp => sp.id);
+        if (validPointIds.length === 0) {
+            return {};
+        }
+
+        // Get existing shares for all valid points
+        const { data: existingShares, error: sharesError } = await supabase
+            .from('shared_point')
+            .select('student_point_id')
+            .in('student_point_id', validPointIds);
+
+        if (sharesError) {
+            logger.error('Error fetching existing shares', { error: sharesError });
+            return {};
+        }
+
+        // Create a set of shared point IDs
+        const sharedPointIds = new Set((existingShares || []).map(s => s.student_point_id));
+
+        // Build result object - all points default to false, then set true for shared ones
+        const result: Record<number, boolean> = {};
+        validPointIds.forEach(id => {
+            result[id] = sharedPointIds.has(id);
+        });
+
+        return result;
+    } catch (error) {
+        logger.error('Failed to check points shared status', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+        }, error instanceof Error ? error : undefined);
+        return {};
+    }
 }

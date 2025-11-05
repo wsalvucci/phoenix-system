@@ -7,6 +7,7 @@ import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
 const SparkleBackground = dynamic(() => import('./SparkleBackground'), { ssr: false });
 import Color from "color";
+const StudentTabs = dynamic(() => import('./StudentTabs'), { ssr: false });
 
 
 
@@ -87,7 +88,7 @@ export default async function StudentDashboard() {
     const bgColor = '#00000000'
 
     return (
-        <div className="victorian-scrollbar"
+        <div className="victorian-scrollbar w-full max-w-full overflow-x-hidden"
         >
             
                 {/* Victorian Header */}
@@ -98,9 +99,11 @@ export default async function StudentDashboard() {
                 timeframe={dashboardData.timeframe}
             />
             <SparkleBackground color={themeColor} density="festive" />
-            <div className="container mx-auto px-4 py-4 pt-6">
-                { }
-                    <div className="victorian-section victorian-fade-in">
+            <div className="w-full max-w-full px-4 py-4 pt-6 overflow-x-hidden">
+                <StudentTabs
+                    dashboardContent={
+                        <div className="w-full max-w-full">
+                            <div className="victorian-section victorian-fade-in">
                         <div className="victorian-grid">
 
                             {/* Overall Ranking */}
@@ -125,7 +128,7 @@ export default async function StudentDashboard() {
                                         {nearbyStudents.map((nearby, index) => (
                                             <div 
                                                 key={nearby.studentId}
-                                                className={`victorian-list-item grid grid-cols-3 ${
+                                                className={`victorian-list-item grid grid-cols-3 max-w-full overflow-x-hidden ${
                                                     nearby.studentId === student.id ? 'highlight' : ''
                                                 } victorian-slide-in`}
                                                 style={{ animationDelay: `${0.2 + index * 0.1}s`, gridTemplateColumns: '1fr 5fr 2fr' }}
@@ -133,7 +136,7 @@ export default async function StudentDashboard() {
                                                 <span className="font-medium" style={{ color: rankToColor(nearby.rank) }}>
                                                     {numberToOrdinal(nearby.rank)}
                                                 </span>
-                                                <span className="font-medium victorian-student-name">
+                                                <span className="font-medium victorian-student-name truncate">
                                                     {nearby.firstName} {nearby.lastName}
                                                 </span>
                                                 <span className="text-sm text-right" style={{ color: rankToColor(nearby.rank) }}>
@@ -167,7 +170,7 @@ export default async function StudentDashboard() {
                                         {nearbyGradeStudents.map((nearby, index) => (
                                             <div 
                                                 key={nearby.studentId}
-                                                className={`victorian-list-item grid grid-cols-3 ${
+                                                className={`victorian-list-item grid grid-cols-3 max-w-full overflow-x-hidden ${
                                                     nearby.studentId === student.id ? 'highlight' : ''
                                                 } victorian-slide-in`}
                                                 style={{ animationDelay: `${0.3 + index * 0.1}s`, gridTemplateColumns: '1fr 5fr 2fr' }}
@@ -175,7 +178,7 @@ export default async function StudentDashboard() {
                                                 <span className="font-medium" style={{ color: rankToColor(nearby.rank) }}>
                                                     {numberToOrdinal(nearby.rank)}
                                                 </span>
-                                                <span className="font-medium victorian-student-name" style={{ color: rankToColor(nearby.rank) }}>
+                                                <span className="font-medium victorian-student-name truncate" style={{ color: rankToColor(nearby.rank) }}>
                                                     {nearby.firstName} {nearby.lastName}
                                                 </span>
                                                 <span className="text-sm text-gray-600 text-right" style={{ color: rankToColor(nearby.rank) }}>
@@ -241,8 +244,8 @@ export default async function StudentDashboard() {
                                                         style={{ animationDelay: `${0.6 + groupIndex * 0.1 + studentIndex * 0.05}s` }}
                                                     >
                                                         <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
                                                                     {student.firstName} {student.lastName}
                                                                 </span>
                                                                 <span className="text-sm text-slate-600 dark:text-slate-400">
@@ -353,18 +356,18 @@ export default async function StudentDashboard() {
                                                 {ranking.nearbyStudents.slice(0, 3).map((nearby: { studentId: number; firstName: string; lastName: string; points: number; rank: number }) => (
                                                     <div 
                                                         key={nearby.studentId}
-                                                        className={`grid grid-cols-3 text-xs ${
+                                                        className={`grid grid-cols-3 text-xs max-w-full overflow-x-hidden ${
                                                             nearby.studentId === student.id ? 'font-bold victorian-accent' : ''
                                                         }`}
                                                         style={{ gridTemplateColumns: '1fr 5fr 2fr' }}
                                                     >
-                                                        <span className="text-left col-span-1">
+                                                        <span className="text-left col-span-1 truncate">
                                                             {numberToOrdinal(nearby.rank)}
                                                         </span>
-                                                        <span className="text-left col-span-1">
+                                                        <span className="text-left col-span-1 truncate min-w-0">
                                                             {nearby.firstName} {nearby.lastName}
                                                         </span>
-                                                        <span className="text-gray-600 col-span-1">
+                                                        <span className="text-gray-600 col-span-1 text-right truncate">
                                                             {nearby.points.toLocaleString()} pts
                                                         </span>
                                                     </div>
@@ -386,7 +389,10 @@ export default async function StudentDashboard() {
                             />
                         </div>
                     )}
-                </div>
+                        </div>
+                    }
+                />
             </div>
+        </div>
     );
 }

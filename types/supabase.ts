@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.2 (db9da0b)"
@@ -22,10 +22,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
+          extensions?: Json
           operationName?: string
           query?: string
           variables?: Json
-          extensions?: Json
         }
         Returns: Json
       }
@@ -560,6 +560,45 @@ export type Database = {
           },
         ]
       }
+      shared_point: {
+        Row: {
+          created_at: string
+          id: number
+          pinned: boolean
+          shared_group_id: number
+          student_point_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          pinned?: boolean
+          shared_group_id: number
+          student_point_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          pinned?: boolean
+          shared_group_id?: number
+          student_point_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_point_shared_group_id_fkey"
+            columns: ["shared_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_point_student_point_id_fkey"
+            columns: ["student_point_id"]
+            isOneToOne: false
+            referencedRelation: "student_point"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student: {
         Row: {
           birthdate: string | null
@@ -657,7 +696,9 @@ export type Database = {
           id: number
           name: string
           parent_id: number | null
+          points_per_student: number | null
           school_id: number | null
+          timeframe_id: number | null
         }
         Insert: {
           archived?: boolean
@@ -665,7 +706,9 @@ export type Database = {
           id?: number
           name: string
           parent_id?: number | null
+          points_per_student?: number | null
           school_id?: number | null
+          timeframe_id?: number | null
         }
         Update: {
           archived?: boolean
@@ -673,7 +716,9 @@ export type Database = {
           id?: number
           name?: string
           parent_id?: number | null
+          points_per_student?: number | null
           school_id?: number | null
+          timeframe_id?: number | null
         }
         Relationships: [
           {
@@ -688,6 +733,13 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_group_timeframe_id_fkey"
+            columns: ["timeframe_id"]
+            isOneToOne: false
+            referencedRelation: "school_timeframes"
             referencedColumns: ["id"]
           },
         ]
@@ -815,6 +867,7 @@ export type Database = {
       student_point: {
         Row: {
           created_at: string
+          id: number
           input_score: number | null
           notes: string | null
           point_event_id: number
@@ -823,6 +876,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          id?: number
           input_score?: number | null
           notes?: string | null
           point_event_id: number
@@ -831,6 +885,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          id?: number
           input_score?: number | null
           notes?: string | null
           point_event_id?: number
@@ -1145,18 +1200,18 @@ export type Database = {
     Functions: {
       add_student_group: {
         Args: {
-          provided_school_id: number
           provided_name: string
           provided_parent_id?: number
+          provided_school_id: number
         }
         Returns: undefined
       }
       add_student_to_student_group: {
-        Args: { provided_student_id: number; provided_student_group_id: number }
+        Args: { provided_student_group_id: number; provided_student_id: number }
         Returns: undefined
       }
       add_teacher_to_student_group: {
-        Args: { provided_teacher_id: number; provided_student_group_id: number }
+        Args: { provided_student_group_id: number; provided_teacher_id: number }
         Returns: undefined
       }
       check_admin_access_to_school: {
@@ -1176,7 +1231,7 @@ export type Database = {
         Returns: undefined
       }
       create_group: {
-        Args: { school_id: number; name: string; parent_id: number }
+        Args: { name: string; parent_id: number; school_id: number }
         Returns: undefined
       }
       create_school_and_pair_admin: {
@@ -1184,14 +1239,20 @@ export type Database = {
         Returns: undefined
       }
       get_own_admin_data: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_own_teacher_data: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           first_name: string
@@ -1201,6 +1262,12 @@ export type Database = {
           linked_user: number | null
           school_id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "teacher"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_point_groups_as_admin: {
         Args: { school_id: number }
@@ -1213,6 +1280,12 @@ export type Database = {
           ranked: boolean
           school_id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "point_group"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_school: {
         Args: { school_id: number }
@@ -1221,6 +1294,12 @@ export type Database = {
           id: number
           name: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "school"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_school_student_as_admin: {
         Args: { provided_school_id: number; provided_student_id: number }
@@ -1237,6 +1316,12 @@ export type Database = {
           powerschool_id: number
           school_id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "student"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_school_students_as_admin: {
         Args: { provided_school_id: number }
@@ -1253,44 +1338,56 @@ export type Database = {
           powerschool_id: number
           school_id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "student"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_school_teacher_as_admin: {
         Args: { provided_school_id: number; provided_teacher_id: number }
         Returns: {
-          teacher_id: number
           first_name: string
           last_name: string
           link_code: string
+          teacher_id: number
           user_id: number
         }[]
       }
       get_school_teachers_as_admin: {
         Args: { provided_school_id: number }
         Returns: {
-          teacher_id: number
           first_name: string
           last_name: string
           link_code: string
+          teacher_id: number
           user_id: number
         }[]
       }
       get_schools_as_admin: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           id: number
           name: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "school"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_student_group_as_admin: {
-        Args: { provided_school_id: number; provided_group_id: number }
+        Args: { provided_group_id: number; provided_school_id: number }
         Returns: {
+          child_groups: Database["public"]["Tables"]["student_group"]["Row"][]
           id: number
           name: string
           parent_id: number
-          child_groups: Database["public"]["Tables"]["student_group"]["Row"][]
-          teachers: Database["public"]["Tables"]["teacher"]["Row"][]
           students: Database["public"]["Tables"]["student"]["Row"][]
+          teachers: Database["public"]["Tables"]["teacher"]["Row"][]
         }[]
       }
       get_student_group_students_as_admin: {
@@ -1308,6 +1405,12 @@ export type Database = {
           powerschool_id: number
           school_id: number
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "student"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_student_groups_as_admin: {
         Args: { school_id: number }
@@ -1317,11 +1420,19 @@ export type Database = {
           id: number
           name: string
           parent_id: number | null
+          points_per_student: number | null
           school_id: number | null
+          timeframe_id: number | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "student_group"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_user_data: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           admin_id: number | null
           created_at: string
@@ -1332,27 +1443,33 @@ export type Database = {
           supabase_id: string
           teacher_id: number | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "user"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       remove_student_from_student_group: {
-        Args: { provided_student_id: number; provided_student_group_id: number }
+        Args: { provided_student_group_id: number; provided_student_id: number }
         Returns: undefined
       }
       remove_teacher_from_student_group: {
         Args: {
+          provided_group_id: number
           provided_school_id: number
           provided_teacher_id: number
-          provided_group_id: number
         }
         Returns: undefined
       }
       update_student_data: {
         Args: {
-          provided_student_id: number
-          provided_student_first_name: string
-          provided_student_last_name: string
           provided_student_birthdate: string
-          provided_student_grade: number
+          provided_student_first_name: string
           provided_student_gender: string
+          provided_student_grade: number
+          provided_student_id: number
+          provided_student_last_name: string
         }
         Returns: undefined
       }
