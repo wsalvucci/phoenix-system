@@ -1055,7 +1055,8 @@ async function getGlobalPointStats(
             ) return true;
             // Use the studentsByGrade map for grade count - UPDATED
             const gradeStudentCount = studentsByGrade.get(student.grade)?.length ?? 1; 
-            const studentWithinGradeRatio = student.gradeRank / gradeStudentCount < ratioStudentsPerGrade;
+            // Check if student is in top N% of grade (using <= to include boundary cases)
+            const studentWithinGradeRatio = student.gradeRank <= Math.ceil(gradeStudentCount * ratioStudentsPerGrade);
             const studentWithinOverall = student.rank <= numStudentsOverall;
             const studentWithinPointGroup = 
                 student.pointGroups.find((pointGroup) => {

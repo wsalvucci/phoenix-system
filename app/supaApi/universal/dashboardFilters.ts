@@ -33,9 +33,9 @@ export const DASHBOARD_FILTERS: Record<string, DashboardFilterConfig> = {
    */
   FEATURED: {
     numStudentsOverall: 20,
-    numStudentsPerPointGroup: 5,
+    numStudentsPerPointGroup: 20,
     ratioStudentsPerGrade: 0.33,
-    description: "Shows top 20 overall, top 5 per point group, top 33% per grade"
+    description: "Shows top 20 overall, top 20 per point group, top 33% per grade"
   },
 
   /**
@@ -159,9 +159,9 @@ export function resetDashboardFilters(): void {
 
   DASHBOARD_FILTERS.FEATURED = {
     numStudentsOverall: 20,
-    numStudentsPerPointGroup: 5,
+    numStudentsPerPointGroup: 20,
     ratioStudentsPerGrade: 0.33,
-    description: "Shows top 20 overall, top 5 per point group, top 33% per grade"
+    description: "Shows top 20 overall, top 20 per point group, top 33% per grade"
   };
 
   DASHBOARD_FILTERS.MOBILE = {

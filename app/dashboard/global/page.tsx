@@ -455,49 +455,62 @@ export default function GlobalDashboard() {
                                                                 }}>{pointGroup.name}</div>
                                                         ))
                                                 }
-                                                                                                {[...Array(10)].map((_, index) => {
-                                                        const ovrStudent = globalDashData?.students.sort((a, b) => b.totalPoints - a.totalPoints)[index];
-                                                        const ovrStudentRankChange = (ovrStudent?.lastMonthRank ?? 0) - (ovrStudent?.rank ?? 0);
+                                                                                                {(() => {
+                                                        // Pre-sort students by overall points once
+                                                        const sortedOverall = [...(globalDashData?.students || [])].sort((a, b) => b.totalPoints - a.totalPoints);
                                                         
-                                                        return (
-                                                                <React.Fragment key={index}>
-                                                                        {/* Overall Student */}
-                                                                        <StudentPointTile
-                                                                                fullName={ovrStudent?.firstName + " " + ovrStudent?.lastName || ""}
-                                                                                points={ovrStudent?.totalPoints || 0}
-                                                                                lastMonthPoints={ovrStudent?.lastMonthPoints || 0}
-                                                                                rank={index}
-                                                                                rankChange={ovrStudentRankChange}
-                                                                        />
-                                                                        
-                                                                        {/* Point Group Students */}
-                                                                        {globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => {
-                                                                                const student = globalDashData.students.sort((a, b) => {
-                                                                                        const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
-                                                                                        const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
-                                                                                        return bPoints - aPoints;
-                                                                                }).at(index);
+                                                        // Pre-sort students by each point group once
+                                                        const sortedByPointGroup = globalDashData?.pointGroups
+                                                                .sort((a, b) => (a.id - b.id))
+                                                                .map(pointGroup => ({
+                                                                        pointGroupId: pointGroup.id,
+                                                                        sortedStudents: [...(globalDashData?.students || [])].sort((a, b) => {
+                                                                                const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
+                                                                                const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
+                                                                                return bPoints - aPoints;
+                                                                        })
+                                                                })) || [];
+                                                        
+                                                        return [...Array(10)].map((_, index) => {
+                                                                const ovrStudent = sortedOverall[index];
+                                                                const ovrStudentRankChange = (ovrStudent?.lastMonthRank ?? 0) - (ovrStudent?.rank ?? 0);
+                                                                
+                                                                return (
+                                                                        <React.Fragment key={index}>
+                                                                                {/* Overall Student */}
+                                                                                <StudentPointTile
+                                                                                        fullName={ovrStudent?.firstName + " " + ovrStudent?.lastName || ""}
+                                                                                        points={ovrStudent?.totalPoints || 0}
+                                                                                        lastMonthPoints={ovrStudent?.lastMonthPoints || 0}
+                                                                                        rank={index}
+                                                                                        rankChange={ovrStudentRankChange}
+                                                                                />
                                                                                 
-                                                                                const pointGroupData = student?.pointGroups.find(group => group.id === pointGroup.id);
-                                                                                
-                                                                                if (!student || !pointGroupData) {
-                                                                                        return <EmptyStudentPointTile key={pointGroup.id + ":" + index} />;
-                                                                                }
-                                                                                
-                                                                                return (
-                                                                                        <StudentPointTile
-                                                                                                key={pointGroup.id + ":" + index}
-                                                                                                fullName={student.firstName + " " + student.lastName}
-                                                                                                points={pointGroupData.points || 0}
-                                                                                                lastMonthPoints={pointGroupData.lastMonthPoints || 0}
-                                                                                                rank={index}
-                                                                                                rankChange={pointGroupData.lastMonthRank - pointGroupData.rank}
-                                                                                        />
-                                                                                );
-                                                                        })}
-                                                                </React.Fragment>
-                                                        );
-                                                })}
+                                                                                {/* Point Group Students */}
+                                                                                {sortedByPointGroup.map(({ pointGroupId, sortedStudents }) => {
+                                                                                        const student = sortedStudents[index];
+                                                                                        const pointGroup = globalDashData?.pointGroups.find(pg => pg.id === pointGroupId);
+                                                                                        const pointGroupData = student?.pointGroups.find(group => group.id === pointGroupId);
+                                                                                        
+                                                                                        if (!student || !pointGroupData || !pointGroup) {
+                                                                                                return <EmptyStudentPointTile key={pointGroupId + ":" + index} />;
+                                                                                        }
+                                                                                        
+                                                                                        return (
+                                                                                                <StudentPointTile
+                                                                                                        key={pointGroupId + ":" + index}
+                                                                                                        fullName={student.firstName + " " + student.lastName}
+                                                                                                        points={pointGroupData.points || 0}
+                                                                                                        lastMonthPoints={pointGroupData.lastMonthPoints || 0}
+                                                                                                        rank={index}
+                                                                                                        rankChange={pointGroupData.lastMonthRank - pointGroupData.rank}
+                                                                                                />
+                                                                                        );
+                                                                                })}
+                                                                        </React.Fragment>
+                                                                );
+                                                        });
+                                                })()}
                                         </div>
                                 </div>
                                 <div>
