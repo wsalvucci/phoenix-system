@@ -1323,6 +1323,12 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       
       // Build imported data using only valid, unique events
       const imported: ImportedScorebook = uniqueEventsWithValidIds.map(({ eventId, originalIndex }) => {
+        // Validate that originalIndex is within bounds
+        if (originalIndex < 0 || originalIndex >= importPreview.eventIds.length) {
+          console.error(`Invalid originalIndex ${originalIndex} for event ID ${eventId}. EventIds length: ${importPreview.eventIds.length}`);
+          return null;
+        }
+        
         return {
           pointEventId: eventId,
           name: importPreview.eventNames[originalIndex] || '',
@@ -1343,7 +1349,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               return isNaN(parsed) ? 0 : parsed;
             };
             
-            const scoreValue = normalizeValue(student.scores[originalIndex]);
+            // Validate that originalIndex is within bounds for scores array
+            let scoreValue = 0;
+            if (originalIndex >= student.scores.length) {
+              console.warn(`Score index ${originalIndex} out of bounds for student ${student.studentId} (${student.studentName}). Scores length: ${student.scores.length}, Event ID: ${eventId}. Using 0 as default.`);
+            } else {
+              scoreValue = normalizeValue(student.scores[originalIndex]);
+            }
             
             return {
               id: parsedStudentId,
@@ -1352,12 +1364,49 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               input: scoreValue,
               value: scoreValue
             };
-          }).filter(student => {
+          }).filter((student): student is { id: number; lastName: string; firstName: string; input: number; value: number } => {
             // Filter out students with invalid IDs
             return !isNaN(student.id) && student.id > 0;
           })
         };
-      });
+      }).filter((event): event is ImportedScorebook[0] => event !== null);
+      
+      // Validate imported data before sending
+      if (imported.length === 0) {
+        alert('No valid events to import. Please check your CSV file.');
+        setImportLoading(false);
+        setImportProgress(null);
+        return;
+      }
+      
+      // Filter out events with no student points to avoid server errors
+      const importedWithStudents = imported.filter(event => event.studentPoints && event.studentPoints.length > 0);
+      
+      if (importedWithStudents.length === 0) {
+        alert('No events with student data to import. Please check your CSV file.');
+        setImportLoading(false);
+        setImportProgress(null);
+        return;
+      }
+      
+      if (importedWithStudents.length < imported.length) {
+        const filteredCount = imported.length - importedWithStudents.length;
+        console.warn(`Filtered out ${filteredCount} event(s) with no student data`);
+      }
+      
+      // Log import summary for debugging
+      const totalRecords = importedWithStudents.reduce((sum, event) => sum + event.studentPoints.length, 0);
+      
+      console.log('=== Import Data Summary ===');
+      console.log(`Total events: ${importedWithStudents.length}`);
+      console.log(`Total student records: ${totalRecords}`);
+      console.log(`First event:`, importedWithStudents[0] ? {
+        id: importedWithStudents[0].pointEventId,
+        name: importedWithStudents[0].name,
+        studentCount: importedWithStudents[0].studentPoints.length
+      } : 'No events');
+      console.log('All event IDs:', importedWithStudents.map(e => e.pointEventId));
+      console.log('==========================');
       
       setImportProgress({
         stage: 'uploading',
@@ -1366,25 +1415,71 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         message: 'Sending data to server...'
       });
       
-      const result = await importPhoenixScorebookData(parseInt(groupId), imported);
+      // Also log as object for easier inspection
+      const importSummary = {
+        eventCount: importedWithStudents.length,
+        totalStudentRecords: totalRecords,
+        eventIds: importedWithStudents.map(e => e.pointEventId),
+        sampleEvent: importedWithStudents[0] ? {
+          id: importedWithStudents[0].pointEventId,
+          name: importedWithStudents[0].name,
+          studentCount: importedWithStudents[0].studentPoints.length
+        } : null
+      };
+      console.log('Starting import with data:', importSummary);
       
-      if (typeof result === 'string') {
-        alert(`Import failed: ${result}`);
-        setImportLoading(false);
-        setImportProgress(null);
-        return;
+      // Batch the import to avoid payload size limits (process 10 events at a time)
+      const BATCH_SIZE = 10;
+      let processedEvents = 0;
+      let totalProcessedRecords = 0;
+      const errors: string[] = [];
+      
+      for (let i = 0; i < importedWithStudents.length; i += BATCH_SIZE) {
+        const batch = importedWithStudents.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(importedWithStudents.length / BATCH_SIZE);
+        
+        setImportProgress({
+          stage: 'uploading',
+          current: 50 + Math.floor((i / importedWithStudents.length) * 40),
+          total: 100,
+          message: `Processing batch ${batchNumber} of ${totalBatches} (${batch.length} events)...`
+        });
+        
+        try {
+          const result = await importPhoenixScorebookData(parseInt(groupId), batch);
+          
+          if (typeof result === 'string') {
+            errors.push(`Batch ${batchNumber}: ${result}`);
+            console.error(`Import error for batch ${batchNumber}:`, result);
+            // Continue with next batch instead of stopping
+          } else {
+            processedEvents += batch.length;
+            const batchRecords = batch.reduce((sum, event) => sum + event.studentPoints.length, 0);
+            totalProcessedRecords += batchRecords;
+            console.log(`Batch ${batchNumber} completed: ${batch.length} events, ${batchRecords} records`);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`Batch ${batchNumber}: ${errorMessage}`);
+          console.error(`Import exception for batch ${batchNumber}:`, error);
+          // Continue with next batch
+        }
       }
       
       setImportProgress({
         stage: 'completing',
         current: 100,
         total: 100,
-        message: 'Import completed successfully!'
+        message: 'Import completed!'
       });
       
-      // Show success message with summary
-      const totalRecords = imported.reduce((sum, event) => sum + event.studentPoints.length, 0);
-      alert(`Import completed successfully!\n\nSummary:\n• ${imported.length} events processed\n• ${totalRecords} total student records analyzed\n• Only changed values were updated\n• Data refreshed in scorebook`);
+      // Show success/error message
+      if (errors.length > 0) {
+        alert(`Import completed with ${errors.length} error(s):\n\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n\n...and ${errors.length - 5} more errors` : ''}\n\nSuccessfully processed: ${processedEvents} events, ${totalProcessedRecords} records`);
+      } else {
+        alert(`Import completed successfully!\n\nSummary:\n• ${processedEvents} events processed\n• ${totalProcessedRecords} total student records analyzed\n• Only changed values were updated\n• Data refreshed in scorebook`);
+      }
       
       setImportScorebookTemplateModalOpen(false);
       setImportPreview(null);
@@ -1412,13 +1507,35 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         
         // First row: headers (Student Name, Student ID, event IDs...)
         // Second row: sub-headers (blank, blank, event names...)
+        // Third row: dates (optional - should be skipped)
         const eventIds = rows[0].slice(2);
         const eventNames = rows[1].slice(2);
-        const students = rows.slice(2).filter(r => r.length > 1).map(row => ({
-          studentName: row[0],
-          studentId: row[1],
-          scores: row.slice(2)
-        }));
+        
+        // Check if row 2 (index 2) is a dates row by checking if first two columns are empty
+        // and the row doesn't look like a student row (no name in first column)
+        const row2 = rows[2];
+        const isDatesRow = row2 && 
+          (!row2[0] || row2[0].trim() === '') && 
+          (!row2[1] || row2[1].trim() === '') &&
+          row2.length > 2;
+        
+        // Start from row 3 (index 3) if row 2 is a dates row, otherwise start from row 2
+        const studentStartIndex = isDatesRow ? 3 : 2;
+        const students = rows.slice(studentStartIndex).filter(r => r.length > 1 && r[0] && r[0].trim() !== '').map(row => {
+          const scores = row.slice(2);
+          // Ensure scores array matches eventIds array length by trimming or padding
+          // This handles cases where CSV rows have inconsistent lengths
+          const trimmedScores = scores.slice(0, eventIds.length);
+          // Pad with empty strings if scores array is shorter than eventIds
+          while (trimmedScores.length < eventIds.length) {
+            trimmedScores.push('');
+          }
+          return {
+            studentName: row[0],
+            studentId: row[1],
+            scores: trimmedScores
+          };
+        });
         
         setImportPreview({ eventIds, eventNames, students });
       },

@@ -984,6 +984,8 @@ export default async function importPhoenixScorebookData(
         studentGroupId: number,
         data: ImportedScorebook
 ): Promise<string | void> {
+        console.log(`[Import] Starting import for group ${studentGroupId} with ${data.length} events`);
+        
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
         if (!teacherAccess) {
@@ -991,22 +993,36 @@ export default async function importPhoenixScorebookData(
         }
 
         const supabase = await supabaseServiceClient();
+        
+        // Log payload size for debugging
+        const payloadSize = JSON.stringify(data).length;
+        console.log(`[Import] Payload size: ${(payloadSize / 1024).toFixed(2)} KB`);
 
         // Check which students exist in the database
         const studentIds = data.flatMap(event => event.studentPoints.map(student => student.id));
         const uniqueStudentIds = [...new Set(studentIds)];
 
-        const { data: existingStudents, error: studentCheckError } = await supabase
-            .from('student')
-            .select('id')
-            .in('id', uniqueStudentIds);
+        // Batch student existence check to avoid query size limits (Supabase typically limits .in() to ~1000 items)
+        const BATCH_SIZE = 500;
+        const existingStudentIds: number[] = [];
+        
+        for (let i = 0; i < uniqueStudentIds.length; i += BATCH_SIZE) {
+            const batch = uniqueStudentIds.slice(i, i + BATCH_SIZE);
+            const { data: batchStudents, error: studentCheckError } = await supabase
+                .from('student')
+                .select('id')
+                .in('id', batch);
 
-        if (studentCheckError) {
-            console.error('Error checking student existence:', studentCheckError);
-            return "Error checking student existence";
+            if (studentCheckError) {
+                console.error('Error checking student existence:', studentCheckError);
+                return "Error checking student existence";
+            }
+
+            if (batchStudents) {
+                existingStudentIds.push(...batchStudents.map(s => s.id));
+            }
         }
 
-        const existingStudentIds = existingStudents?.map(s => s.id) || [];
         const missingStudentIds = uniqueStudentIds.filter(id => !existingStudentIds.includes(id));
         
         if (missingStudentIds.length > 0) {
@@ -1075,25 +1091,31 @@ export default async function importPhoenixScorebookData(
             return "No valid point event IDs found in import data. All event IDs are invalid or missing.";
         }
         
-        const { data: existingStudentPoints, error: existingPointsError } = await supabase
-            .from('student_point')
-            .select('student_id, point_event_id, point_value, input_score')
-            .in('point_event_id', validPointEventIds);
-            
-        if (existingPointsError) {
-            console.error('Error fetching existing student points:', existingPointsError);
-            return "Error fetching existing student points";
-        }
-        
-        // Create a map for quick lookup of existing values
+        // Batch the query for existing student points to avoid query size limits
+        const EVENT_BATCH_SIZE = 500;
         const existingPointsMap = new Map();
-        existingStudentPoints?.forEach(point => {
-            const key = `${point.point_event_id}-${point.student_id}`;
-            existingPointsMap.set(key, {
-                point_value: point.point_value,
-                input_score: point.input_score
+        
+        for (let i = 0; i < validPointEventIds.length; i += EVENT_BATCH_SIZE) {
+            const eventBatch = validPointEventIds.slice(i, i + EVENT_BATCH_SIZE);
+            const { data: batchStudentPoints, error: existingPointsError } = await supabase
+                .from('student_point')
+                .select('student_id, point_event_id, point_value, input_score')
+                .in('point_event_id', eventBatch);
+                
+            if (existingPointsError) {
+                console.error('Error fetching existing student points:', existingPointsError);
+                return "Error fetching existing student points";
+            }
+            
+            // Add batch results to the map
+            batchStudentPoints?.forEach(point => {
+                const key = `${point.point_event_id}-${point.student_id}`;
+                existingPointsMap.set(key, {
+                    point_value: point.point_value,
+                    input_score: point.input_score
+                });
             });
-        });
+        }
         
         let processedEvents = 0;
         let totalStudentPoints = 0;
