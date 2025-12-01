@@ -1275,10 +1275,48 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       
       // Report invalid events to user
       if (invalidEvents.length > 0) {
-        const invalidEventDetails = invalidEvents
-          .map(e => `"${e.name}" (ID: ${e.eventId})`)
-          .join(', ');
-        const errorMessage = `Invalid point event IDs found. The following events have invalid or missing IDs and will be skipped: ${invalidEventDetails}. Please check your import data.`;
+        // Sort invalid events by index for clearer display
+        const sortedInvalidEvents = [...invalidEvents].sort((a, b) => a.index - b.index);
+        
+        // Group consecutive invalid events to provide clearer error messages
+        const invalidEventDetails = sortedInvalidEvents
+          .map(e => {
+            // Column number is index + 3 (1-indexed, +2 for student name/ID columns, +1 for 1-indexing)
+            const columnNumber = e.index + 3;
+            const eventName = e.name && e.name.trim() !== '' ? e.name : '(no name)';
+            const eventIdDisplay = e.eventId === '(empty)' ? 'empty' : `"${e.eventId}"`;
+            return `Column ${columnNumber}: "${eventName}" (ID: ${eventIdDisplay})`;
+          })
+          .join('\n');
+        
+        // Check if these are trailing empty columns
+        // Find the last index that has a valid event ID
+        let lastValidIndex = -1;
+        for (let i = importPreview.eventIds.length - 1; i >= 0; i--) {
+          const eventId = importPreview.eventIds[i];
+          const parsedEventId = parseInt(eventId);
+          if (eventId && eventId.trim() !== '' && !isNaN(parsedEventId) && parsedEventId > 0) {
+            lastValidIndex = i;
+            break;
+          }
+        }
+        // Check if all invalid events are after the last valid event
+        const allInvalidAreTrailing = lastValidIndex >= 0 && sortedInvalidEvents.every(e => e.index > lastValidIndex);
+        
+        let guidance = '';
+        if (allInvalidAreTrailing && sortedInvalidEvents.length > 0) {
+          const firstInvalidColumn = sortedInvalidEvents[0].index + 3;
+          const lastInvalidColumn = sortedInvalidEvents[sortedInvalidEvents.length - 1].index + 3;
+          if (sortedInvalidEvents.length === 1) {
+            guidance = `\n\nThis appears to be a trailing empty column. Please remove column ${firstInvalidColumn} from your CSV file.`;
+          } else {
+            guidance = `\n\nThese appear to be trailing empty columns (columns ${firstInvalidColumn}-${lastInvalidColumn}). Please remove these empty columns from your CSV file.`;
+          }
+        } else {
+          guidance = '\n\nPlease check your CSV file and ensure all event ID columns (row 1) contain valid positive numeric IDs. Invalid IDs will be skipped. (Note: Empty columns are automatically ignored.)';
+        }
+        
+        const errorMessage = `Invalid point event IDs found. The following events have invalid or missing IDs and will be skipped:\n\n${invalidEventDetails}${guidance}`;
         alert(errorMessage);
       }
       
@@ -1508,8 +1546,26 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         // First row: headers (Student Name, Student ID, event IDs...)
         // Second row: sub-headers (blank, blank, event names...)
         // Third row: dates (optional - should be skipped)
-        const eventIds = rows[0].slice(2);
-        const eventNames = rows[1].slice(2);
+        const allEventIds = rows[0].slice(2);
+        const allEventNames = rows[1].slice(2);
+        
+        // Filter out empty columns - only skip columns with empty/missing event IDs
+        // Invalid (but non-empty) IDs will be kept and reported during validation
+        const validColumnIndices: number[] = [];
+        const filteredEventIds: string[] = [];
+        const filteredEventNames: string[] = [];
+        
+        for (let i = 0; i < allEventIds.length; i++) {
+          const eventId = allEventIds[i];
+          // Only skip if eventId is empty or just whitespace
+          // Keep non-empty values (even if invalid) so they can be validated and reported
+          if (eventId && eventId.trim() !== '') {
+            validColumnIndices.push(i);
+            filteredEventIds.push(eventId);
+            filteredEventNames.push(allEventNames[i] || '');
+          }
+          // If eventId is empty, skip this column entirely (silently ignore)
+        }
         
         // Check if row 2 (index 2) is a dates row by checking if first two columns are empty
         // and the row doesn't look like a student row (no name in first column)
@@ -1522,22 +1578,19 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         // Start from row 3 (index 3) if row 2 is a dates row, otherwise start from row 2
         const studentStartIndex = isDatesRow ? 3 : 2;
         const students = rows.slice(studentStartIndex).filter(r => r.length > 1 && r[0] && r[0].trim() !== '').map(row => {
-          const scores = row.slice(2);
-          // Ensure scores array matches eventIds array length by trimming or padding
-          // This handles cases where CSV rows have inconsistent lengths
-          const trimmedScores = scores.slice(0, eventIds.length);
-          // Pad with empty strings if scores array is shorter than eventIds
-          while (trimmedScores.length < eventIds.length) {
-            trimmedScores.push('');
-          }
+          const allScores = row.slice(2);
+          // Only include scores for valid columns (those with valid event IDs)
+          const filteredScores = validColumnIndices.map(colIndex => {
+            return allScores[colIndex] || '';
+          });
           return {
             studentName: row[0],
             studentId: row[1],
-            scores: trimmedScores
+            scores: filteredScores
           };
         });
         
-        setImportPreview({ eventIds, eventNames, students });
+        setImportPreview({ eventIds: filteredEventIds, eventNames: filteredEventNames, students });
       },
       error: (error) => {
         console.error('CSV parsing error:', error);
