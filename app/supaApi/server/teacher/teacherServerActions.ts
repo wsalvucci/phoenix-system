@@ -1091,12 +1091,46 @@ export default async function importPhoenixScorebookData(
             return "No valid point event IDs found in import data. All event IDs are invalid or missing.";
         }
         
-        // Batch the query for existing student points to avoid query size limits
+        // Verify that all point event IDs exist in the database
+        // This prevents foreign key constraint violations
         const EVENT_BATCH_SIZE = 500;
-        const existingPointsMap = new Map();
+        const existingPointEventIds: number[] = [];
         
         for (let i = 0; i < validPointEventIds.length; i += EVENT_BATCH_SIZE) {
             const eventBatch = validPointEventIds.slice(i, i + EVENT_BATCH_SIZE);
+            const { data: batchPointEvents, error: pointEventCheckError } = await supabase
+                .from('point_event')
+                .select('id')
+                .in('id', eventBatch);
+                
+            if (pointEventCheckError) {
+                console.error('Error checking point event existence:', pointEventCheckError);
+                return "Error checking point event existence";
+            }
+            
+            if (batchPointEvents) {
+                existingPointEventIds.push(...batchPointEvents.map(e => e.id));
+            }
+        }
+        
+        const missingPointEventIds = validPointEventIds.filter(id => !existingPointEventIds.includes(id));
+        
+        if (missingPointEventIds.length > 0) {
+            // Find the event names for missing IDs to provide better warning message
+            const missingEventDetails = data
+                .filter(event => missingPointEventIds.includes(event.pointEventId))
+                .map(event => `"${event.name || 'Unknown'}" (ID: ${event.pointEventId})`)
+                .join(', ');
+            
+            console.warn(`Warning: ${missingPointEventIds.length} point event(s) do not exist in the database and will be skipped: ${missingEventDetails}`);
+        }
+        
+        // Batch the query for existing student points to avoid query size limits
+        // Only query for point events that actually exist in the database
+        const existingPointsMap = new Map();
+        
+        for (let i = 0; i < existingPointEventIds.length; i += EVENT_BATCH_SIZE) {
+            const eventBatch = existingPointEventIds.slice(i, i + EVENT_BATCH_SIZE);
             const { data: batchStudentPoints, error: existingPointsError } = await supabase
                 .from('student_point')
                 .select('student_id, point_event_id, point_value, input_score')
@@ -1124,16 +1158,30 @@ export default async function importPhoenixScorebookData(
         const changesToProcess: any[] = [];
 
         // For each event in the imported data
-        // Filter out events with invalid pointEventIds before processing
+        // Filter out events with invalid pointEventIds AND events that don't exist in the database
         const validEvents = data.filter(event => {
             const eventId = event.pointEventId;
-            return eventId !== undefined && eventId !== null && !isNaN(eventId) && eventId > 0 && Number.isInteger(eventId);
+            // Check if eventId is valid
+            if (eventId === undefined || eventId === null || isNaN(eventId) || eventId <= 0 || !Number.isInteger(eventId)) {
+                return false;
+            }
+            // Check if event exists in database
+            if (!existingPointEventIds.includes(eventId)) {
+                console.warn(`Skipping event "${event.name || 'Unknown'}" (ID: ${eventId}) - point event does not exist in database`);
+                return false;
+            }
+            return true;
         });
         
         // Report if any events were filtered out
         if (validEvents.length < data.length) {
             const filteredCount = data.length - validEvents.length;
-            console.warn(`Filtered out ${filteredCount} event(s) with invalid pointEventIds during processing`);
+            console.warn(`Filtered out ${filteredCount} event(s) with invalid or missing pointEventIds during processing`);
+        }
+        
+        // If no valid events remain, return an error
+        if (validEvents.length === 0) {
+            return "No valid point events found to import. All events have invalid IDs or do not exist in the database.";
         }
         
         for (const event of validEvents) {

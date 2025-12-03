@@ -1881,6 +1881,21 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     const filteredEventNames = importPreview && !showUnchanged && changedMatrix
       ? importPreview.eventNames.filter((_, idx) => changedMatrix.changedEvents[idx])
       : importPreview?.eventNames || [];
+    
+    // When filtering events, we also need to filter the corresponding scores for each student
+    // Build a map of which original event indices are included in the filtered set
+    const eventIndicesToInclude = importPreview && !showUnchanged && changedMatrix
+      ? importPreview.eventIds
+          .map((_, idx) => ({ idx, included: changedMatrix.changedEvents[idx] }))
+          .filter(item => item.included)
+          .map(item => item.idx)
+      : importPreview?.eventIds.map((_, idx) => idx) || [];
+    
+    // Filter student scores to match the filtered events
+    const filteredStudentsWithScores = filteredStudents.map(student => ({
+      ...student,
+      scores: eventIndicesToInclude.map(originalIdx => student.scores[originalIdx] || '')
+    }));
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -1939,7 +1954,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStudents.map((student, idx) => (
+                    {filteredStudentsWithScores.map((student, idx) => (
                       <tr key={idx}>
                         <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentName}</td>
                         <td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm">{student.studentId}</td>
@@ -1987,7 +2002,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 </table>
               </div>
               <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                Showing all {filteredStudents.length} students
+                Showing {filteredStudentsWithScores.length} student{filteredStudentsWithScores.length !== 1 ? 's' : ''} and {filteredEventIds.length} event{filteredEventIds.length !== 1 ? 's' : ''}
               </div>
             </div>
           )}
