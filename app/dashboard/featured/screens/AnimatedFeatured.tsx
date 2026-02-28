@@ -546,36 +546,10 @@ export default function AnimatedFeatured(
 
     function GradeTop20() {
         const selectedGrade = parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? '');
-        const gradeRatio = 0.33; // Top 33% per grade for featured dashboard
-        
-        // Filter students by grade
-        const studentsInGrade = featuredDashData
-            ?.students
-            ?.filter((student) => student.grade === selectedGrade) || [];
-        
-        // Calculate the maximum gradeRank to estimate total students in grade
-        // gradeRank is calculated from ALL students in the grade (before filtering),
-        // so the max gradeRank among filtered students gives us the minimum total count
-        // We use the maximum gradeRank as it represents the total students in that grade
-        const maxGradeRank = studentsInGrade.length > 0 
-            ? Math.max(...studentsInGrade.map(s => s.gradeRank || 0))
-            : 0;
-        
-        // Calculate the cutoff for top 33% of the grade
-        // Use maxGradeRank as the total count (since gradeRank is 1-indexed from all students)
-        const totalStudentsInGrade = maxGradeRank || studentsInGrade.length;
-        const topGradeCount = Math.ceil(totalStudentsInGrade * gradeRatio);
-        
-        // Filter to only show students in top 33% of their grade based on gradeRank
-        // This ensures privacy - only top performers in each grade are shown in grade-specific views
-        // Note: Students who qualify via overall rank or point group rank but are NOT in top 33% 
-        // of their grade will be excluded from grade-specific views
-        const topGradeStudents = studentsInGrade
-            .filter((student) => {
-                const gradeRank = student.gradeRank || 0;
-                // Only include students whose gradeRank is within the top 33% of their grade
-                return gradeRank > 0 && gradeRank <= topGradeCount;
-            })
+        const studentsInGrade = featuredDashData?.students?.filter(
+            (student) => student.grade === selectedGrade
+        ) ?? [];
+        const topGradeStudents = [...studentsInGrade]
             .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
             .slice(0, 20);
         
