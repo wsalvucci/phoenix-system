@@ -373,16 +373,31 @@ export class DashboardService {
         throw studentGroupPairsError;
       }
 
-      // Get ranking groups
-      const { data: rankingGroups, error: rankingGroupsError } = await supabase
+      // Get ranking groups with timeframe for overlap + archived filter
+      const { data: allRankingGroups, error: rankingGroupsError } = await supabase
         .from('ranking_group')
-        .select('*')
+        .select('*, school_timeframes(starts_at, ends_at)')
         .eq('school_id', schoolId);
 
       if (rankingGroupsError) {
         logger.error('Error fetching ranking groups', { schoolId, rankingGroupsError });
         throw rankingGroupsError;
       }
+
+      // Filter: overlap with selected timeframe AND exclude archived (end date in past)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const rankingGroups = allRankingGroups?.filter(rg => {
+        const startsAt = rg.school_timeframes?.starts_at;
+        const endsAt = rg.school_timeframes?.ends_at;
+        if (!startsAt || !endsAt) return false;
+        const rgEnd = new Date(endsAt);
+        if (rgEnd < today) return false; // Exclude archived
+        const rgStart = new Date(startsAt);
+        const selStart = new Date(selectedTimeframe.startsAt);
+        const selEnd = new Date(selectedTimeframe.endsAt);
+        return rgStart <= selEnd && rgEnd >= selStart; // Overlap
+      }) ?? [];
 
       // Get ranking group pairs to map ranking groups to student groups
       const { data: rankingGroupPairs, error: rankingGroupPairsError } = await supabase

@@ -917,42 +917,27 @@ async function getGlobalPointStats(
         (b.averagePoints + b.rawPoints) - (a.averagePoints + a.rawPoints)
     );
 
-    // --- Filter Ranking Groups based on Timeframe Overlap --- 
+    // --- Filter Ranking Groups: overlap with selected timeframe AND exclude archived (end date in past) ---
+    const today = DateTime.now().startOf("day");
     const filteredRankingGroups = rankingGroups?.filter(rg => {
-        // --- Start Debug Logging ---
-        console.log(`\nChecking RG: ${rg.id} (${rg.name})`);
-        console.log(`  RG Timeframe: ${rg.timeframeStart} to ${rg.timeframeEnd}`);
-        console.log(`  Selected Timeframe: ${selectedTimeframe?.startDate} to ${selectedTimeframe?.endDate}`);
-        // --- End Debug Logging ---
-
         if (!selectedTimeframe || !rg.timeframeStart || !rg.timeframeEnd) {
-            console.log(`  Result: Filtering out due to missing timeframe info.`);
-            return false; // Exclude if timeframes are missing
+            return false;
         }
         const rgStart = DateTime.fromISO(rg.timeframeStart);
         const rgEnd = DateTime.fromISO(rg.timeframeEnd);
         const selStart = DateTime.fromISO(selectedTimeframe.startDate);
         const selEnd = DateTime.fromISO(selectedTimeframe.endDate);
 
-        // --- Start Debug Logging ---
-        console.log(`  Parsed RG Start: ${rgStart.toISO()}, Valid: ${rgStart.isValid}`);
-        console.log(`  Parsed RG End: ${rgEnd.toISO()}, Valid: ${rgEnd.isValid}`);
-        console.log(`  Parsed Sel Start: ${selStart.toISO()}, Valid: ${selStart.isValid}`);
-        console.log(`  Parsed Sel End: ${selEnd.toISO()}, Valid: ${selEnd.isValid}`);
-        // --- End Debug Logging ---
-
         if (!rgStart.isValid || !rgEnd.isValid || !selStart.isValid || !selEnd.isValid) {
-            console.log(`  Result: Filtering out due to invalid date parsing.`);
-            return false; // Exclude if dates are invalid
+            return false;
         }
 
-        // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
-        const overlapCondition = rgStart <= selEnd && rgEnd >= selStart;
-        // --- Start Debug Logging ---
-        console.log(`  Overlap Condition (rgStart <= selEnd && rgEnd >= selStart): ${overlapCondition}`);
-        // --- End Debug Logging ---
-        return overlapCondition;
-    }) ?? []; // Default to empty array if rankingGroups is null/undefined
+        // Exclude ranking groups whose timeframe has ended (archived)
+        if (rgEnd < today) return false;
+
+        // Overlap: (StartA <= EndB) and (EndA >= StartB)
+        return rgStart <= selEnd && rgEnd >= selStart;
+    }) ?? [];
 
     // --- Pre-process Point Events for Ranks --- 
     const processedPointEventsData = pointData?.map(event => {
