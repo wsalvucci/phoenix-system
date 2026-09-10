@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { numberToOrdinal } from "@/app/dataClasses";
 import MotionButton from "@/components/MotionButton";
 
-export default function StudentChip() {
+export default function StudentChip({ isSignedIn = false }: { isSignedIn?: boolean }) {
     const [isLoading, setIsLoading] = useState(true);
     const [student, setStudent] = useState<Student | null>(null);
 
@@ -35,6 +35,20 @@ export default function StudentChip() {
     }
 
     if (!student) {
+        // A signed-in user with no linked student (new account, `linkedUser`
+        // not yet set) needs a way to link one.
+        if (isSignedIn) {
+            return (
+                <MotionButton href="/linkAccount/student" variant="outline" fullWidth>
+                    <div className="text-lg relative z-10 font-bold">
+                        Link Student Account
+                    </div>
+                    <div className="flex items-center justify-center relative z-10">
+                        <FontAwesomeIcon icon={faUser} />
+                    </div>
+                </MotionButton>
+            );
+        }
         return null;
     }
 

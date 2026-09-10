@@ -19,6 +19,14 @@ export default async function Index() {
 
   const isSupabaseConnected = canInitSupabaseClient();
 
+  // Needed so StudentChip can offer the account-link prompt to signed-in
+  // users who have no student linked yet, but not to signed-out visitors.
+  let isSignedIn = false;
+  if (isSupabaseConnected) {
+    const { data: { user } } = await createClient().auth.getUser();
+    isSignedIn = !!user;
+  }
+
   return (
     <div className="flex-1 w-full flex flex-col gap-20 items-center">
       <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
@@ -41,7 +49,7 @@ export default async function Index() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <StudentChip />
+          <StudentChip isSignedIn={isSignedIn} />
           <AdminChip />
           <TeacherChip />
         </div>
