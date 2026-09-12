@@ -1,0 +1,11 @@
+create index scorebook_event_copy_operation_teacher_id_idx
+  on public.scorebook_event_copy_operation (teacher_id);
+
+create index scorebook_event_copy_operation_student_group_id_idx
+  on public.scorebook_event_copy_operation (student_group_id);
+
+create index scorebook_event_copy_operation_source_timeframe_id_idx
+  on public.scorebook_event_copy_operation (source_timeframe_id);
+
+create index scorebook_event_copy_operation_destination_timeframe_id_idx
+  on public.scorebook_event_copy_operation (destination_timeframe_id);

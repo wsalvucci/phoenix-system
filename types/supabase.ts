@@ -1238,6 +1238,20 @@ export type Database = {
         Args: { admin_id: number; school_name: string }
         Returns: undefined
       }
+      duplicate_scorebook_events: {
+        Args: {
+          provided_destination_timeframe_id?: number | null
+          provided_excluded_event_ids?: number[]
+          provided_expected_source_event_ids: number[]
+          provided_request_id?: string
+          provided_shift_amount: number
+          provided_shift_unit: string
+          provided_source_timeframe_id: number
+          provided_student_group_id: number
+          provided_teacher_id: number
+        }
+        Returns: Json
+      }
       get_own_admin_data: {
         Args: never
         Returns: {

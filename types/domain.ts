@@ -239,6 +239,31 @@ export type TeacherTimeframe = {
     active: boolean,
 }
 
+export type DuplicateScorebookEventsInput = {
+  studentGroupId: number;
+  sourceTimeframeId: number;
+  shiftAmount: number;
+  shiftUnit: "days" | "months" | "years";
+  destinationTimeframeId?: number | null;
+  expectedSourceEventIds: number[];
+  excludedEventIds: number[];
+  requestId: string;
+}
+
+export type DuplicateScorebookEventsResult = {
+  copiedCount: number;
+  createdEventIds: number[];
+  sourceEventIds: number[];
+  excludedEventIds: number[];
+  outsideDestinationCount: number;
+  adjustedDates: {
+    sourceEventId: number;
+    sourceDate: string;
+    resultingDate: string;
+  }[];
+  replayed: boolean;
+}
+
 // Admin API Data Types
 export type AdminStudentData = {
   id: number;

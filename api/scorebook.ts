@@ -2,7 +2,7 @@
 
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { createClient } from "@/utils/supabase/server";
-import { NewScorebookData, NewScorebookPointEvent, TeacherTimeframe } from "@/types/domain";
+import { DuplicateScorebookEventsInput, DuplicateScorebookEventsResult, NewScorebookData, NewScorebookPointEvent, TeacherTimeframe } from "@/types/domain";
 import {
   newGetScorebookData,
   createPointEvent,
@@ -10,6 +10,7 @@ import {
   deletePointEvent,
   getTeacherSchoolTimeframes,
   updateStudentPointsByAssistant,
+  duplicateScorebookEvents,
 } from "@/app/supaApi/server/teacher/teacherServerActions";
 import { checkTeacherAccessToStudentGroup } from "@/app/supaApi/server/teacher/studentGroups/checkTeacherAccessToStudentGroup";
 
@@ -94,5 +95,10 @@ export async function getScorebookTimeframes(studentGroupId: number): Promise<Te
   return await getTeacherSchoolTimeframes(studentGroupId);
 }
 
+export async function duplicateScorebookTimeframeEvents(
+  input: DuplicateScorebookEventsInput,
+): Promise<DuplicateScorebookEventsResult> {
+  return await duplicateScorebookEvents(input);
+}
 
 

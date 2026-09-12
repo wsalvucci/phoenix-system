@@ -8,7 +8,7 @@ import Papa from 'papaparse';
 import { newGetScorebookData, editPointEvent, deletePointEvent, createPointEvent, getTeacherSchoolTimeframes } from "@/app/supaApi/server/teacher/teacherServerActions"
 import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServerActions"
 import { getTeachingAssistantData, assignTeachingAssistant, updateTeachingAssistant, removeTeachingAssistant, clearTeachingAssistantPointEvents } from "@/api/teacher"
-import { getScorebookAccess } from "@/api/scorebook"
+import { duplicateScorebookTimeframeEvents, getScorebookAccess } from "@/api/scorebook"
 import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow, TeachingAssistant, TeachingAssistantManagementData } from "@/types/domain"
 
 type NewPointEventData = {
@@ -23,6 +23,8 @@ type TeachingAssistantModalData = {
   fullAccess: boolean,
   pointEventIds: number[]
 }
+
+type DateShiftUnit = "days" | "months" | "years"
 
 
 export default function TeacherGroup({ params: { groupId } }: { params: { groupId: string } }) {
@@ -78,6 +80,16 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [updatedPointEvent, setUpdatedPointEvent] = useState<NewScorebookPointEvent | null>(null)
 
   const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
+  const [duplicateEventsModalOpen, setDuplicateEventsModalOpen] = useState(false)
+  const [duplicateShiftAmount, setDuplicateShiftAmount] = useState("1")
+  const [duplicateShiftUnit, setDuplicateShiftUnit] = useState<DateShiftUnit>("years")
+  const [duplicateDestinationTimeframeId, setDuplicateDestinationTimeframeId] = useState<number | null>(null)
+  const [duplicateExcludedEventIds, setDuplicateExcludedEventIds] = useState<Set<number>>(new Set())
+  const [duplicateEventSearch, setDuplicateEventSearch] = useState("")
+  const [duplicatePointGroupFilter, setDuplicatePointGroupFilter] = useState<number>(0)
+  const [duplicateRequestId, setDuplicateRequestId] = useState("")
+  const [duplicateSubmitting, setDuplicateSubmitting] = useState(false)
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
 
   // New state for parsed import preview
   const [importPreview, setImportPreview] = useState<{
@@ -289,6 +301,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {/* Action Buttons */}
             <div className="flex space-x-2">
               {isTeacher && addNewPointEventButton()}
+              {isTeacher && duplicateEventsButton()}
               {isTeacher && openUnifiedScorebookButton()}
               {isTeacher && exportScorebookTemplateButton()}
               {isTeacher && importScorebookTemplateButton()}
@@ -309,6 +322,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         {newPointEventModalOpen && addNewPointEventModal()}
         {editPointEventModalOpen && editPointEventModal()}
         {confirmDeletePointEventDialogOpen && confirmDeletePointEventDialog()}
+        {duplicateEventsModalOpen && duplicateEventsModal()}
         {importScorebookTemplateModalOpen && importScorebookTemplateModal()}
         {teachingAssistantModalOpen && !isAddingAssistant && !editingAssistant && teachingAssistantManagementModal()}
         {teachingAssistantModalOpen && (isAddingAssistant || editingAssistant) && teachingAssistantModal()}
@@ -643,6 +657,258 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       Add New Point Event
     </button>
   )
+
+  const shiftEventDate = (date: string) => {
+    const source = DateTime.fromISO(date)
+    if (!source.isValid) return { date, adjusted: false }
+
+    const parsedAmount = Number(duplicateShiftAmount)
+    if (!Number.isInteger(parsedAmount) || parsedAmount < 1) return { date, adjusted: false }
+    const amount = parsedAmount
+    const shifted = source.plus({ [duplicateShiftUnit]: amount })
+    const calendarAdjusted = duplicateShiftUnit !== "days" && shifted.day !== source.day
+
+    return {
+      date: shifted.toISODate() ?? date,
+      adjusted: calendarAdjusted
+    }
+  }
+
+  const openDuplicateEventsModal = () => {
+    if (!selectedTimeframe || !scorebookData) return
+
+    setDuplicateShiftAmount("1")
+    setDuplicateShiftUnit("years")
+    setDuplicateExcludedEventIds(new Set())
+    setDuplicateEventSearch("")
+    setDuplicatePointGroupFilter(0)
+    setDuplicateRequestId(crypto.randomUUID())
+    setDuplicateSubmitting(false)
+    setDuplicateError(null)
+
+    const firstShiftedDate = scorebookData.pointEvents[0]
+      ? DateTime.fromISO(scorebookData.pointEvents[0].date).plus({ years: 1 }).toISODate()
+      : null
+    const likelyDestination = firstShiftedDate
+      ? timeframes.find(timeframe => firstShiftedDate >= timeframe.startsAt && firstShiftedDate <= timeframe.endsAt)
+      : undefined
+    setDuplicateDestinationTimeframeId(likelyDestination?.id ?? null)
+    setDuplicateEventsModalOpen(true)
+  }
+
+  const handleDuplicateEvents = async () => {
+    if (!selectedTimeframe || !scorebookData || !duplicateRequestId) return
+
+    const shiftAmount = Number(duplicateShiftAmount)
+    if (!Number.isInteger(shiftAmount) || shiftAmount < 1) {
+      setDuplicateError("Advance by must be a positive whole number.")
+      return
+    }
+
+    const excludedEventIds = scorebookData.pointEvents
+      .filter(event => duplicateExcludedEventIds.has(event.id))
+      .map(event => event.id)
+    if (excludedEventIds.length === scorebookData.pointEvents.length) return
+
+    setDuplicateSubmitting(true)
+    setDuplicateError(null)
+    try {
+      const result = await duplicateScorebookTimeframeEvents({
+        studentGroupId: parseInt(groupId),
+        sourceTimeframeId: selectedTimeframe,
+        shiftAmount,
+        shiftUnit: duplicateShiftUnit,
+        destinationTimeframeId: duplicateDestinationTimeframeId,
+        expectedSourceEventIds: scorebookData.pointEvents.map(event => event.id),
+        excludedEventIds,
+        requestId: duplicateRequestId,
+      })
+
+      setDuplicateEventsModalOpen(false)
+      alert(`${result.copiedCount} event${result.copiedCount === 1 ? "" : "s"} duplicated successfully.`)
+
+      if (duplicateDestinationTimeframeId && duplicateDestinationTimeframeId !== selectedTimeframe) {
+        setSelectedTimeframe(duplicateDestinationTimeframeId)
+      } else {
+        await fetchScorebookData()
+      }
+    } catch (error) {
+      setDuplicateError(error instanceof Error ? error.message : "Failed to duplicate events")
+    } finally {
+      setDuplicateSubmitting(false)
+    }
+  }
+
+  const duplicateEventsButton = () => (
+    <button
+      onClick={openDuplicateEventsModal}
+      disabled={!selectedTimeframe || !scorebookData?.pointEvents.length}
+      title={!selectedTimeframe ? "Select a timeframe before duplicating events" : undefined}
+      className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      Duplicate Events
+    </button>
+  )
+
+  const duplicateEventsModal = () => {
+    if (!scorebookData || !selectedTimeframe) return null
+
+    const sourceTimeframe = timeframes.find(timeframe => timeframe.id === selectedTimeframe)
+    const destinationTimeframe = timeframes.find(timeframe => timeframe.id === duplicateDestinationTimeframeId)
+    const selectedEvents = scorebookData.pointEvents.filter(event => !duplicateExcludedEventIds.has(event.id))
+    const filteredEvents = scorebookData.pointEvents.filter(event => {
+      const matchesSearch = event.name.toLowerCase().includes(duplicateEventSearch.trim().toLowerCase())
+      const matchesPointGroup = duplicatePointGroupFilter === 0 || event.pointGroup.id === duplicatePointGroupFilter
+      return matchesSearch && matchesPointGroup
+    })
+    const shiftedSelectedDates = selectedEvents.map(event => shiftEventDate(event.date).date).sort()
+    const outsideDestinationCount = destinationTimeframe
+      ? selectedEvents.filter(event => {
+          const shiftedDate = shiftEventDate(event.date).date
+          return shiftedDate < destinationTimeframe.startsAt || shiftedDate > destinationTimeframe.endsAt
+        }).length
+      : 0
+    const allVisibleSelected = filteredEvents.length > 0 && filteredEvents.every(event => !duplicateExcludedEventIds.has(event.id))
+
+    const toggleEvent = (eventId: number) => {
+      setDuplicateExcludedEventIds(current => {
+        const next = new Set(current)
+        if (next.has(eventId)) next.delete(eventId)
+        else next.add(eventId)
+        return next
+      })
+    }
+
+    const setVisibleSelection = (selected: boolean) => {
+      setDuplicateExcludedEventIds(current => {
+        const next = new Set(current)
+        filteredEvents.forEach(event => selected ? next.delete(event.id) : next.add(event.id))
+        return next
+      })
+    }
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg w-full max-w-5xl max-h-[92vh] flex flex-col shadow-xl">
+          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+            <h2 className="text-2xl font-bold">Duplicate timeframe events</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Copy event definitions from {sourceTimeframe?.name ?? "the selected timeframe"}. Student scores and notes will start blank.
+            </p>
+          </div>
+
+          <div className="p-6 overflow-y-auto space-y-6">
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="duplicate-shift-amount">Advance by</label>
+                <input
+                  id="duplicate-shift-amount"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={duplicateShiftAmount}
+                  onChange={event => setDuplicateShiftAmount(event.target.value)}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="duplicate-shift-unit">Unit</label>
+                <select
+                  id="duplicate-shift-unit"
+                  value={duplicateShiftUnit}
+                  onChange={event => setDuplicateShiftUnit(event.target.value as DateShiftUnit)}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
+                >
+                  <option value="days">Days</option>
+                  <option value="months">Months</option>
+                  <option value="years">Years</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="duplicate-destination">Destination timeframe</label>
+                <select
+                  id="duplicate-destination"
+                  value={duplicateDestinationTimeframeId ?? ""}
+                  onChange={event => setDuplicateDestinationTimeframeId(event.target.value ? parseInt(event.target.value) : null)}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
+                >
+                  <option value="">No destination check</option>
+                  {timeframes.filter(timeframe => timeframe.id !== selectedTimeframe).map(timeframe => (
+                    <option key={timeframe.id} value={timeframe.id}>{timeframe.name}</option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            <section className="rounded-lg bg-slate-100 dark:bg-slate-700 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div><span className="block text-slate-500 dark:text-slate-400">Selected</span><strong>{selectedEvents.length} of {scorebookData.pointEvents.length} events</strong></div>
+              <div><span className="block text-slate-500 dark:text-slate-400">New date range</span><strong>{shiftedSelectedDates.length ? `${DateTime.fromISO(shiftedSelectedDates[0]).toLocaleString(DateTime.DATE_MED)} – ${DateTime.fromISO(shiftedSelectedDates[shiftedSelectedDates.length - 1]).toLocaleString(DateTime.DATE_MED)}` : "No events selected"}</strong></div>
+              <div><span className="block text-slate-500 dark:text-slate-400">Destination coverage</span><strong className={outsideDestinationCount ? "text-amber-700 dark:text-amber-300" : "text-green-700 dark:text-green-300"}>{destinationTimeframe ? (outsideDestinationCount ? `${outsideDestinationCount} outside ${destinationTimeframe.name}` : `All within ${destinationTimeframe.name}`) : "Not checked"}</strong></div>
+            </section>
+
+            <section>
+              <div className="flex flex-col md:flex-row md:items-end gap-3 mb-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1" htmlFor="duplicate-event-search">Find events</label>
+                  <input id="duplicate-event-search" type="search" value={duplicateEventSearch} onChange={event => setDuplicateEventSearch(event.target.value)} placeholder="Search by event name" className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700" />
+                </div>
+                <div className="md:w-64">
+                  <label className="block text-sm font-medium mb-1" htmlFor="duplicate-point-group">Point group</label>
+                  <select id="duplicate-point-group" value={duplicatePointGroupFilter} onChange={event => setDuplicatePointGroupFilter(parseInt(event.target.value))} className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700">
+                    <option value={0}>All point groups</option>
+                    {scorebookData.pointGroups.map(pointGroup => <option key={pointGroup.id} value={pointGroup.id}>{pointGroup.name}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => setVisibleSelection(!allVisibleSelected)} className="border border-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded px-3 py-2 text-sm font-medium">
+                  {allVisibleSelected ? "Clear visible" : "Select visible"}
+                </button>
+              </div>
+
+              <div className="border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-[44px_minmax(180px,1fr)_150px_150px_160px] gap-2 bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold uppercase tracking-wide min-w-[720px]">
+                  <span></span><span>Event</span><span>Point group</span><span>Original date</span><span>New date</span>
+                </div>
+                <div className="max-h-72 overflow-auto min-w-[720px]">
+                  {filteredEvents.map(event => {
+                    const shifted = shiftEventDate(event.date)
+                    const isSelected = !duplicateExcludedEventIds.has(event.id)
+                    return (
+                      <label key={event.id} className={`grid grid-cols-[44px_minmax(180px,1fr)_150px_150px_160px] gap-2 items-center px-3 py-3 border-t border-slate-200 dark:border-slate-700 cursor-pointer ${isSelected ? "" : "opacity-55 bg-slate-50 dark:bg-slate-900"}`}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleEvent(event.id)} className="h-4 w-4" />
+                        <span className="font-medium truncate" title={event.name}>{event.name}</span>
+                        <span className="text-sm truncate">{event.pointGroup.name}</span>
+                        <span className="text-sm">{DateTime.fromISO(event.date).toLocaleString(DateTime.DATE_MED)}</span>
+                        <span className="text-sm">
+                          <span className={shifted.date !== event.date ? "inline-flex rounded bg-blue-100 px-2 py-1 font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200" : ""}>
+                            {DateTime.fromISO(shifted.date).toLocaleString(DateTime.DATE_MED)}
+                            {shifted.adjusted && <span className="ml-1 text-amber-600" title="Adjusted to a valid calendar date">*</span>}
+                          </span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                  {filteredEvents.length === 0 && <p className="p-6 text-center text-slate-500">No events match these filters.</p>}
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Unchecked events will be exempt from duplication. An asterisk marks a date adjusted to the last valid day of its month.</p>
+            </section>
+          </div>
+
+          <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center gap-4">
+            <div className="text-sm">
+              {duplicateError ? <p className="text-red-600 dark:text-red-400">{duplicateError}</p> : <p className="text-slate-500">The new events will have blank student scores and notes.</p>}
+            </div>
+            <div className="flex gap-3">
+              <button disabled={duplicateSubmitting} onClick={() => setDuplicateEventsModalOpen(false)} className="bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50">Cancel</button>
+              <button onClick={handleDuplicateEvents} disabled={selectedEvents.length === 0 || duplicateSubmitting || !Number.isInteger(Number(duplicateShiftAmount)) || Number(duplicateShiftAmount) < 1} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                {duplicateSubmitting ? "Duplicating…" : `Duplicate ${selectedEvents.length} events`}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const exportScorebookTemplateButton = () => (
     <button

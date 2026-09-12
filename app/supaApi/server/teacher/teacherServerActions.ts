@@ -1,7 +1,7 @@
 "use server";
 
 import supabaseServiceClient from "../supabaseServiceClient";
-import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, RankingGroupData, RankingGroupScorebookData, ImportedScorebook, TeacherTimeframe } from "@/types/domain";
+import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, RankingGroupData, RankingGroupScorebookData, ImportedScorebook, TeacherTimeframe, DuplicateScorebookEventsInput, DuplicateScorebookEventsResult } from "@/types/domain";
 import { DateTime } from "luxon";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { createClient } from "@/utils/supabase/server";
@@ -66,6 +66,110 @@ export async function createPointEvent(
         }
 
         return true;
+}
+
+export async function duplicateScorebookEvents(
+        input: DuplicateScorebookEventsInput,
+): Promise<DuplicateScorebookEventsResult> {
+        const teacherAccess = await checkTeacherAccessToStudentGroup(input.studentGroupId);
+        if (!teacherAccess) throw new Error("Teacher does not have access to this student group");
+
+        if (!Number.isInteger(input.shiftAmount) || input.shiftAmount < 1 || input.shiftAmount > 10000) {
+                throw new Error("Shift amount must be a whole number between 1 and 10000");
+        }
+        if (!(["days", "months", "years"] as const).includes(input.shiftUnit)) {
+                throw new Error("Invalid shift unit");
+        }
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.requestId)) {
+                throw new Error("Invalid request ID");
+        }
+
+        const supabase = await supabaseServiceClient();
+        const authClient = createClient();
+        const { data: authData, error: authError } = await authClient.auth.getUser();
+        if (authError || !authData.user) throw new Error("Not authenticated");
+
+        const { data: userRow, error: userError } = await supabase
+                .from("user")
+                .select("id")
+                .eq("supabase_id", authData.user.id)
+                .single();
+        if (userError || !userRow) throw new Error("User not found");
+
+        const { data: teacherRows, error: teacherError } = await supabase
+                .from("teacher")
+                .select("id")
+                .eq("linked_user", userRow.id);
+        if (teacherError || !teacherRows?.length) throw new Error("Teacher not found");
+
+        const { data: accessPair, error: accessError } = await supabase
+                .from("teacher_student_group_pair")
+                .select("teacher_id")
+                .eq("group_id", input.studentGroupId)
+                .in("teacher_id", teacherRows.map(teacher => teacher.id))
+                .limit(1)
+                .single();
+        if (accessError || !accessPair) throw new Error("Teacher does not have access to this student group");
+
+        const excludedEventIds = Array.from(new Set(input.excludedEventIds));
+        if (excludedEventIds.some(id => !Number.isInteger(id) || id < 1)) {
+                throw new Error("Invalid excluded event ID");
+        }
+        const expectedSourceEventIds = Array.from(new Set(input.expectedSourceEventIds));
+        if (!expectedSourceEventIds.length || expectedSourceEventIds.some(id => !Number.isInteger(id) || id < 1)) {
+                throw new Error("Invalid source event snapshot");
+        }
+
+        const { data: sourceTimeframe, error: timeframeError } = await supabase
+                .from("school_timeframes")
+                .select("starts_at, ends_at")
+                .eq("id", input.sourceTimeframeId)
+                .single();
+        if (timeframeError || !sourceTimeframe) throw new Error("Source timeframe was not found");
+
+        const { data: liveSourceEvents, error: sourceEventsError } = await supabase
+                .from("point_event")
+                .select("id, point_group(id)")
+                .eq("student_group_id", input.studentGroupId)
+                .gte("date", sourceTimeframe.starts_at)
+                .lte("date", sourceTimeframe.ends_at);
+        if (sourceEventsError || !liveSourceEvents) throw new Error("Failed to verify source events");
+
+        // The scorebook omits legacy events without a valid point group. Include those in the
+        // database snapshot so the RPC sees the complete timeframe, but exempt them from copying.
+        const visibleSourceEventIds = liveSourceEvents
+                .filter(event => event.point_group !== null)
+                .map(event => event.id)
+                .sort((a, b) => a - b);
+        const requestedSourceEventIds = [...expectedSourceEventIds].sort((a, b) => a - b);
+        if (visibleSourceEventIds.length !== requestedSourceEventIds.length
+                || visibleSourceEventIds.some((id, index) => id !== requestedSourceEventIds[index])) {
+                throw new Error("The source timeframe changed after the duplication dialog was opened");
+        }
+
+        const hiddenSourceEventIds = liveSourceEvents
+                .filter(event => event.point_group === null)
+                .map(event => event.id);
+        const allExcludedEventIds = Array.from(new Set([...excludedEventIds, ...hiddenSourceEventIds]));
+
+        const { data, error } = await supabase.rpc("duplicate_scorebook_events", {
+                provided_teacher_id: accessPair.teacher_id,
+                provided_student_group_id: input.studentGroupId,
+                provided_source_timeframe_id: input.sourceTimeframeId,
+                provided_shift_amount: input.shiftAmount,
+                provided_shift_unit: input.shiftUnit,
+                provided_expected_source_event_ids: liveSourceEvents.map(event => event.id),
+                provided_destination_timeframe_id: input.destinationTimeframeId ?? null,
+                provided_excluded_event_ids: allExcludedEventIds,
+                provided_request_id: input.requestId,
+        });
+
+        if (error) throw new Error(error.message);
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+                throw new Error("Unexpected duplication response");
+        }
+
+        return data as DuplicateScorebookEventsResult;
 }
 
 export async function checkTeacherAccessToPointEvent(pointEventId: number): Promise<boolean> {
@@ -189,7 +293,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
     if (userError || !userRow) throw new Error("User not found");
 
     // Check teacher access
-    let hasTeacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
+    const hasTeacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
     // Check teaching assistant access and scope (support users who are both teacher and student)
     let accessiblePointEventIds: number[] | null = null;
