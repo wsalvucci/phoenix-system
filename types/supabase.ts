@@ -184,6 +184,7 @@ export type Database = {
       }
       point_event: {
         Row: {
+          conversion_formula: string | null
           created_at: string
           date: string | null
           id: number
@@ -194,6 +195,7 @@ export type Database = {
           template_id: number
         }
         Insert: {
+          conversion_formula?: string | null
           created_at?: string
           date?: string | null
           id?: number
@@ -204,6 +206,7 @@ export type Database = {
           template_id: number
         }
         Update: {
+          conversion_formula?: string | null
           created_at?: string
           date?: string | null
           id?: number
@@ -1251,6 +1254,19 @@ export type Database = {
           provided_teacher_id: number
         }
         Returns: Json
+      }
+      edit_scorebook_point_event: {
+        Args: {
+          provided_conversion_formula: string
+          provided_date: string
+          provided_max_input: number
+          provided_name: string
+          provided_point_event_id: number
+          provided_point_group_id: number
+          provided_student_group_id: number
+          provided_student_points: Json
+        }
+        Returns: undefined
       }
       get_own_admin_data: {
         Args: never

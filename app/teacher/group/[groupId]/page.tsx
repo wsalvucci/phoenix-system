@@ -10,12 +10,14 @@ import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServ
 import { getTeachingAssistantData, assignTeachingAssistant, updateTeachingAssistant, removeTeachingAssistant, clearTeachingAssistantPointEvents } from "@/api/teacher"
 import { duplicateScorebookTimeframeEvents, getScorebookAccess } from "@/api/scorebook"
 import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow, TeachingAssistant, TeachingAssistantManagementData } from "@/types/domain"
+import { evaluatePointConversionFormula, validatePointConversionFormula } from "@/lib/pointConversionFormula"
 
 type NewPointEventData = {
   pointGroupId: number,
   date: string,
   name: string,
-  maxInput: number
+  maxInput: number,
+  conversionFormula: string
 }
 
 type TeachingAssistantModalData = {
@@ -72,12 +74,17 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     pointGroupId: 0,
     date: DateTime.now().toFormat("yyyy-MM-dd"),
     name: "",
-    maxInput: 0
+    maxInput: 0,
+    conversionFormula: ""
   })
 
   const [editPointEventModalOpen, setEditPointEventModalOpen] = useState(false)
   const [currentlyEditedPointEvent, setCurrentlyEditedPointEvent] = useState<NewScorebookPointEvent | null>(null)
   const [updatedPointEvent, setUpdatedPointEvent] = useState<NewScorebookPointEvent | null>(null)
+  const [bulkPointText, setBulkPointText] = useState("")
+  const [bulkPointErrors, setBulkPointErrors] = useState<string[]>([])
+  const [bulkPointAppliedCount, setBulkPointAppliedCount] = useState(0)
+  const [pointInputDrafts, setPointInputDrafts] = useState<Record<number, string>>({})
 
   const [confirmDeletePointEventDialogOpen, setConfirmDeletePointEventDialogOpen] = useState(false)
   const [duplicateEventsModalOpen, setDuplicateEventsModalOpen] = useState(false)
@@ -494,7 +501,8 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       pointGroupId,
       date,
       name,
-      maxInput
+      maxInput,
+      conversionFormula: newPointEventData.conversionFormula
     })
   }
 
@@ -504,14 +512,16 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       newPointEventData.pointGroupId,
       newPointEventData.date,
       newPointEventData.name,
-      newPointEventData.maxInput
+      newPointEventData.maxInput,
+      newPointEventData.conversionFormula || null
     )
     setNewPointEventModalOpen(false)
     setNewPointEventData({
       pointGroupId: 0,
       date: DateTime.now().toFormat("yyyy-MM-dd"),
       name: "",
-      maxInput: 0
+      maxInput: 0,
+      conversionFormula: ""
     })
     fetchScorebookData()
   }
@@ -629,11 +639,27 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Conversion Formula <span className="font-normal text-gray-500">(optional)</span></label>
+            <input
+              type="text"
+              value={newPointEventData.conversionFormula}
+              onChange={(e) => setNewPointEventData(prev => ({ ...prev, conversionFormula: e.target.value }))}
+              placeholder="Example: x*2"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 font-mono"
+            />
+            {(() => {
+              const validation = validatePointConversionFormula(newPointEventData.conversionFormula)
+              return validation.valid
+                ? <p className="mt-1 text-xs text-gray-500">Use x as the entered score. Fractional results are rounded. Supported operators: +, −, *, /, %, ^, and parentheses.</p>
+                : <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validation.error}</p>
+            })()}
+          </div>
         </div>
         <div className="flex space-x-4 mt-6">
           <button
             onClick={addNewPointEvent}
-            disabled={newPointEventData.pointGroupId === 0 || newPointEventData.name === ""}
+            disabled={newPointEventData.pointGroupId === 0 || newPointEventData.name === "" || !validatePointConversionFormula(newPointEventData.conversionFormula).valid}
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
           >
             Add Event
@@ -948,11 +974,100 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const saveEditedPointEventData = async () => {
     if (!updatedPointEvent) return
-    await editPointEvent(updatedPointEvent, parseInt(groupId))
-    setEditPointEventModalOpen(false)
-    setCurrentlyEditedPointEvent(null)
-    setUpdatedPointEvent(null)
-    fetchScorebookData()
+    const invalidDraft = updatedPointEvent.studentPoints.some(({ student }) => {
+      const draft = pointInputDrafts[student.id]
+      return draft === undefined || draft.trim() === "" || !Number.isInteger(Number(draft))
+    })
+    if (invalidDraft) {
+      setBulkPointErrors(["Each student score must contain a whole number before saving."])
+      return
+    }
+    const validation = validatePointConversionFormula(updatedPointEvent.conversionFormula)
+    if (!validation.valid) return
+    try {
+      const saved = await editPointEvent(updatedPointEvent, parseInt(groupId))
+      if (!saved) throw new Error("Failed to save point event")
+      setEditPointEventModalOpen(false)
+      setCurrentlyEditedPointEvent(null)
+      setUpdatedPointEvent(null)
+      fetchScorebookData()
+    } catch (error) {
+      setBulkPointErrors([error instanceof Error ? error.message : "Failed to save point event"])
+    }
+  }
+
+  const applyBulkPointPreview = () => {
+    if (!updatedPointEvent || !scorebookData) return
+    const formulaValidation = validatePointConversionFormula(updatedPointEvent.conversionFormula)
+    if (!formulaValidation.valid) {
+      setBulkPointErrors([`Fix the conversion formula first: ${formulaValidation.error}`])
+      return
+    }
+
+    const errors: string[] = []
+    const updates = new Map<number, { input: number, value: number }>()
+    const lines = bulkPointText.split(/\r?\n/)
+
+    lines.forEach((line, index) => {
+      if (!line.trim()) return
+      const fields = line.split(",").map(field => field.trim())
+      if (fields.length !== 3) {
+        errors.push(`Line ${index + 1}: expected last_name,first_name,point`)
+        return
+      }
+
+      const [lastName, firstName, rawInput] = fields
+      const matches = scorebookData.students.filter(student =>
+        student.lastName.trim().toLocaleLowerCase() === lastName.toLocaleLowerCase()
+        && student.firstName.trim().toLocaleLowerCase() === firstName.toLocaleLowerCase()
+      )
+      if (matches.length === 0) {
+        errors.push(`Line ${index + 1}: ${lastName}, ${firstName} was not found`)
+        return
+      }
+      if (matches.length > 1) {
+        errors.push(`Line ${index + 1}: ${lastName}, ${firstName} matches more than one student`)
+        return
+      }
+      if (updates.has(matches[0].id)) {
+        errors.push(`Line ${index + 1}: ${lastName}, ${firstName} appears more than once`)
+        return
+      }
+
+      const input = Number(rawInput)
+      if (!Number.isFinite(input) || !Number.isInteger(input)) {
+        errors.push(`Line ${index + 1}: point must be a whole number`)
+        return
+      }
+
+      try {
+        updates.set(matches[0].id, {
+          input,
+          value: evaluatePointConversionFormula(updatedPointEvent.conversionFormula, input)
+        })
+      } catch (error) {
+        errors.push(`Line ${index + 1}: ${error instanceof Error ? error.message : "invalid converted value"}`)
+      }
+    })
+
+    setUpdatedPointEvent(prev => prev ? {
+      ...prev,
+      studentPoints: prev.studentPoints.map(studentPoint => {
+        const update = updates.get(studentPoint.student.id)
+        return update
+          ? { ...studentPoint, pointData: { ...studentPoint.pointData, input: update.input, value: update.value } }
+          : studentPoint
+      })
+    } : null)
+    setPointInputDrafts(prev => {
+      const next = { ...prev }
+      updates.forEach((update, studentId) => {
+        next[studentId] = update.input.toString()
+      })
+      return next
+    })
+    setBulkPointErrors(errors)
+    setBulkPointAppliedCount(updates.size)
   }
 
   const scorebookTable = () => {
@@ -1072,6 +1187,11 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         <div className="text-xs text-gray-500 dark:text-gray-500">
                           Max: {pointEvent.maxInput}
                         </div>
+                        {pointEvent.conversionFormula && (
+                          <div className="text-xs font-mono text-blue-700 dark:text-blue-300" title="Input conversion formula">
+                            {pointEvent.conversionFormula}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
                           ID: {pointEvent.id}
                         </div>
@@ -1085,6 +1205,15 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                               onClick={() => {
                                 setCurrentlyEditedPointEvent(pointEvent)
                                 setUpdatedPointEvent(pointEvent)
+                                setBulkPointText("")
+                                setBulkPointErrors([])
+                                setBulkPointAppliedCount(0)
+                                setPointInputDrafts(Object.fromEntries(
+                                  pointEvent.studentPoints.map(studentPoint => [
+                                    studentPoint.student.id,
+                                    studentPoint.pointData.input.toString()
+                                  ])
+                                ))
                                 setEditPointEventModalOpen(true)
                               }}
                               className="bg-blue-500 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded"
@@ -1110,8 +1239,8 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                                 if (!current) return
                                 const updates = current.studentPoints.map(sp => ({
                                   studentId: sp.student.id,
-                                  input: sp.pointData.value, // Use point_value as input since input_score is no longer used
-                                  value: (taEdits[pointEvent.id]?.[sp.student.id] ?? sp.pointData.value) as number,
+                                  input: taEdits[pointEvent.id]?.[sp.student.id] ?? sp.pointData.input,
+                                  value: sp.pointData.value,
                                   notes: sp.pointData.notes,
                                 }))
                                 const ok = await import("@/app/supaApi/server/teacher/teacherServerActions").then(m => m.updateStudentPointsByAssistant(parseInt(groupId), pointEvent.id, updates as any))
@@ -1174,7 +1303,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     </td>
                     {filteredPointEvents.map((pointEvent, columnIndex) => {
                       const studentPoint = pointEvent.studentPoints.find(sp => sp.student.id === student.id)
-                      const value = studentPoint ? (isTeacher ? studentPoint.pointData.value : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.value)) : ''
+                      const value = studentPoint ? (isTeacher ? studentPoint.pointData.value : (taEdits[pointEvent.id]?.[student.id] ?? studentPoint.pointData.input)) : ''
+                      let assistantConvertedValue: number | null = null
+                      if (!isTeacher && typeof value === "number") {
+                        try {
+                          assistantConvertedValue = evaluatePointConversionFormula(pointEvent.conversionFormula, value)
+                        } catch {}
+                      }
                       let percentNum = 0;
                       if (typeof (studentPoint?.pointData.value) === 'number' && pointEvent.maxInput !== 0) {
                         percentNum = ((studentPoint?.pointData.value as number) / pointEvent.maxInput) * 100;
@@ -1193,18 +1328,25 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                           {isTeacher ? (
                             showPercent ? percent : (value as any)
                           ) : (
-                            <input
-                              type="number"
-                              className="w-20 text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-slate-700"
-                              value={typeof value === 'number' ? value : (typeof value === 'string' ? value : 0)}
-                              onChange={(e) => {
-                                const num = parseFloat(e.target.value) || 0
-                                setTaEdits(prev => ({
-                                  ...prev,
-                                  [pointEvent.id]: { ...(prev[pointEvent.id] || {}), [student.id]: num }
-                                }))
-                              }}
-                            />
+                            <div className="flex flex-col items-center gap-1">
+                              <input
+                                type="number"
+                                className="w-20 text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-slate-700"
+                                value={typeof value === 'number' ? value : (typeof value === 'string' ? value : 0)}
+                                onChange={(e) => {
+                                  const num = parseFloat(e.target.value) || 0
+                                  setTaEdits(prev => ({
+                                    ...prev,
+                                    [pointEvent.id]: { ...(prev[pointEvent.id] || {}), [student.id]: num }
+                                  }))
+                                }}
+                              />
+                              {pointEvent.conversionFormula && (
+                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                  → {assistantConvertedValue ?? "Invalid"}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                       )
@@ -1401,6 +1543,74 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                   ))}
                 </select>
               </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Conversion Formula <span className="font-normal text-gray-500">(optional)</span></label>
+                <input
+                  type="text"
+                  value={updatedPointEvent.conversionFormula ?? ""}
+                  onChange={(e) => {
+                    const conversionFormula = e.target.value
+                    setUpdatedPointEvent(prev => prev ? {
+                      ...prev,
+                      conversionFormula,
+                      studentPoints: prev.studentPoints.map(studentPoint => {
+                        try {
+                          return {
+                            ...studentPoint,
+                            pointData: {
+                              ...studentPoint.pointData,
+                              value: evaluatePointConversionFormula(conversionFormula, studentPoint.pointData.input)
+                            }
+                          }
+                        } catch {
+                          return studentPoint
+                        }
+                      })
+                    } : null)
+                  }}
+                  placeholder="Example: x*2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 font-mono"
+                />
+                {(() => {
+                  const validation = validatePointConversionFormula(updatedPointEvent.conversionFormula)
+                  return validation.valid
+                    ? <p className="mt-1 text-xs text-gray-500">Use x as the entered score. Fractional results are rounded to the nearest whole point.</p>
+                    : <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validation.error}</p>
+                })()}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Bulk point preview</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                Enter one student per line as <span className="font-mono">last_name,first_name,point</span>. Applying this list updates the preview below without saving it.
+              </p>
+              <textarea
+                value={bulkPointText}
+                onChange={(e) => {
+                  setBulkPointText(e.target.value)
+                  setBulkPointAppliedCount(0)
+                  setBulkPointErrors([])
+                }}
+                rows={6}
+                placeholder={"Smith,Jordan,30\nGarcia,Avery,25"}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 font-mono text-sm"
+              />
+              <div className="mt-2 flex items-center gap-3">
+                <button type="button" onClick={applyBulkPointPreview} disabled={!bulkPointText.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">
+                  Apply to preview
+                </button>
+                {bulkPointAppliedCount > 0 && (
+                  <span className="text-sm text-green-700 dark:text-green-300">
+                    {bulkPointErrors.length > 0 ? "Partial update: " : ""}updated {bulkPointAppliedCount} student{bulkPointAppliedCount === 1 ? "" : "s"} in the preview. Nothing has been saved.
+                  </span>
+                )}
+              </div>
+              {bulkPointErrors.length > 0 && (
+                <div className="mt-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
+                  {bulkPointErrors.map((error, index) => <p key={`${error}-${index}`}>{error}</p>)}
+                </div>
+              )}
             </div>
 
             <div>
@@ -1417,27 +1627,37 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                         {studentName}
                       </div>
                       <div className="flex items-center space-x-2">
-                        <label className="text-sm">Points:</label>
+                        <label className="text-sm">Input:</label>
                         <input
                           type="number"
-                          value={studentPoint.pointData.value}
+                          value={pointInputDrafts[studentPoint.student.id] ?? studentPoint.pointData.input.toString()}
                           onChange={(e) => {
-                            const newPoints = parseInt(e.target.value) || 0
+                            const draft = e.target.value
+                            setPointInputDrafts(prev => ({ ...prev, [studentPoint.student.id]: draft }))
+                            if (draft.trim() === "") return
+                            const newInput = Number(draft)
+                            if (!Number.isFinite(newInput) || !Number.isInteger(newInput)) return
+                            let convertedValue: number
+                            try {
+                              convertedValue = evaluatePointConversionFormula(updatedPointEvent.conversionFormula, newInput)
+                            } catch {
+                              return
+                            }
                             
                             setUpdatedPointEvent(prev => prev ? {
                               ...prev,
                               studentPoints: prev.studentPoints.map(sp => 
                                 sp.student.id === studentPoint.student.id 
-                                  ? { ...sp, pointData: { ...sp.pointData, value: newPoints } }
+                                  ? { ...sp, pointData: { ...sp.pointData, input: newInput, value: convertedValue } }
                                   : sp
                               )
                             } : null)
                           }}
                           className="w-20 text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-slate-700"
-                          min="0"
                         />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          points
+                        <span className="text-sm text-gray-500">→</span>
+                        <span className="min-w-20 rounded bg-blue-100 px-3 py-1 text-center font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {studentPoint.pointData.value} points
                         </span>
                       </div>
                     </div>
@@ -1450,7 +1670,14 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
           <div className="flex space-x-4 mt-6">
             <button
               onClick={saveEditedPointEventData}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              disabled={
+                !validatePointConversionFormula(updatedPointEvent.conversionFormula).valid
+                || updatedPointEvent.studentPoints.some(({ student }) => {
+                  const draft = pointInputDrafts[student.id]
+                  return draft === undefined || draft.trim() === "" || !Number.isInteger(Number(draft))
+                })
+              }
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
             >
               Save Changes
             </button>
@@ -1459,6 +1686,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 setEditPointEventModalOpen(false)
                 setCurrentlyEditedPointEvent(null)
                 setUpdatedPointEvent(null)
+                setPointInputDrafts({})
               }}
               className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
             >

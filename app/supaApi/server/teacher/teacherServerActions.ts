@@ -5,6 +5,7 @@ import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, Ranki
 import { DateTime } from "luxon";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { createClient } from "@/utils/supabase/server";
+import { evaluatePointConversionFormula, validatePointConversionFormula } from "@/lib/pointConversionFormula";
 
 export async function createPointEvent(
         studentGroupId: number,
@@ -12,12 +13,15 @@ export async function createPointEvent(
         date: string,
         name: string,
         maxInput: number,
+        conversionFormula: string | null = null,
 ): Promise<boolean> {
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
         if (!teacherAccess) return false;
 
         const supabase = await supabaseServiceClient();
+        const formulaValidation = validatePointConversionFormula(conversionFormula);
+        if (!formulaValidation.valid) throw new Error(formulaValidation.error);
 
         // Use the dummy template ID 38 since we plan to eliminate the template system
         const templateId = 38;
@@ -28,7 +32,8 @@ export async function createPointEvent(
                 point_group_id: pointGroupId,
                 date: date,
                 name: name,
-                max_input: maxInput
+                max_input: maxInput,
+                conversion_formula: conversionFormula?.trim() || null
         }).select("*").single();
 
         if (pointEventError) {
@@ -395,6 +400,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                 date: pe.date ?? "0",
                 name: pe.name ?? "",
                 maxInput: pe.max_input,
+                conversionFormula: pe.conversion_formula,
                 pointGroup: {
                     id: pe.point_group.id,
                     name: pe.point_group.name,
@@ -412,7 +418,7 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                             powerschoolId: sp.student.powerschool_id
                         },
                         pointData: {
-                            input: sp.point_value, // Use point_value as input since input_score is no longer used
+                            input: sp.input_score ?? sp.point_value,
                             value: sp.point_value,
                             notes: sp.notes ?? ""
                         }
@@ -465,7 +471,7 @@ export async function updateStudentPointsByAssistant(
     // Verify point event belongs to the group
     const { data: pointEvent, error: peError } = await supabase
         .from("point_event")
-        .select("id, student_group_id")
+        .select("id, student_group_id, conversion_formula")
         .eq("id", pointEventId)
         .single();
     if (peError || !pointEvent || pointEvent.student_group_id !== studentGroupId) {
@@ -526,7 +532,7 @@ export async function updateStudentPointsByAssistant(
         student_id: u.studentId,
         point_event_id: pointEventId,
         input_score: u.input,
-        point_value: u.value,
+        point_value: evaluatePointConversionFormula(pointEvent.conversion_formula, u.input),
         notes: u.notes ?? null,
     }));
 
@@ -547,6 +553,8 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
         if (!teacherAccess) return false;
 
         const supabase = await supabaseServiceClient();
+        const formulaValidation = validatePointConversionFormula(scorebookPointEvent.conversionFormula);
+        if (!formulaValidation.valid) throw new Error(formulaValidation.error);
 
         const { data: currentPointEventData, error: currentPointEventError } = await supabase.from("point_event").select("*").eq("id", scorebookPointEvent.id).single();
 
@@ -565,36 +573,27 @@ export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent
                 return false;
         }
 
-        const { data, error } = await supabase.from("point_event").upsert({
-                id: scorebookPointEvent.id,
-                date: scorebookPointEvent.date,
-                name: scorebookPointEvent.name,
-                max_input: scorebookPointEvent.maxInput ?? 0,
-                student_group_id: studentGroupId,
-                template_id: 38, // Use dummy template ID 38
-                point_group_id: scorebookPointEvent.pointGroup.id
-        });
-
-        if (error) {
-                console.error("Error editing point event", error);
-                return false;
-        }
-
-        // Update student points
+        // Evaluate every score before starting the database transaction.
         const studentPointsToUpdate = scorebookPointEvent.studentPoints.map((studentPoint) => ({
                 student_id: studentPoint.student.id,
-                point_event_id: scorebookPointEvent.id,
-                point_value: studentPoint.pointData.value,
+                point_value: evaluatePointConversionFormula(scorebookPointEvent.conversionFormula, studentPoint.pointData.input),
                 input_score: studentPoint.pointData.input,
                 notes: studentPoint.pointData.notes
         }));
 
-        const { error: studentPointsError } = await supabase.from("student_point").upsert(studentPointsToUpdate, {
-                onConflict: 'student_id,point_event_id'
+        const { error } = await supabase.rpc("edit_scorebook_point_event", {
+                provided_point_event_id: scorebookPointEvent.id,
+                provided_student_group_id: studentGroupId,
+                provided_date: scorebookPointEvent.date,
+                provided_name: scorebookPointEvent.name,
+                provided_max_input: scorebookPointEvent.maxInput ?? 0,
+                provided_conversion_formula: scorebookPointEvent.conversionFormula?.trim() || "",
+                provided_point_group_id: scorebookPointEvent.pointGroup.id,
+                provided_student_points: studentPointsToUpdate
         });
 
-        if (studentPointsError) {
-                console.error("Error updating student points", studentPointsError);
+        if (error) {
+                console.error("Error editing point event and student points", error);
                 return false;
         }
 

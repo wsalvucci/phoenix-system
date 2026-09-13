@@ -430,6 +430,7 @@ export type NewScorebookPointEvent = {
   date: string,
   name: string,
   maxInput: number,
+  conversionFormula: string | null,
   pointGroup: {
     id: number,
     name: string,

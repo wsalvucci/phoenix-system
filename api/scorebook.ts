@@ -73,8 +73,9 @@ export async function createScorebookEvent(
   date: string,
   name: string,
   maxInput: number,
+  conversionFormula: string | null = null,
 ): Promise<boolean> {
-  return await createPointEvent(studentGroupId, pointGroupId, date, name, maxInput);
+  return await createPointEvent(studentGroupId, pointGroupId, date, name, maxInput, conversionFormula);
 }
 
 export async function editScorebookEvent(
@@ -100,5 +101,4 @@ export async function duplicateScorebookTimeframeEvents(
 ): Promise<DuplicateScorebookEventsResult> {
   return await duplicateScorebookEvents(input);
 }
-
 
