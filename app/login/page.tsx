@@ -24,7 +24,9 @@ export default function Login({
     });
 
     if (error) {
-      return redirect("/login?message=Could not authenticate user");
+      const back = safeNextPath(formData.get("next"), "");
+      const nextPart = back ? `&next=${encodeURIComponent(back)}` : "";
+      return redirect(`/login?message=${encodeURIComponent("That email and password do not match. Try again or reset your password.")}${nextPart}`);
     }
 
     // Same-origin paths only; anything else goes home.
@@ -86,6 +88,9 @@ export default function Login({
         <input
           className="rounded-md px-4 py-2 bg-inherit border mb-6"
           name="email"
+          id="email"
+          type="email"
+          autoComplete="email"
           placeholder="you@example.com"
           required
         />
@@ -95,6 +100,8 @@ export default function Login({
         <input
           className="rounded-md px-4 py-2 bg-inherit border mb-6"
           type="password"
+          id="password"
+          autoComplete="current-password"
           name="password"
           placeholder="••••••••"
           required
