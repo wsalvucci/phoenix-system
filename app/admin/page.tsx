@@ -82,21 +82,33 @@ export default function AdminHome() {
                 });
 
                 return (
-                    <div className="container mx-auto px-4 py-8">
-                        <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-                            <div className="flex gap-4">
+                    <div className="app-page">
+                      <header className="app-header">
+                        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+                          <div>
+                            <p className="eyebrow">Administration</p>
+                            <h1 className="page-title mt-1">Schools</h1>
+                            <p className="page-description">Choose a school to manage its people, groups, and settings.</p>
+                          </div>
+                        </div>
+                      </header>
+                      <main className="page-container">
+                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{sortedSchools.length} {sortedSchools.length === 1 ? "school" : "schools"}</p>
+                            <div className="flex flex-col gap-3 sm:flex-row">
                                 <input
                                     type="text"
                                     placeholder="Search schools..."
                                     value={schoolSearch}
                                     onChange={(e) => setSchoolSearch(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    aria-label="Search schools"
+                                    className="field sm:w-64"
                                 />
                                 <select
                                     value={schoolSort}
                                     onChange={(e) => setSchoolSort(Number(e.target.value) as SortType)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    aria-label="Sort schools"
+                                    className="field"
                                 >
                                     <option value={SortType.Name}>Sort by Name</option>
                                     <option value={SortType.Id}>Sort by ID</option>
@@ -107,23 +119,24 @@ export default function AdminHome() {
                                             ? SortDirection.Descending 
                                             : SortDirection.Ascending
                                     )}
-                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                                    className="button-secondary"
+                                    aria-label={schoolSortDirection === SortDirection.Ascending ? "Sort descending" : "Sort ascending"}
                                 >
                                     {schoolSortDirection === SortDirection.Ascending ? '↑' : '↓'}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                             {sortedSchools.map((school) => {
                                 const schoolDetail = schoolDetails?.[school.id];
                                 const isLoadingDetail = schoolDetailsLoading;
                                 
                                 return (
-                                    <div key={school.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+                                    <article key={school.id} className="surface flex flex-col p-6 transition hover:-translate-y-0.5 hover:shadow-md">
                                         <div className="flex justify-between items-start mb-4">
-                                            <h2 className="text-xl font-semibold text-gray-800">{school.name}</h2>
-                                            <span className="text-sm text-gray-500">ID: {school.id}</span>
+                                            <h2 className="text-xl font-semibold text-slate-950 dark:text-white">{school.name}</h2>
+                                            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-300">ID {school.id}</span>
                                         </div>
                                         
                                         {isLoadingDetail ? (
@@ -133,25 +146,25 @@ export default function AdminHome() {
                                                 <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
                                             </div>
                                         ) : schoolDetail ? (
-                                            <div className="space-y-3">
+                                            <dl className="space-y-3">
                                                 <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Students:</span>
-                                                    <span className="font-medium">{(schoolDetail as { students?: unknown[] })?.students?.length || 0}</span>
+                                                    <dt className="text-slate-600 dark:text-slate-400">Students</dt>
+                                                    <dd className="font-semibold">{(schoolDetail as { students?: unknown[] })?.students?.length || 0}</dd>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Groups:</span>
-                                                    <span className="font-medium">{(schoolDetail as { studentGroups?: unknown[] })?.studentGroups?.length || 0}</span>
+                                                    <dt className="text-slate-600 dark:text-slate-400">Groups</dt>
+                                                    <dd className="font-semibold">{(schoolDetail as { studentGroups?: unknown[] })?.studentGroups?.length || 0}</dd>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-600">Point Types:</span>
-                                                    <span className="font-medium">{(schoolDetail as { pointTypes?: unknown[] })?.pointTypes?.length || 0}</span>
+                                                    <dt className="text-slate-600 dark:text-slate-400">Point groups</dt>
+                                                    <dd className="font-semibold">{(schoolDetail as { pointTypes?: unknown[] })?.pointTypes?.length || 0}</dd>
                                                 </div>
-                                            </div>
+                                            </dl>
                                         ) : (
                                             <p className="text-gray-500 text-sm">Failed to load details</p>
                                         )}
                                         
-                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <div className="mt-auto border-t border-slate-200 pt-4 dark:border-slate-800">
                                             <MotionButton 
                                                 href={`/admin/school/${school.id}`}
                                                 variant="primary"
@@ -160,16 +173,17 @@ export default function AdminHome() {
                                                 Manage School
                                             </MotionButton>
                                         </div>
-                                    </div>
+                                    </article>
                                 );
                             })}
                         </div>
 
                         {sortedSchools.length === 0 && (
-                            <div className="text-center py-12">
-                                <p className="text-gray-500 text-lg">No schools found matching your search.</p>
+                            <div className="surface border-dashed py-12 text-center">
+                                <p className="text-slate-500">No schools match your search.</p>
                             </div>
                         )}
+                      </main>
                     </div>
                 );
             }}

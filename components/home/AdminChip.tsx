@@ -33,8 +33,7 @@ export default function AdminChip() {
 
     if (isLoading) {
         return (
-            <div className="w-full bg-gray-200 rounded-lg px-4 py-6 animate-pulse">
-                Loading...
+            <div className="h-16 w-full animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" aria-label="Loading administrator access">
             </div>
         );
     }
@@ -57,12 +56,12 @@ export default function AdminChip() {
     }
 
     return (
-        <MotionButton href="/admin" variant="primary" fullWidth>
+        <MotionButton href="/admin" variant="outline" fullWidth className="min-h-14 !justify-between">
             <div className="font-bold">
-                Admin Page
+                Administration
             </div>
             <div>
-                Visit Admin Dashboard &nbsp; <FontAwesomeIcon icon={faArrowRight} />
+                Open dashboard <FontAwesomeIcon icon={faArrowRight} />
             </div>
         </MotionButton>
     )

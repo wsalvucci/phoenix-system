@@ -1,5 +1,5 @@
 "use client";
-import { Teacher } from "@/types/domain";
+import Link from "next/link";
 
 // Force static generation to reduce serverless functions
 export const dynamic = 'force-static';
@@ -29,6 +29,7 @@ export default function TeacherHome() {
     const [rankingGroupSearch, setRankingGroupSearch] = useState<string>("");
     const [rankingGroupSort, setRankingGroupSort] = useState<SortType>(SortType.Name);
     const [rankingGroupSortDirection, setRankingGroupSortDirection] = useState<SortDirection>(SortDirection.Ascending);
+    const [showArchivedGroups, setShowArchivedGroups] = useState(false);
 
     const { data, isLoading, error } = useQuery({
         queryKey: ["teacherDashboard"],
@@ -38,7 +39,7 @@ export default function TeacherHome() {
     console.log("TeacherHome debug:", { data, isLoading, error });
 
     const filteredAndSortedGroups = data?.studentGroups
-        .filter(group => group.name.toLowerCase().includes(groupSearch.toLowerCase()))
+        .filter(group => (showArchivedGroups || !group.archived) && group.name.toLowerCase().includes(groupSearch.toLowerCase()))
         .sort((a, b) => {
             switch (groupSort) {
                 case SortType.Name:
@@ -87,18 +88,35 @@ export default function TeacherHome() {
             )}
         >
             {(data) => (
-                <div className="animate-in w-full">
-                    <header className="flex items-center justify-center w-full p-5 bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                        <div className="text-center">
+                <div className="app-page animate-in w-full">
+                    <header className="app-header flex w-full items-center justify-between gap-4 px-5 py-4 text-slate-900 dark:text-slate-100">
+                        <Link href="/" className="text-sm font-medium hover:underline">← Home</Link>
+                        <div className="text-right">
                             <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
-                            <p className="text-lg mt-2">Welcome, {data.teacher.firstName} {data.teacher.lastName}</p>
+                            <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">{data.teacher.firstName} {data.teacher.lastName}</p>
                         </div>
                     </header>
                     
                     <div className="m-5">
                         {/* Student Groups Section */}
                         <div className="mb-8">
-                            <h2 className="text-2xl font-bold mb-4">Your Student Groups ({filteredAndSortedGroups.length})</h2>
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-2xl font-bold">Student Groups</h2>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                                        {filteredAndSortedGroups.length} shown · {data.studentGroups.filter(group => !group.archived).length} active
+                                    </p>
+                                </div>
+                                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={showArchivedGroups}
+                                        onChange={(event) => setShowArchivedGroups(event.target.checked)}
+                                        className="h-4 w-4 rounded"
+                                    />
+                                    Show archived
+                                </label>
+                            </div>
                             
                             {/* Search and Sort Controls */}
                             <div className="mb-4">
@@ -114,15 +132,15 @@ export default function TeacherHome() {
                                         fullWidth
                                         onChange={(e) => setGroupSort(parseInt(e.target.value))}
                                     >
-                                        <option value={SortType.Name}>Name</option>
-                                        <option value={SortType.Id}>ID</option>
+                                        <option value={SortType.Name}>Sort by name</option>
+                                        <option value={SortType.Id}>Sort by ID</option>
                                     </ThemeSelect>
                                     <ThemeSelect
                                         fullWidth
                                         onChange={(e) => setGroupSortDirection(parseInt(e.target.value))}
                                     >
-                                        <option value={SortDirection.Ascending}>ASC</option>
-                                        <option value={SortDirection.Descending}>DESC</option>
+                                        <option value={SortDirection.Ascending}>A–Z / lowest first</option>
+                                        <option value={SortDirection.Descending}>Z–A / highest first</option>
                                     </ThemeSelect>
                                 </div>
                             </div>

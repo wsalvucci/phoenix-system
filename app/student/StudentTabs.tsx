@@ -19,14 +19,14 @@ export default function StudentTabs({ dashboardContent }: StudentTabsProps) {
                 {activeTab === "shared" && <SharedPointsTab />}
             </div>
 
-            {/* Tab Navigation - Fixed at bottom for easy thumb access */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 w-full max-w-full" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                <div className="flex w-full max-w-full">
+            <nav aria-label="Student dashboard" className="student-console-nav" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="mx-auto flex w-full max-w-lg gap-2 px-3 pt-2">
                     <button
                         onClick={() => setActiveTab("dashboard")}
-                        className={`flex-1 px-4 py-3 sm:py-4 text-center font-medium transition-colors min-h-[44px] text-base sm:text-lg min-w-0 ${
+                        aria-current={activeTab === "dashboard" ? "page" : undefined}
+                        className={`min-h-[44px] min-w-0 flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${
                             activeTab === "dashboard"
-                                ? "text-victorian-burgundy dark:text-victorian-dusty-rose border-t-2 border-victorian-burgundy dark:border-victorian-dusty-rose bg-slate-50 dark:bg-slate-800"
+                                ? "bg-primary text-white"
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700"
                         }`}
                     >
@@ -34,17 +34,17 @@ export default function StudentTabs({ dashboardContent }: StudentTabsProps) {
                     </button>
                     <button
                         onClick={() => setActiveTab("shared")}
-                        className={`flex-1 px-4 py-3 sm:py-4 text-center font-medium transition-colors min-h-[44px] text-base sm:text-lg min-w-0 ${
+                        aria-current={activeTab === "shared" ? "page" : undefined}
+                        className={`min-h-[44px] min-w-0 flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${
                             activeTab === "shared"
-                                ? "text-victorian-burgundy dark:text-victorian-dusty-rose border-t-2 border-victorian-burgundy dark:border-victorian-dusty-rose bg-slate-50 dark:bg-slate-800"
+                                ? "bg-primary text-white"
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700"
                         }`}
                     >
-                        Hub
+                        Shared points
                     </button>
                 </div>
-            </div>
+            </nav>
         </div>
     );
 }
-

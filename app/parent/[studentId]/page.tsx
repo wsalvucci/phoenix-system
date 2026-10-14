@@ -2,27 +2,6 @@ import { getStudentDashboardDataById } from "@/api/student";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-// Helper function to convert number to ordinal
-function numberToOrdinal(num: number): string {
-    const suffixes = ['th', 'st', 'nd', 'rd'];
-    const v = num % 100;
-    return num + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-}
-
-// Helper function to format date
-function formatDate(dateString: string): string {
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
-        });
-    } catch {
-        return 'Invalid date';
-    }
-}
-
 export default async function ParentStudentDashboard({ params: { studentId } }: { params: { studentId: string } }) {
     const studentData = await getStudentDashboardDataById(parseInt(studentId), null);
 
@@ -32,68 +11,72 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
 
     const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, nearbyStudents } = studentData;
 
-    return (
-        <div className="w-full h-full">
-            <div className="absolute top-20 left-10">
-                <Link 
-                    className="bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 rounded-lg px-3 py-1" 
-                    href={'/parent'}
-                >
-                    Back
-                </Link>
-            </div>
-            <div className="mt-5">
-                <div className="text-3xl flex justify-center">
-                    {student.firstName} {student.lastName}
-                </div>
-                <div className="text-3xl flex justify-center">
-                    {totalPoints.toLocaleString()}pts
-                </div>
-                <div className="text-xl flex justify-center">
-                    {numberToOrdinal(totalRank)} / {totalOutOf.toLocaleString()} students
-                </div>
-                <div className="text-lg flex justify-center">
-                    {numberToOrdinal(Math.round((1 - (totalRank / totalOutOf)) * 100))} percentile
-                </div>
-            </div>
-            
-            <div className="border-t-2 m-5 p-5">
-                <div className="flex justify-center text-3xl py-3">Grade Ranking</div>
-                <div className="grid grid-cols-2">
-                    <div className="flex justify-center">Grade</div>
-                    <div className="flex justify-center">Rank</div>
-                    <div className="col-span-2 grid grid-cols-2 border-t p-2">
-                        <div className="flex justify-center">Grade {student.grade}</div>
-                        <div className="flex justify-center">
-                            {numberToOrdinal(gradeRank)} / {gradeOutOf} students
-                        </div>
-                    </div>
-                </div>
-            </div>
+    const percentile = Math.max(0, Math.min(100, Math.round((1 - ((totalRank - 1) / Math.max(totalOutOf, 1))) * 100)));
 
-            <div className="border-t-2 m-5 p-5">
-                <div className="flex justify-center text-3xl py-3">Nearby Students</div>
-                <div className="grid grid-cols-3 gap-1">
-                    <div className="col-span-3 grid grid-cols-3">
-                        <div className="flex justify-center">Name</div>
-                        <div className="flex justify-center">Points</div>
-                        <div className="flex justify-center">Rank</div>
-                    </div>
-                    {nearbyStudents.map((nearby) => (
-                        <div key={nearby.studentId} className="col-span-3 grid grid-cols-3 p-2 border-t">
-                            <div className="flex justify-start">
-                                {nearby.firstName} {nearby.lastName}
-                            </div>
-                            <div className="flex justify-center">
-                                {nearby.totalPoints.toLocaleString()}
-                            </div>
-                            <div className="flex justify-center">
-                                #{nearby.rank}
-                            </div>
+    return (
+        <div className="app-page">
+            <header className="app-header">
+                <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+                    <Link className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:hover:text-white" href="/parent">← Parent dashboard</Link>
+                    <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <p className="eyebrow">Student progress</p>
+                            <h1 className="page-title mt-1">{student.firstName} {student.lastName}</h1>
+                            <p className="page-description">Grade {student.grade} performance overview</p>
                         </div>
-                    ))}
+                        <div className="text-left sm:text-right">
+                            <p className="text-3xl font-bold tracking-tight">{totalPoints.toLocaleString()}</p>
+                            <p className="text-sm text-slate-500">total points</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </header>
+
+            <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8 sm:px-6">
+                <section className="grid gap-4 sm:grid-cols-3" aria-label="Ranking summary">
+                    <article className="surface p-5">
+                        <p className="text-sm font-medium text-slate-500">Overall rank</p>
+                        <p className="mt-2 text-3xl font-bold">#{totalRank}</p>
+                        <p className="mt-1 text-sm text-slate-500">of {totalOutOf.toLocaleString()} students</p>
+                    </article>
+                    <article className="surface p-5">
+                        <p className="text-sm font-medium text-slate-500">Grade {student.grade} rank</p>
+                        <p className="mt-2 text-3xl font-bold">#{gradeRank}</p>
+                        <p className="mt-1 text-sm text-slate-500">of {gradeOutOf.toLocaleString()} students</p>
+                    </article>
+                    <article className="surface p-5">
+                        <p className="text-sm font-medium text-slate-500">Percentile</p>
+                        <p className="mt-2 text-3xl font-bold">{percentile}%</p>
+                        <p className="mt-1 text-sm text-slate-500">overall standing</p>
+                    </article>
+                </section>
+
+                <section className="surface overflow-hidden">
+                    <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                        <h2 className="text-lg font-semibold">Nearby students</h2>
+                        <p className="page-description">Students closest to this position in the overall ranking.</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60">
+                                <tr><th className="px-5 py-3">Student</th><th className="px-5 py-3 text-right">Points</th><th className="px-5 py-3 text-right">Rank</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                {nearbyStudents.map((nearby) => {
+                                    const isCurrentStudent = nearby.studentId === student.id;
+                                    return (
+                                        <tr key={nearby.studentId} className={isCurrentStudent ? "bg-blue-50/80 dark:bg-blue-950/30" : ""}>
+                                            <td className="px-5 py-3 font-medium">{nearby.firstName} {nearby.lastName}{isCurrentStudent && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-200">Your student</span>}</td>
+                                            <td className="px-5 py-3 text-right tabular-nums">{nearby.totalPoints.toLocaleString()}</td>
+                                            <td className="px-5 py-3 text-right font-semibold tabular-nums">#{nearby.rank}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
         </div>
     );
 }

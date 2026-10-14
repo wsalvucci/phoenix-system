@@ -102,6 +102,11 @@ export type CompiledStudentPoints = {
 }
 
 export type GlobalPoints = {
+    // Counts before privacy shortlisting, for category-specific public display limits.
+    categoryStudentCounts?: {
+        grades: Record<number, number>,
+        pointGroups: Record<number, number>,
+    },
     schoolId: number,
     totalStudents: number,
     timeframes: TimeframeData[],

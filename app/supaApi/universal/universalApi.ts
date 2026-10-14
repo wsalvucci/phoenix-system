@@ -993,6 +993,12 @@ async function getGlobalPointStats(
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,
+        categoryStudentCounts: {
+            grades: Object.fromEntries(Array.from(studentsByGrade.entries()).map(([grade, students]) => [grade, students.length])),
+            pointGroups: Object.fromEntries((pointGroups ?? []).map(group => [group.id,
+                allStudentsRanked.filter(student => student.pointGroups.some(points => points.id === group.id && points.points > 0)).length
+            ])),
+        },
         timeframes: schoolTimeframes ?? [],
         grades: allStudentGrades,
         students: allStudentsRanked.map((student) => { // Iterate over the original sorted array

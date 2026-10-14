@@ -31,8 +31,7 @@ export default function TeacherChip() {
 
     if (isLoading) {
         return (
-            <div className="w-full bg-gray-200 rounded-lg px-4 py-6 animate-pulse">
-                Loading...
+            <div className="h-16 w-full animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" aria-label="Loading teacher access">
             </div>
         );
     }
@@ -55,14 +54,14 @@ export default function TeacherChip() {
     }
 
     return (
-        <MotionButton href="/teacher" variant="primary" fullWidth>
-            <div className="text-lg relative z-10">
+        <MotionButton href="/teacher" variant="outline" fullWidth className="min-h-14 !justify-between">
+            <div className="relative z-10 text-left">
                 <div className="font-bold">
                     {teacher?.firstName} {teacher?.lastName}
                 </div>
             </div>
             <div className="flex items-center justify-center relative z-10">
-                Teacher Dashboard &nbsp; <FontAwesomeIcon icon={faArrowRight} />
+                Teacher dashboard <FontAwesomeIcon icon={faArrowRight} />
             </div>
         </MotionButton>
     )

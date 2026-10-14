@@ -26,24 +26,31 @@ export default function MotionButton({
   fullWidth = false,
 }: MotionButtonProps) {
   const baseClasses = `
-    flex
+    inline-flex
     items-center
-    justify-between
+    justify-center
+    gap-4
     rounded-lg
-    font-bold
+    font-semibold
+    shadow-sm
+    transition-colors
+    focus-visible:outline-none
+    focus-visible:ring-2
+    focus-visible:ring-primary
+    focus-visible:ring-offset-2
   `;
 
   const variantClasses = {
-    primary: "bg-gradient-to-br from-primary via-primary/80 to-primary text-white",
-    secondary: "bg-gradient-to-br from-gray-600 via-gray-500 to-gray-600 text-white",
-    outline: "bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-white",
-    ghost: "bg-transparent text-primary hover:bg-primary/10",
+    primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+    secondary: "bg-slate-700 text-white hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white",
+    outline: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
+    ghost: "bg-transparent text-slate-600 shadow-none hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
   };
 
   const sizeClasses = {
-    sm: "px-3 py-3 text-sm",
-    md: "px-4 py-4 text-base",
-    lg: "px-6 py-6 text-lg",
+    sm: "h-9 px-3 text-sm",
+    md: "h-11 px-4 text-sm",
+    lg: "h-12 px-6 text-base",
   };
 
   const widthClass = fullWidth ? "w-full" : "";
@@ -75,19 +82,24 @@ export default function MotionButton({
     },
   };
 
-  const content = (
-    <motion.div
+  if (href && !disabled) {
+    const MotionLink = motion(Link);
+    return (
+      <MotionLink href={href} className={combinedClasses} {...motionProps}>
+        {children}
+      </MotionLink>
+    );
+  }
+
+  return (
+    <motion.button
+      type="button"
       className={combinedClasses}
       {...motionProps}
       onClick={disabled ? undefined : onClick}
+      disabled={disabled}
     >
       {children}
-    </motion.div>
+    </motion.button>
   );
-
-  if (href && !disabled) {
-    return <Link href={href}>{content}</Link>;
-  }
-
-  return content;
-} 
+}

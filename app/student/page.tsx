@@ -1,32 +1,16 @@
 import Link from "next/link";
-import { getStudentDataWithContext, getStudentDashboardData, getStudentRecentEvents, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroupsWithGrades } from "@/api/student";
-import { StudentDashboardData, StudentRecentEvent, rankToColor, rankToColorWithOpacity, StudentMonthlyTrends } from "@/types/domain";
+import { getStudentDataWithContext, getStudentDashboardData, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroupsWithGrades } from "@/api/student";
+import { rankToColor, StudentMonthlyTrends } from "@/types/domain";
 import dynamic from "next/dynamic";
-import PointGroupBreakdownBar from "./PointGroupBreakdownBar";
 import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
-const SparkleBackground = dynamic(() => import('./SparkleBackground'), { ssr: false });
-import Color from "color";
+import "./student-dashboard.css";
+import PointDistribution from "./PointDistribution";
 const StudentTabs = dynamic(() => import('./StudentTabs'), { ssr: false });
 
 
 
 const RecentEventsWithRankings = dynamic(() => import("./RecentEventsWithRankings"), { ssr: false });
-
-// Simple date formatting function
-function formatDate(dateString: string | null): string {
-    if (!dateString) return 'Unknown date';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
-        });
-    } catch {
-        return 'Invalid date';
-    }
-}
 
 // Helper function to convert number to ordinal
 function numberToOrdinal(num: number): string {
@@ -62,7 +46,6 @@ export default async function StudentDashboard() {
     }
 
     const dashboardData = await getStudentDashboardData();
-    const recentEvents = await getStudentRecentEvents(5);
     const monthlyTrends: StudentMonthlyTrends | null = await getStudentMonthlyTrends();
     const taGroups = await getStudentTeachingAssistantGroups();
     const leaderGroups = await getStudentLeaderGroupsWithGrades();
@@ -84,11 +67,8 @@ export default async function StudentDashboard() {
 
     // Get the theme color based on overall rank
     const themeColor = rankToColor(totalRank);
-    const themeColorWithOpacity = rankToColorWithOpacity(totalRank, 0.1);
-    const bgColor = '#00000000'
-
     return (
-        <div className="victorian-scrollbar w-full max-w-full overflow-x-hidden"
+        <div className="student-console victorian-scrollbar w-full max-w-full"
         >
             
                 {/* Victorian Header */}
@@ -98,12 +78,12 @@ export default async function StudentDashboard() {
                 monthlyTrends={monthlyTrends}
                 timeframe={dashboardData.timeframe}
             />
-            <SparkleBackground color={themeColor} density="festive" />
-            <div className="w-full max-w-full px-4 py-4 pt-6 overflow-x-hidden">
+            <div className="student-workspace">
                 <StudentTabs
                     dashboardContent={
                         <div className="w-full max-w-full">
                             <div className="victorian-section victorian-fade-in">
+                        <div className="student-overview-label"><span>01 / PERFORMANCE OVERVIEW</span><span>YOUR CURRENT STANDING</span></div>
                         <div className="victorian-grid">
 
                             {/* Overall Ranking */}
@@ -112,11 +92,6 @@ export default async function StudentDashboard() {
                                     <h3 className="victorian-title text-xl">Overall Ranking</h3>
                                     <div className="victorian-stat-number text-2xl text-right" style={{ color: themeColor }}>
                                         <span>#{totalRank}</span>
-                                        {monthlyTrends?.currentMonth && (
-                                            <span className="text-green-400 text-sm ml-2">
-                                                {monthlyTrends.currentMonth.rankChange > 0 ? '+' : ''}{monthlyTrends.currentMonth.rankChange}
-                                            </span>
-                                        )}
                                         <span className="victorian-subtitle text-sm ml-2">
                                             of {totalOutOf} students
                                         </span>
@@ -154,11 +129,6 @@ export default async function StudentDashboard() {
                                     <h3 className="victorian-title text-xl">Grade {student.grade} Ranking</h3>
                                     <div className="victorian-stat-number text-2xl text-right" style={{ color: themeColor }}>
                                         <span className="text-lg">#{gradeRank}</span>
-                                        {monthlyTrends?.currentMonth && (
-                                            <span className="text-green-400 text-sm ml-2">
-                                                {monthlyTrends.currentMonth.percentageIncrease > 0 ? '+' : ''}{Math.round(monthlyTrends.currentMonth.percentageIncrease)}%
-                                            </span>
-                                        )}
                                         <span className="victorian-subtitle text-sm ml-2">
                                             of {gradeOutOf} students
                                         </span>
@@ -309,11 +279,7 @@ export default async function StudentDashboard() {
                                 <p className="victorian-subtitle mb-4 text-sm">
                                     Your performance in different academic categories
                                 </p>
-                                <div className="mb-4">
-                                    <PointGroupBreakdownBar
-                                        segments={pointGroupRankings.map(r => ({ color: r.pointGroupColor, value: r.points }))}
-                                    />
-                                </div>
+                                <PointDistribution categories={pointGroupRankings.map(r => ({ name: r.pointGroupName, points: r.points }))} />
                                 <div className="victorian-grid-compact">
                                     {pointGroupRankings.map((ranking, index) => (
                                         <div 
@@ -334,18 +300,7 @@ export default async function StudentDashboard() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 mb-3">
-                                                <div className="text-2xl font-bold" style={{
-                                                    background: ranking.letterGrade.letter.startsWith('S') 
-                                                        ? `linear-gradient(45deg, #ff6b9d 0%, #c44569 12.5%, #feca57 25%, #ff9ff3 37.5%, #54a0ff 50%, #5f27cd 62.5%, #00d2d3 75%, #ff9f43 87.5%, #ff6b9d 100%)`
-                                                        : `linear-gradient(45deg, ${Color(ranking.letterGrade.color).lighten(0.6).toString()} 0%, ${Color(ranking.letterGrade.color).lighten(0.3).toString()} 25%, ${ranking.letterGrade.color} 40%, ${Color(ranking.letterGrade.color).darken(0.2).toString()} 60%, ${Color(ranking.letterGrade.color).darken(0.4).toString()} 75%, ${Color(ranking.letterGrade.color).lighten(0.3).toString()} 100%)`,
-                                                    backgroundSize: ranking.letterGrade.letter.startsWith('S') ? '25% 25%' : '200% 200%',
-                                                    WebkitBackgroundClip: 'text',
-                                                    WebkitTextFillColor: 'transparent',
-                                                    backgroundClip: 'text',
-                                                    textShadow: ranking.letterGrade.letter.startsWith('S')
-                                                        ? `2px 2px 3px rgba(0,0,0,0.3), -2px -2px 3px rgba(255,255,255,0.4)`
-                                                        : `2px 2px 3px rgba(0,0,0,0.2), -2px -2px 3px rgba(255,255,255,0.3)`
-                                                }}>
+                                                <div className="student-grade text-2xl font-bold">
                                                     {ranking.letterGrade.letter}
                                                 </div>
                                                 <div className="victorian-stat-number text-lg" style={{ color: rankToColor(ranking.rank) }}>

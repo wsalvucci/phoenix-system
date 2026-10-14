@@ -1,615 +1,105 @@
 "use client";
-import { metalStyle, metalStyleGradient, rankToColor, shinyBackgroundStyle } from "@/app/dataClasses";
-import { getGlobalDashboard } from "@/api/dashboard";
-import { globalDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
-import { GlobalPoints } from "@/api/core/types";
-import { createClient } from "@/utils/supabase/client";
-import { DateTime } from "luxon";
-import { Azeret_Mono, Quicksand } from "next/font/google";
-import React, { useEffect, useState } from "react";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Quote = require("inspirational-quotes");
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useReducedMotion } from 'motion/react';
+import { DateTime } from 'luxon';
+import { FiActivity, FiAward, FiClock, FiMaximize, FiPause, FiPlay, FiSettings, FiTrendingUp } from 'react-icons/fi';
+import { metalStyle, metalStyleGradient, metalTextShadow } from '@/app/dataClasses';
+import { globalDashGetGlobalStats } from '@/app/supaApi/universal/universalApi';
+import { createClient } from '@/utils/supabase/client';
+import { buildSlides, formatPoints, type DisplaySlide } from '../featured/screens/displayData';
+import ScrollingLeaderboard from '../featured/screens/ScrollingLeaderboard';
+import '../featured/featured.css';
+import './global.css';
 
-const customFont = Quicksand({
-        weight: "400",
-        subsets: ["latin"]
-});
+const spectrum = [{ color: '#e4bb53', percent: 0 }, { color: '#8c75cf', percent: 50 }, { color: '#47bdb2', percent: 100 }];
+const metal = (color: string): CSSProperties => ({ backgroundImage: metalStyle(color), textShadow: metalTextShadow });
 
-const azeret = Azeret_Mono({
-    weight: "400",
-    subsets: ["latin"]
-});
-
-const metalTextShadow = `1px 1px 2px rgba(0, 0, 0, 1),
-                         -1px -1px 2px rgba(255, 255, 255, 0.2),
-                         2px 2px 4px rgba(0, 0, 0, 1),
-                         -2px -2px 4px rgba(255, 255, 255, 0.3)`
+function Standings({ slide, title, color, running, reduced, large = false, onCycle }: {
+  slide?: DisplaySlide; title?: string; color: string; running: boolean; reduced: boolean; large?: boolean; onCycle?: () => void;
+}) {
+  const [cycle, setCycle] = useState(0);
+  return <section className={`global-panel global-standings ${large ? 'global-overall' : ''}`}>
+    <header className="global-metal-heading" style={metal(color)}><h2>{title ?? slide?.title ?? 'Standings'}</h2><span>{slide?.rows.length ?? 0} {slide?.id.startsWith('group-') ? 'teams' : 'students'}</span></header>
+    {large && <div className="global-board-caption">THE SCHOOL LEADERBOARD <FiAward /></div>}
+    {slide?.rows.length ? <ScrollingLeaderboard key={`${slide.id}-${cycle}`} rows={slide.rows} minimumDuration={25} running={running} reducedMotion={reduced} appearance="gloss" onComplete={() => { setCycle(value => value + 1); onCycle?.(); }} onDurationChange={() => {}} /> : <div className="global-empty">Achievements will appear here as points are earned.</div>}
+    {large && <footer className="global-panel-note">Top third · maximum 20 students<br />Leader pinned. Standings scroll automatically.</footer>}
+  </section>;
+}
 
 export default function GlobalDashboard() {
+  const [timeframe, setTimeframe] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const [settings, setSettings] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  const [teamIndex, setTeamIndex] = useState(0);
+  const [now, setNow] = useState<DateTime | null>(null);
+  const [notice, setNotice] = useState('');
+  const reduced = !!useReducedMotion();
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ['global-display', timeframe], queryFn: async () => {
+    const data = await globalDashGetGlobalStats(12, timeframe);
+    if (!data) throw new Error('No dashboard data available');
+    return data;
+  }, refetchInterval: 60_000 });
+  useEffect(() => {
+    const supabase = createClient();
+    const pointsChannel = supabase.channel('student-points-channel').on('broadcast', { event: 'sync' }, () => void queryClient.invalidateQueries({ queryKey: ['global-display'] })).subscribe();
+    return () => { void supabase.removeChannel(pointsChannel); };
+  }, [queryClient]);
+  useEffect(() => {
+    const updateVisibility = () => setVisible(!document.hidden);
+    updateVisibility();
+    document.addEventListener('visibilitychange', updateVisibility);
+    setNow(DateTime.now());
+    const clock = setInterval(() => setNow(DateTime.now()), 30_000);
+    return () => { clearInterval(clock); document.removeEventListener('visibilitychange', updateVisibility); };
+  }, []);
+  const running = !paused && visible;
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => setRotation(value => value + 1), 90_000);
+    return () => clearInterval(timer);
+  }, [running]);
+  const data = query.data;
+  const slides = useMemo(() => data ? buildSlides(data) : [], [data]);
+  const overall = slides.find(slide => slide.id === 'overall');
+  const categories = data?.pointGroups ?? [];
+  const categoryPage = categories.slice((rotation % Math.max(1, Math.ceil(categories.length / 3))) * 3).slice(0, 3);
+  const grades = [...(data?.grades ?? [])].sort((a, b) => a - b);
+  const gradePage = grades.slice((rotation % Math.max(1, Math.ceil(grades.length / 4))) * 4).slice(0, 4);
+  const teams = slides.filter(slide => slide.id.startsWith('group-'));
+  const team = teams[teamIndex % Math.max(1, teams.length)];
+  const upcoming = [...(data?.pointEvents ?? [])].filter(event => DateTime.fromISO(event.date).endOf('day').toMillis() >= (now?.startOf('day').toMillis() ?? Infinity)).sort((a, b) => a.date.localeCompare(b.date));
+  const eventPage = upcoming.slice((rotation % Math.max(1, Math.ceil(upcoming.length / 3))) * 3).slice(0, 3);
+  const eligible = new Set(overall?.rows.map(row => row.id));
+  const risers = [...(data?.students ?? [])].filter(student => eligible.has(student.id) && student.lastMonthRank > student.rank && student.lastMonthRank > 0).sort((a, b) => (b.lastMonthRank - b.rank) - (a.lastMonthRank - a.rank)).slice(0, 3);
+  const timeframeName = data?.timeframes.find(item => timeframe === null ? item.isActive : item.id === timeframe)?.name;
 
-        const [globalDashData, setGlobalDashData] = useState<GlobalPoints | null>(null);
-        const [timeframe, setTimeframe] = useState<number | null>(null);
-        const [fetchError, setFetchError] = useState<string | null>(null);
+  if (!data) return <div className="global-board global-loading"><FiActivity /><span>PHOENIX / GLOBAL</span><h1>{query.isError ? 'The board is reconnecting.' : 'A whole school of achievement.'}</h1><p>{query.isError ? 'Check the connection or try again.' : 'Loading the latest standings…'}</p>{query.isError && <button onClick={() => void query.refetch()}>Retry</button>}</div>;
 
-        const updateData = async (timeframeId: number | null) => {
-                console.log("Updating data");
-                setFetchError(null);
-                globalDashGetGlobalStats(12, timeframeId).then((data) => {
-                        console.log(data)
-                        if (data === null) {
-                                setFetchError("No data returned from server");
-                                setGlobalDashData(null);
-                        } else {
-                                setGlobalDashData(data);
-                        }
-                }).catch((error) => {
-                        console.error("Failed to fetch global stats:", error);
-                        setFetchError(error.message || "An unknown error occurred while fetching data.");
-                        setGlobalDashData(null);
-                })
-        }
-
-        const supabase = createClient();
-        const broadcastChannel = supabase.channel("student-points-channel");
-
-        broadcastChannel.on(
-                'broadcast',
-                { event: 'sync' },
-                (payload) => {
-                        console.log('Received broadcast:', payload);
-                        updateData(timeframe);
-                }
-        ).subscribe();
-
-        useEffect(() => {
-                updateData(timeframe);
-        }, [])
-
-        const changeTimeframe = (timeframeId: number) => {
-                setTimeframe(timeframeId);
-                updateData(timeframeId);
-        }
-
-        const StudentPointTile = ({
-                fullName,
-                points,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                lastMonthPoints,
-                rank,
-                rankChange
-        }: {
-                fullName: string,
-                points: number | null,
-                lastMonthPoints: number | null,
-                rank: number,
-                rankChange: number | null
-        }) => (
-                <div className="text-lg border grid gap-1 py-1 px-2 mx-2" style={{
-                        ...shinyBackgroundStyle(rankToColor(rank+1).toString()),
-                        gridTemplateColumns: "50px 200px 2fr",
-                        textShadow: metalTextShadow
-                }}>
-                        {
-                                rankChange !== null && rankChange !== 0 ?
-                                <div className={`flex justify-start place-items-center text-xl ${azeret.className}`} style={{
-                                        color: rankChange > 0 ? "#00CC00" : "red"
-                                }}>
-                                        {rankChange > 0 ? "+" : ""}{rankChange}
-                                </div> : <div />
-                        }
-                        <div className="flex justify-start place-items-center" style={{
-                                textWrap: "nowrap",
-                                overflow: "hidden",
-                        }}>
-                                {fullName}
-                        </div>
-                        {
-                                points !== null &&
-                                <div className={`flex justify-end place-items-center ${azeret.className}`}>
-                                        {points.toLocaleString()}
-                                </div>
-                        }
-                </div>
-        )
-
-        const EmptyStudentPointTile = () => (
-                <div className="text-lg border grid py-1 px-2 mx-2" style={{
-                        background: metalStyle("#000"),
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                        gridTemplateColumns: "2fr 1fr",
-                        textShadow: metalTextShadow
-                }}>
-                        <div className="flex justify-start place-items-center" style={{
-                                textWrap: "nowrap"
-                        }}>
-                                :
-                        </div>
-                        <div className="flex justify-end place-items-center">
-                                :
-                        </div>
-                </div>
-        )
-
-        const summerImage = "https://cdn.midjourney.com/25cb2c71-19ba-4df8-b4ce-87fd9c61c400/0_0.png"
-        const autumnImage = "https://cdn.midjourney.com/9238d38f-7e5d-404a-8348-94aa6862e583/0_1.png"
-        const halloweenImage = "https://cdn.midjourney.com/dcff86bf-6e0a-490c-8d9a-dabf8b57bebd/0_2.png"
-        const thanksgivingImage = "https://cdn.midjourney.com/d8260d25-7f96-48b6-82c8-10adf86793b4/0_2.png"
-        const christmasImage = "https://cdn.midjourney.com/e9a1702e-8700-4256-b5de-b5c86dbd7347/0_2.png"
-        const winterImage = "https://cdn.midjourney.com/7864ac3b-9750-49c4-b7b0-ffb134b73a00/0_3.png"
-        const patrickImage = "https://cdn.midjourney.com/2a57652b-95fb-45d6-9e0a-c92d33afca92/0_0.png"
-        const springImage = "https://cdn.midjourney.com/37d1f183-e76b-48e4-a632-54368dfd270d/0_0.png"
-
-        const seasonalImage = (): string => {
-                const currentTime = DateTime.now();
-                const currentMonth = currentTime.month;
-                const currentDay = currentTime.day;
-                switch (currentMonth) {
-                        case 6:
-                                if (currentDay >= 21) {
-                                        return summerImage;
-                                } else {
-                                        return "";
-                                }
-                        case 7:
-                        case 8:
-                                return summerImage;
-                        case 9:
-                                if (currentDay < 22) {
-                                        return summerImage;
-                                } else {
-                                        return autumnImage;
-                                }
-                        case 10:
-                                if (currentDay < 24) {
-                                        return autumnImage;
-                                } else {
-                                        return halloweenImage;
-                                }
-                        case 11:
-                                if (currentDay < 15) {
-                                        return autumnImage;
-                                } else {
-                                        return thanksgivingImage;
-                                }
-                        case 12:
-                                if (currentDay < 15) {
-                                        return autumnImage
-                                } else {
-                                        return christmasImage;
-                                }
-                        case 1:
-                        case 2: {
-                                return winterImage;
-                        }
-                        case 3:
-                                if (currentDay < 12) {
-                                        return winterImage;
-                                } else if (currentDay < 17) {
-                                        return patrickImage;
-                                } else {
-                                        return springImage;
-                                }
-                        case 4:
-                        case 5:
-                                return springImage;
-                        default: return "";
-                }
-        }
-
-        const isToday = (dateTime: DateTime) => {
-                const curDate = DateTime.now()
-                return (curDate.year == dateTime.year) && (curDate.month == dateTime.month) && (curDate.day == dateTime.day)
-        }
-
-        if (fetchError) {
-            return (
-                <div className={`flex flex-col justify-center items-center min-h-screen text-red-400 text-2xl ${customFont.className}`} style={{
-                        background: `linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url('${seasonalImage()}')`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                }}>
-                       <p>Error Loading Dashboard</p>
-                       <p className="text-lg mt-2">{fetchError}</p>
-                       <button
-                           onClick={() => updateData(timeframe)}
-                           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                       >
-                           Retry
-                       </button>
-                </div>
-            );
-        }
-
-        if (globalDashData === null) {
-             return (
-                 <div className={`flex justify-center items-center min-h-screen text-white text-3xl ${customFont.className}`} style={{
-                         background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${seasonalImage()}')`,
-                         backgroundSize: "cover",
-                         backgroundPosition: "center",
-                 }}>
-                         Loading Global Dashboard...
-                         {/* You could replace this text with a spinner component */}
-                 </div>
-             );
-        }
-
-        return (
-                <div className={`grid gap-1 w-full min-h-screen max-h-screen overflow-clip ${customFont.className}`} style={{
-                        gridTemplateColumns: "1fr 4fr 1fr",
-                        background: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('${seasonalImage()}')`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        color: "#eee"
-                }}>
-                        <div className="border rounded-xl p-5 overflow-hidden">
-                                <div style={{height: "3%"}}>
-                                        <select className="text-lg bg-transparent" defaultValue={
-                                                globalDashData?.timeframes.find(timeframe => timeframe.isActive)?.id
-                                        }
-                                        onChange={(event) => {
-                                                changeTimeframe(parseInt(event.target.value))
-                                        }}
-                                        >
-                                                {
-                                                        globalDashData?.timeframes.map(timeframe => (
-                                                                <option className="text-black" key={timeframe.id} value={timeframe.id}>
-                                                                        {timeframe.name}
-                                                                </option>
-                                                        ))
-                                                }
-                                        </select>
-                                </div>
-                                <div style={{height: "17%"}}>
-                                        <div className="text-2xl flex justify-center">
-                                                {
-                                                        Quote.getQuote().text
-                                                }
-                                        </div>
-                                        <div className="text-xl flex justify-center align-middle">
-                                                {
-                                                        "- " + Quote.getQuote().author
-                                                }
-                                        </div>
-                                </div>
-                                <div className="overflow-y-scroll" style={{height: "55%"}}>
-                                        <div className="text-2xl border-b mb-1 flex justify-center">Upcoming</div>
-                                        <div className="grid grid-cols-1 gap-5">
-                                                {
-                                                        globalDashData?.pointEvents
-                                                                .filter(event => DateTime.fromISO(event.date).plus({ 'days': 1 }) > DateTime.now())
-                                                                .sort((a, b) => DateTime.fromISO(a.date).toUnixInteger() - DateTime.fromISO(b.date).toUnixInteger())
-                                                                .map(event => (
-                                                                        <div key={event.id} className="p-2" style={{
-                                                                                background: metalStyle(globalDashData?.pointGroups.find(pointGroup => pointGroup.id === event.pointGroup)?.color || '#000'),
-                                                                                backgroundSize: "cover",
-                                                                                backgroundPosition: "center",
-                                                                                //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                                textShadow: metalTextShadow
-                                                                        }}>
-                                                                                <div className="grid" style={{
-                                                                                        gridTemplateColumns: "3fr 1fr",
-                                                                                }}>
-                                                                                        <div>
-                                                                                                <div className="text-2xl">{event.name}</div>
-                                                                                                <div className="text-lg">{
-                                                                                                        event.maxPoints
-                                                                                                }pts</div>
-                                                                                        </div>
-                                                                                        <div className="text-lg flex justify-end place-items-center">
-                                                                                                <div className="grid grid-cols-1">
-                                                                                                        {
-                                                                                                                event.date <= DateTime.now().plus({ days: 7 }).toISODate() ?
-
-                                                                                                                        <div className="flex justify-end">
-                                                                                                                                {
-                                                                                                                                        isToday(DateTime.fromISO(event.date)) ? 'Today' : DateTime.fromISO(event.date).toFormat('EEEE')
-                                                                                                                                }
-                                                                                                                        </div> :
-                                                                                                                        <div className="flex justify-end">
-                                                                                                                                {DateTime.fromISO(event.date).toFormat('MMM d')}
-                                                                                                                        </div>
-
-                                                                                                        }
-                                                                                                </div>
-                                                                                        </div>
-                                                                                </div>
-                                                                        </div>
-                                                                ))
-                                                }
-                                        </div>
-                                </div>
-                                <div className="grid grid-cols-1 gap-1" style={{height: "25%"}}>
-                                        <div className="text-2xl flex justify-center">
-                                                Color Guide
-                                        </div>
-                                        <StudentPointTile
-                                                fullName="1st Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={0}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="2nd Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={1}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="3rd Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={2}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="4th Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={3}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="5th Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={4}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="6th - 10th Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={5}
-                                                rankChange={null} />
-                                        <StudentPointTile
-                                                fullName="11th - 20th Place"
-                                                points={null}
-                                                lastMonthPoints={null}
-                                                rank={10}
-                                                rankChange={null} />
-                                </div>
-                        </div>
-                        <div className="border rounded-xl p-5">
-                                <div>
-                                        <div className="text-2xl flex justify-center border-b mb-1">Top Groups</div>
-                                        {
-                                                globalDashData?.rankingGroups.map((rankingGroup) => (
-                                                        <div key={rankingGroup.id} className="grid grid-cols-6 px-1 my-1 gap-1">
-                                                                <div className="flex justify-center place-items-center text-2xl" style={{
-                                                                        background: metalStyle('#000'),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        textShadow: metalTextShadow
-                                                                }}>
-                                                                        {rankingGroup.name}
-                                                                </div>
-                                                                {
-                                                                        rankingGroup.studentGroups.sort((a, b) => {
-                                                                                const aPoints = (a?.averagePoints ?? 0) + (a?.rawPoints ?? 0)
-                                                                                const bPoints = (b?.averagePoints ?? 0) + (b?.rawPoints ?? 0)
-                                                                                return bPoints - aPoints
-                                                                        })
-                                                                                .slice(0, 5)
-                                                                                .map((studentGroup, rankIndex) => {
-                                                                                        if (!studentGroup) return <></>
-                                                                                        return (
-                                                                                                <div key={studentGroup.id} className="text-lg grid grid-cols-1 place-items-center" style={{
-                                                                                                        ...shinyBackgroundStyle(rankToColor(rankIndex + 1).toString()),
-                                                                                                        textShadow: metalTextShadow
-                                                                                                }}>
-                                                                                                                <div className="flex justify-center">
-                                                                                                                        {studentGroup.name}
-                                                                                                                </div>
-                                                                                                                <div className={`w-full px-5 grid ${azeret.className}`} style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                                                                                                                        <div />
-                                                                                                                        <div className="flex items-center justify-center">
-                                                                                                                                {Math.round(studentGroup.averagePoints + studentGroup.rawPoints).toLocaleString()}
-                                                                                                                        </div>
-                                                                                                                        <div className="flex items-end justify-end" style={{ color: "#00CC00" }}>
-                                                                                                                                +{Math.round((studentGroup.averagePoints + studentGroup.rawPoints) - (studentGroup.lastMonthAveragePoints + studentGroup.lastMonthRawPoints)).toLocaleString()}
-                                                                                                                        </div>
-                                                                                                                </div>
-                                                                                                                <div className="flex justify-center">
-                                                                                                                        {
-                                                                                                                                (() => {
-                                                                                                                                        const topStudent = globalDashData?.students.filter(student => student.studentGroups.includes(studentGroup?.id ?? -1)).sort((a, b) => b.totalPoints - a.totalPoints)[0]
-                                                                                                                                        return topStudent ? topStudent.firstName + " " + topStudent.lastName : ""
-                                                                                                                                })()
-                                                                                                                        }
-                                                                                                                </div>
-                                                                                                </div>
-                                                                                        )
-                                                                                })
-                                                                }
-                                                        </div>
-                                                ))
-                                        }
-                                </div>
-                                <div>
-                                        <div className="text-2xl flex justify-center border-b mb-1">Top Students</div>
-                                        <div className="grid gap-1" style={{
-                                                gridTemplateColumns: `1fr repeat(${globalDashData?.pointGroups.length ?? 0}, 1fr)`
-                                        }}>
-                                                <div className="text-xl border px-1 flex justify-center place-items-center" style={{
-                                                        background: metalStyleGradient([
-                                                                { color: '#ff0000', percent: 0 },
-                                                                { color: '#ffa500', percent: 17 },
-                                                                { color: '#ffff00', percent: 34 },
-                                                                { color: '#00ff00', percent: 50 },
-                                                                { color: '#0000ff', percent: 67 },
-                                                                { color: '#4b0082', percent: 84 },
-                                                                { color: '#ee82ee', percent: 100 },
-                                                        ]),
-                                                        backgroundSize: "cover",
-                                                        backgroundPosition: "center",
-                                                        textShadow: metalTextShadow
-                                                }}>Overall</div>
-                                                {
-                                                        globalDashData?.pointGroups.sort((a, b) => (a.id - b.id)).map(pointGroup => (
-                                                                <div key={pointGroup.id} className="text-xl border px-1 flex justify-center place-items-center" style={{
-                                                                        background: metalStyle(pointGroup.color),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        textShadow: metalTextShadow
-                                                                }}>{pointGroup.name}</div>
-                                                        ))
-                                                }
-                                                                                                {(() => {
-                                                        // Pre-sort students by overall points once
-                                                        const sortedOverall = [...(globalDashData?.students || [])].sort((a, b) => b.totalPoints - a.totalPoints);
-                                                        
-                                                        // Pre-sort students by each point group once
-                                                        const sortedByPointGroup = globalDashData?.pointGroups
-                                                                .sort((a, b) => (a.id - b.id))
-                                                                .map(pointGroup => ({
-                                                                        pointGroupId: pointGroup.id,
-                                                                        sortedStudents: [...(globalDashData?.students || [])].sort((a, b) => {
-                                                                                const aPoints = a.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
-                                                                                const bPoints = b.pointGroups.find(group => group.id === pointGroup.id)?.points || 0;
-                                                                                return bPoints - aPoints;
-                                                                        })
-                                                                })) || [];
-                                                        
-                                                        return [...Array(10)].map((_, index) => {
-                                                                const ovrStudent = sortedOverall[index];
-                                                                const ovrStudentRankChange = (ovrStudent?.lastMonthRank ?? 0) - (ovrStudent?.rank ?? 0);
-                                                                
-                                                                return (
-                                                                        <React.Fragment key={index}>
-                                                                                {/* Overall Student */}
-                                                                                <StudentPointTile
-                                                                                        fullName={ovrStudent?.firstName + " " + ovrStudent?.lastName || ""}
-                                                                                        points={ovrStudent?.totalPoints || 0}
-                                                                                        lastMonthPoints={ovrStudent?.lastMonthPoints || 0}
-                                                                                        rank={index}
-                                                                                        rankChange={ovrStudentRankChange}
-                                                                                />
-                                                                                
-                                                                                {/* Point Group Students */}
-                                                                                {sortedByPointGroup.map(({ pointGroupId, sortedStudents }) => {
-                                                                                        const student = sortedStudents[index];
-                                                                                        const pointGroup = globalDashData?.pointGroups.find(pg => pg.id === pointGroupId);
-                                                                                        const pointGroupData = student?.pointGroups.find(group => group.id === pointGroupId);
-                                                                                        
-                                                                                        if (!student || !pointGroupData || !pointGroup) {
-                                                                                                return <EmptyStudentPointTile key={pointGroupId + ":" + index} />;
-                                                                                        }
-                                                                                        
-                                                                                        return (
-                                                                                                <StudentPointTile
-                                                                                                        key={pointGroupId + ":" + index}
-                                                                                                        fullName={student.firstName + " " + student.lastName}
-                                                                                                        points={pointGroupData.points || 0}
-                                                                                                        lastMonthPoints={pointGroupData.lastMonthPoints || 0}
-                                                                                                        rank={index}
-                                                                                                        rankChange={pointGroupData.lastMonthRank - pointGroupData.rank}
-                                                                                                />
-                                                                                        );
-                                                                                })}
-                                                                        </React.Fragment>
-                                                                );
-                                                        });
-                                                })()}
-                                        </div>
-                                </div>
-                                <div>
-                                        <div className="grid my-5 gap-1" style={{
-                                                gridTemplateColumns: `repeat(${globalDashData?.grades.length}, 1fr)`
-                                        }}>
-                                                {
-                                                        globalDashData?.grades.sort((a, b) => a - b).map(grade => (
-                                                                <div key={grade} className="text-xl border flex justify-center" style={{
-                                                                        background: metalStyle('#000'),
-                                                                        backgroundSize: "cover",
-                                                                        backgroundPosition: "center",
-                                                                        //backgroundPositionX: `${(Math.random() * 20) - 40}em`,
-                                                                        textShadow: metalTextShadow
-                                                                }}>Grade {grade}</div>
-                                                        ))
-                                                }
-                                                {
-                                                        globalDashData?.grades.sort((a, b) => a - b).map(grade => (
-                                                                <div key={grade} className="grid grid-cols-1 gap-1">{
-                                                                        [...Array(10)].map((_, index) => {
-                                                                                const student = globalDashData.students.filter(student => student.grade === grade).sort((a, b) => b.totalPoints - a.totalPoints)[index]
-                                                                                return (
-                                                                                                student !== undefined ? <StudentPointTile
-                                                                                                        key={grade + ":" + index}
-                                                                                                        fullName={student.firstName + " " + student.lastName}
-                                                                                                        points={student.totalPoints || 0}
-                                                                                                        lastMonthPoints={student.lastMonthPoints || 0}
-                                                                                                        rank={index}
-                                                                                                        rankChange={student.lastMonthGradeRank - student.gradeRank}
-                                                                                                /> : <EmptyStudentPointTile />
-                                                                                        )
-                                                                        })}
-                                                                </div>
-                                                        ))
-                                                }
-                                        </div>
-                                </div>
-                        </div>
-                        <div className="flex flex-col h-full pt-5">
-                                <div className="text-4xl border-b mb-1 flex justify-center items-center">Monthly Trends</div>
-                                <div className="border rounded-xl p-2 flex flex-col flex-grow overflow-hidden gap-2">
-                                        <div className="overflow-y-auto flex-shrink min-h-0">
-                                                <div className="text-xl border-b mb-1 flex justify-center">Most Points</div>
-                                                <div className="flex flex-col gap-1">
-                                                        {
-                                                                globalDashData?.students
-                                                                .sort((a, b) => b.monthToMonthChange - a.monthToMonthChange)
-                                                                .slice(0, 10)
-                                                                .map((student, index) => (
-                                                                        <div key={student.id || index} className="text-lg border grid py-1 px-2 mx-2" style={{
-                                                                                background: metalStyle('#000'),
-                                                                                backgroundSize: "cover",
-                                                                                backgroundPosition: "center",
-                                                                                gridTemplateColumns: "3fr 1fr",
-                                                                                textShadow: metalTextShadow,
-                                                                                textWrap: "nowrap"
-                                                                        }}>
-                                                                                <div className="flex justify-start">
-                                                                                        {student.firstName + " " + student.lastName}
-                                                                                </div>
-                                                                                <div className="flex justify-end text-green-500">
-                                                                                        +{(student.monthToMonthChange).toLocaleString()}pts
-                                                                                </div>
-                                                                        </div>
-                                                                ))
-                                                        }
-                                                </div>
-                                        </div>
-                                        <div className="overflow-y-auto flex-shrink min-h-0">
-                                                <div className="text-xl border-b mb-1 flex justify-center">Most Improved Rank</div>
-                                                <div className="flex flex-col gap-1">
-                                                        {
-                                                                globalDashData?.students
-                                                                .sort((a, b) => (a.rank - a.lastMonthRank) - (b.rank - b.lastMonthRank))
-                                                                .filter(student => student.lastMonthRank - student.rank > 0)
-                                                                .slice(0, 10)
-                                                                .map((student, index) => (
-                                                                        <div key={student.id || index} className="text-lg border grid py-1 px-2 mx-2" style={{
-                                                                                background: metalStyle('#000'),
-                                                                                backgroundSize: "cover",
-                                                                                backgroundPosition: "center",
-                                                                                gridTemplateColumns: "3fr 1fr",
-                                                                                textShadow: metalTextShadow,
-                                                                                textWrap: "nowrap"
-                                                                        }}>
-                                                                                <div className="flex justify-start">
-                                                                                        {student.firstName + " " + student.lastName}
-                                                                                </div>
-                                                                                <div className="flex justify-end text-green-500">
-                                                                                        +{student.lastMonthRank - student.rank}
-                                                                                </div>
-                                                                        </div>
-                                                                ))
-                                                        }
-                                                </div>
-                                        </div>
-                                </div>
-                        </div>
-                </div>
-        );
+  return <div className="global-board" data-paused={!running}>
+    <div className="global-glow" aria-hidden="true" />
+    <header className="global-header"><div className="global-wordmark"><FiActivity /><div><b>PHOENIX <span>GLOBAL</span></b><p>The whole school. Every achievement.</p></div></div><div className="global-period"><span>THE BIG PICTURE</span><b>{timeframeName ?? 'Student recognition'}</b></div><div className="global-clock"><strong>{now?.toFormat('h:mm a') ?? '—'}</strong><span>{now?.toFormat('cccc, LLL d')}</span></div><button aria-label="Global display settings" aria-expanded={settings} onClick={() => setSettings(value => !value)}><FiSettings /></button></header>
+    <section className="global-summary" aria-label="School overview" style={{ backgroundImage: metalStyleGradient(spectrum) }}><div><span className="global-live-dot" /><b>{query.isError ? 'Reconnecting · saved results' : query.isFetching ? 'Refreshing standings' : 'Schoolwide recognition'}</b></div><div><strong>{data.totalStudents}</strong><span>students</span></div><div><strong>{categories.length}</strong><span>point categories</span></div><div><strong>{data.rankingGroups.length}</strong><span>ranking groups</span></div><div><strong>{upcoming.length}</strong><span>upcoming events</span></div></section>
+    <main className="global-layout">
+      <Standings slide={overall} title="Overall leaders" color="#d6b55d" running={running} reduced={reduced} large />
+      <div className="global-center">
+        <section className="global-category-section"><div className="global-section-label"><span>01 / CATEGORY STANDINGS</span><b>Different strengths. Shared ambition.</b></div><div className="global-category-grid" style={{ gridTemplateColumns: `repeat(${Math.max(1, categoryPage.length)}, minmax(0, 1fr))` }}>{categoryPage.map(category => <Standings key={`${timeframe}-${category.id}`} slide={slides.find(slide => slide.id === `category-${category.id}`)} title={category.name} color={category.color} running={running} reduced={reduced} />)}{!categories.length && <div className="global-empty">Point categories will appear here.</div>}</div></section>
+        <section className="global-grade-section"><div className="global-section-label"><span>02 / GRADE STANDINGS</span><b>Recognize someone in your class?</b></div><div className="global-grade-grid">{gradePage.map(grade => <Standings key={`${timeframe}-${grade}`} slide={slides.find(slide => slide.id === `grade-${grade}`)} title={`Grade ${grade}`} color="#658caa" running={running} reduced={reduced} />)}{!grades.length && <div className="global-empty">Grade standings are on their way.</div>}</div></section>
+      </div>
+      <aside className="global-sidebar">
+        <Standings key={timeframe ?? 'active'} slide={team} title={team?.title ?? 'Team standings'} color="#9c78ca" running={running} reduced={reduced} onCycle={() => setTeamIndex(value => value + 1)} />
+        <section className="global-panel global-events"><header className="global-metal-heading" style={metal('#448d86')}><h2><FiClock /> On the horizon</h2><span>{upcoming.length} events</span></header><div className="global-event-list">{eventPage.map(event => {
+          const category = categories.find(category => category.id === event.pointGroup);
+          const date = DateTime.fromISO(event.date);
+          return <article key={event.id} className="global-event" style={metal(category?.color ?? '#526c83')}><div className="global-event-date"><b>{date.toFormat('dd')}</b><span>{date.toFormat('LLL')}</span></div><div><h3>{event.name}</h3><p>{category?.name ?? 'School event'} · up to {formatPoints(event.maxPoints)} pts</p></div></article>;
+        })}{!upcoming.length && <div className="global-empty">No upcoming events in this timeframe.<span>Keep an eye out for your next opportunity.</span></div>}</div></section>
+        <section className="global-panel global-momentum"><header className="global-metal-heading" style={metal('#a36b3d')}><h2><FiTrendingUp /> Moving up</h2><span>vs. last month</span></header><div className="global-risers">{risers.map(student => <article key={student.id}><div><b>{student.firstName} {student.lastName}</b><span>Grade {student.grade} · now #{student.rank}</span></div><strong>↑ {student.lastMonthRank - student.rank}</strong></article>)}{!risers.length && <div className="global-empty">The next rise starts here.<span>Rank gains will appear as standings change.</span></div>}</div></section>
+      </aside>
+    </main>
+    <footer className="global-footer"><span><span className="global-live-dot" /> {paused ? 'DISPLAY PAUSED' : 'PHOENIX / LIVE STANDINGS'} · Updated {DateTime.fromMillis(query.dataUpdatedAt).toFormat('h:mm a')}</span><b>Earn points. Build momentum. Rise together.</b><a href="/dashboard/featured">Featured display ↗</a></footer>
+    {settings && <section className="global-controls" aria-label="Global display controls"><div><b>Display controls</b><button aria-label="Close display controls" onClick={() => setSettings(false)}>✕</button></div><label>Timeframe<select value={timeframe ?? ''} onChange={event => { setTimeframe(event.target.value ? Number(event.target.value) : null); setTeamIndex(0); setRotation(0); }}><option value="">Active timeframe</option>{data.timeframes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button onClick={() => setPaused(value => !value)}>{paused ? <FiPlay /> : <FiPause />}{paused ? 'Resume display' : 'Pause display'}</button><button onClick={async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); setNotice(''); } catch { setNotice('Use your browser’s fullscreen command.'); } }}><FiMaximize /> Toggle fullscreen</button>{notice && <p role="status">{notice}</p>}<a href="/dashboard">All dashboards</a></section>}
+  </div>;
 }

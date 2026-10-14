@@ -228,6 +228,19 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  useEffect(() => {
+    if (!editPointEventModalOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setEditPointEventModalOpen(false)
+      setCurrentlyEditedPointEvent(null)
+      setUpdatedPointEvent(null)
+      setPointInputDrafts({})
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => window.removeEventListener("keydown", closeOnEscape)
+  }, [editPointEventModalOpen])
+
   // Conditional rendering instead of early return to avoid hooks issues
   const renderContent = () => {
     if (isTooSmall) {
@@ -249,7 +262,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
     return (
       <div className="h-dvh w-full flex flex-col text-slate-700 dark:text-slate-300">
-        <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
+        <header className="app-header flex min-h-20 w-full flex-wrap items-center justify-between gap-4 px-5 py-3">
           <div className="flex items-center space-x-4">
             <a
               href="/teacher"
@@ -258,13 +271,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="font-medium">Back to Teacher Dashboard</span>
+              <span className="font-medium">Groups</span>
             </a>
           </div>
           
           <div className="flex items-center space-x-4">
             <div>
-              <h1 className="text-3xl font-bold">Group Scorebook</h1>
+              <h1 className="text-2xl font-bold">Group Scorebook</h1>
               {scorebookData?.studentGroup && (
                 <div className="text-lg opacity-75">
                   {scorebookData.studentGroup.name}
@@ -306,13 +319,22 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             )}
             
             {/* Action Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex items-center gap-2">
               {isTeacher && addNewPointEventButton()}
-              {isTeacher && duplicateEventsButton()}
               {isTeacher && openUnifiedScorebookButton()}
-              {isTeacher && exportScorebookTemplateButton()}
-              {isTeacher && importScorebookTemplateButton()}
-              {isTeacher && teachingAssistantButton()}
+              {isTeacher && (
+                <details className="relative">
+                  <summary className="cursor-pointer list-none rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600">
+                    More actions ▾
+                  </summary>
+                  <div className="absolute right-0 z-50 mt-2 grid w-60 gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                    {duplicateEventsButton()}
+                    {exportScorebookTemplateButton()}
+                    {importScorebookTemplateButton()}
+                    {teachingAssistantButton()}
+                  </div>
+                </details>
+              )}
             </div>
           </div>
         </header>
@@ -1118,11 +1140,11 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               />
             </span>
             <span className="ml-3 text-sm font-medium">
-              {showPercent ? 'Percent of Max Points' : 'Raw Point Values'}
+              Display scores as percentages
             </span>
           </label>
           <span className="text-xs text-slate-600 dark:text-slate-400 ml-2">
-            {showPercent ? 'Showing percent out of max points' : 'Showing raw point values'}
+            Currently showing {showPercent ? 'percent of each event maximum' : 'raw point values'}
           </span>
         </div>
         
@@ -1493,8 +1515,24 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     if (!updatedPointEvent || !scorebookData) return null
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-3/4 max-h-[80vh] overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4">Edit Point Event: {currentlyEditedPointEvent?.name}</h2>
+        <div className="bg-slate-100 dark:bg-slate-800 border p-6 rounded-xl w-3/4 max-h-[88vh] overflow-y-auto shadow-2xl">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Edit Point Event</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{currentlyEditedPointEvent?.name}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close dialog"
+              onClick={() => {
+                setEditPointEventModalOpen(false)
+                setCurrentlyEditedPointEvent(null)
+                setUpdatedPointEvent(null)
+                setPointInputDrafts({})
+              }}
+              className="rounded-lg p-2 text-xl leading-none hover:bg-slate-200 dark:hover:bg-slate-700"
+            >×</button>
+          </div>
           
           <div className="grid grid-cols-1 gap-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1667,7 +1705,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             </div>
           </div>
 
-          <div className="flex space-x-4 mt-6">
+          <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex justify-end space-x-3 border-t border-slate-300 bg-slate-100 px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
             <button
               onClick={saveEditedPointEventData}
               disabled={

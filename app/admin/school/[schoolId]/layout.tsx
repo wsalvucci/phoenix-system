@@ -46,43 +46,37 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
 
     const sideBarButton = (text: string, href: string) => {
         return (
-            <Link href={`/admin/school/${schoolId}/${href}`}>
-                <button
-                    className="w-full p-3 my-1 flex items-center justify-center rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                >
-                    {text}
-                </button>
+            <Link href={`/admin/school/${schoolId}/${href}`} className="button-ghost w-full shrink-0 justify-start whitespace-nowrap md:w-auto">
+                {text}
             </Link>
         )
     }
 
     return (
         <TimeframeProvider schoolId={schoolId}>
-            <div>
-                <div className="h-dvh flex flex-col text-slate-700 dark:text-slate-300">
-                    <header className="h-20 p-5 flex items-center justify-between w-screen bg-slate-300 dark:bg-slate-700">
-                        <h1 className="text-3xl font-bold">Dashboard</h1>
-                        <div className="flex-1 flex justify-center">
-                            {/* Timeframe dropdown will be added later */}
+            <div className="app-page">
+                <div className="flex min-h-dvh flex-col text-slate-700 dark:text-slate-300">
+                    <header className="app-header min-h-20 w-full">
+                        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-4 sm:px-6">
+                          <div>
+                            <Link href="/admin" className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:hover:text-white">← Schools</Link>
+                            <h1 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">School Administration</h1>
+                          </div>
+                          <div className="flex-1" />
                         </div>
-                        <div className="w-32"></div> {/* Spacer to balance the layout */}
                     </header>
-                    <div className="h-full overflow-hidden flex flex-grow bg-slate-100 dark:bg-slate-900">
-                        {/* Sidebar */}
-                        <div className="h-full py-5 px-2 w-1/6 bg-slate-200 dark:bg-slate-800">
+                    <div className="flex min-h-0 flex-grow flex-col bg-slate-50 dark:bg-slate-950 md:flex-row">
+                        <nav aria-label="School administration" className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900 md:w-56 md:flex-col md:border-b-0 md:border-r md:px-3 md:py-5">
                             {sideBarButton("Home", "")}
-                            {/* Divider */}
-                            <div className="h-1 bg-slate-300 dark:bg-slate-700 my-2" />
-                            {sideBarButton("Student Groups", "/groups")}
-                            {sideBarButton("Students", "/students")}
-                            {sideBarButton("Teachers", "/teachers")}
-                            {sideBarButton("Point Groups", "/pointGroups")}
-                            {sideBarButton("Ranking Groups", "/rankingGroups")}
-                            {sideBarButton("Timeframes", "/timeframes")}
-                        </div>
-                        {/* Main Content */}
-                        <div className="w-full h-full overflow-y-auto">
-                            {/* Children with schoolId and adminId props */}
+                            <div className="mx-2 hidden h-px bg-slate-200 dark:bg-slate-800 md:block" />
+                            {sideBarButton("Student Groups", "groups")}
+                            {sideBarButton("Students", "students")}
+                            {sideBarButton("Teachers", "teachers")}
+                            {sideBarButton("Point Groups", "pointGroups")}
+                            {sideBarButton("Ranking Groups", "rankingGroups")}
+                            {sideBarButton("Timeframes", "timeframes")}
+                        </nav>
+                        <div className="h-full w-full overflow-y-auto">
                             {children}
                         </div>
                     </div>
