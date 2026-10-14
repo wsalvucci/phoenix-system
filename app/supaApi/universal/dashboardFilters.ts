@@ -5,6 +5,17 @@
  * These filters control privacy settings and data visibility for each dashboard.
  */
 
+/**
+ * A cohort is the population of one published list, not the school (DATA_DISCLOSURE.md §8.2).
+ * The SQL cut (public.display_cut, 20261014230300) is computed per cohort; see
+ * app/supaApi/server/dashboard/displayCut.ts.
+ */
+export type Cohort =
+  | { kind: 'overall' }
+  | { kind: 'grade'; grade: number }
+  | { kind: 'pointGroup'; pointGroupId: number }
+  | { kind: 'studentGroup'; studentGroupId: number };
+
 export interface DashboardFilterConfig {
   numStudentsOverall: number | null;
   numStudentsPerPointGroup: number | null;
