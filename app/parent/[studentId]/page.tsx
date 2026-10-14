@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { rankTier } from "@/lib/rankTier";
 import { isRanked, NOT_RANKED_YET, numberToOrdinal, standingText } from "@/lib/rankText";
 import { GradeBadge, LedgerRow, RankBadge, SectionTitle } from "@/app/student/ui";
-import StandingPlate from "@/app/student/StandingPlate";
+import StandingPlate, { pointsToMoveUp } from "@/app/student/StandingPlate";
+import { LedLettersNotice } from "@/app/student/LeaderLetters";
+import { getOwnLedLetters, getPointsToNextRank } from "@/app/supaApi/server/student/ownRecordRpc";
 
 function formatDate(dateString: string | null): string {
     if (!dateString) return "";
@@ -28,6 +30,13 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
     const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, pointGroupRankings, pointEventRankings, timeframe } = studentData;
     const firstName = student.firstName;
     const recent = (pointEventRankings ?? []).slice(0, 8);
+    // Linked-parent scope, re-checked in TS (canViewStudent) and in SQL (can_view_student).
+    // L11: no Groups-You-Lead letters here, only the child's own letters and who can see them (L10).
+    const [pointsToNext, ownLedLetters] = await Promise.all([
+        timeframe?.id ? getPointsToNextRank(student.id, timeframe.id) : Promise.resolve(null),
+        getOwnLedLetters(student.id),
+    ]);
+    const categoryGap = new Map((pointsToNext?.pointGroups ?? []).map((g) => [g.pointGroupId, g.pointsToNext]));
 
     return (
         <div className="app-page">
@@ -41,8 +50,8 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
                     <p className="mt-3 flex items-center gap-2 text-sm font-semibold">
                         {isRanked(gradeRank, gradeOutOf) ? (
                             <>
-                                <RankBadge rank={gradeRank} tier={rankTier(gradeRank, gradeOutOf)} />
-                                <span>{numberToOrdinal(gradeRank)} of {gradeOutOf} in Grade {student.grade}</span>
+                                <RankBadge rank={gradeRank as number} tier={rankTier(gradeRank, gradeOutOf)} />
+                                <span>{numberToOrdinal(gradeRank as number)} of {gradeOutOf} in Grade {student.grade}</span>
                             </>
                         ) : (
                             <span>{NOT_RANKED_YET}</span>
@@ -80,7 +89,7 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
                                 <LedgerRow
                                     key={ranking.pointGroupId}
                                     title={ranking.pointGroupName}
-                                    detail={`${ranking.points.toLocaleString()} points · ${standingText(ranking.rank, ranking.outOf)}`}
+                                    detail={[`${ranking.points.toLocaleString()} points`, standingText(ranking.rank, ranking.outOf), categoryGap.has(ranking.pointGroupId) ? pointsToMoveUp(categoryGap.get(ranking.pointGroupId)!) : null].filter(Boolean).join(" · ")}
                                     amount={<GradeBadge grade={ranking.letterGrade.letter} />}
                                 />
                             ))}
@@ -95,10 +104,19 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
                 <section>
                     <SectionTitle>Where {firstName} stands</SectionTitle>
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" />
-                        <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} />
+                        <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" pointsToNext={pointsToNext?.overall ?? null} />
+                        <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} pointsToNext={pointsToNext?.grade ?? null} />
                     </div>
                 </section>
+
+                {ownLedLetters.length > 0 && (
+                    <section>
+                        <SectionTitle>{firstName}&apos;s group leaders</SectionTitle>
+                        <div className="mt-4">
+                            <LedLettersNotice groups={ownLedLetters} possessive={`${firstName}'s`} />
+                        </div>
+                    </section>
+                )}
             </main>
         </div>
     );

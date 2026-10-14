@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import linkStudent from "@/app/supaApi/server/linkStudent";
-import { linkStudentToParent } from "@/app/supaApi/server/parent/parentApi";
-import clientLinkTeacher from "@/app/supaApi/client/clientLinkTeacher";
+import { redeemLinkCode, type LinkPurpose } from "@/app/supaApi/server/link/linkCodeActions";
+import { linkFailureMessage } from "@/lib/linkCode";
 
 export type LinkKind = "student" | "parent" | "teacher";
 
@@ -17,6 +16,8 @@ const COPY: Record<LinkKind, { heading: string; button: string; sending: string;
 
 const NO_REACH = "Could not reach Phoenix. Try again.";
 
+const PURPOSE: Record<LinkKind, LinkPurpose> = { student: "student_claim", parent: "parent_link", teacher: "teacher_claim" };
+
 /** One link screen for all three roles. The code is typed, never read from the URL. */
 export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
     const copy = COPY[kind];
@@ -27,7 +28,7 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
     const [editingSchool, setEditingSchool] = useState(preset === null);
     const [code, setCode] = useState("");
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<{ text: string; hint: boolean } | null>(null);
 
     const schoolId = /^\d+$/.test(school.trim()) ? Number(school.trim()) : NaN;
     const cleanCode = code.trim().toUpperCase();
@@ -39,25 +40,17 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
         setBusy(true);
         setError(null);
         try {
-            let failure: string | null = null;
-            if (kind === "student") {
-                const r = await linkStudent(schoolId, cleanCode);
-                if (!r.success) failure = r.message;
-            } else if (kind === "teacher") {
-                const r = await clientLinkTeacher(schoolId, cleanCode);
-                if (!r.success) failure = r.message;
-            } else {
-                const r = await linkStudentToParent(schoolId, cleanCode);
-                if (r.error) failure = r.error;
-            }
-            if (failure) {
-                setError(failure);
+            // One rate-limited RPC for all three roles (BACKEND_PLAN.md §6). The server resolves the
+            // account from the session; the school number is only a match condition.
+            const { status } = await redeemLinkCode(PURPOSE[kind], schoolId, cleanCode);
+            if (status !== "linked") {
+                setError({ text: linkFailureMessage(status), hint: status === "no_match" });
                 setBusy(false);
                 return;
             }
             window.location.href = copy.next;
         } catch {
-            setError(NO_REACH);
+            setError({ text: NO_REACH, hint: false });
             setBusy(false);
         }
     }
@@ -106,7 +99,7 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
 
             {error && (
                 <div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-                    {error} Check for look-alike letters (O and 0, I and 1) or ask your school for a new code.
+                    {error.text}{error.hint && " Check for look-alike letters (O and 0, I and 1) or ask your school for a new code."}
                 </div>
             )}
 

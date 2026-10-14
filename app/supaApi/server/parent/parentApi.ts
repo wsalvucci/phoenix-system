@@ -2,6 +2,8 @@
 
 import getOwnUserData from "../getOwnUserData";
 import supabaseServiceClient from "../supabaseServiceClient";
+import { redeemLinkCode } from "../link/linkCodeActions";
+import { linkFailureMessage } from "@/lib/linkCode";
 
 export async function getStudentsOfParent(): Promise<{ id: number, fullName: string }[]> {
     const userData = await getOwnUserData()
@@ -27,45 +29,14 @@ export async function getStudentsOfParent(): Promise<{ id: number, fullName: str
     })
 }
 
-// One message for every failure (wrong code, wrong school, already linked, database error), and the
-// code is never echoed or logged. DATA_DISCLOSURE.md D11 / §10.4.
-const PARENT_LINK_ERROR = "That code did not match. Check the school number and code and try again.";
-
+// Delegates to the rate-limited, uniform-failure redeem_link_code RPC (BACKEND_PLAN.md §6.3,
+// DATA_DISCLOSURE.md §10.11). The code is never echoed or logged.
 export async function linkStudentToParent(
     schoolId: number,
     linkCode: string
 ): Promise<{ error?: string }> {
-    const userData = await getOwnUserData()
-    const code = typeof linkCode === "string" ? linkCode.trim() : ""
-    if (!userData || !Number.isInteger(schoolId) || code === "") {
-        return { error: PARENT_LINK_ERROR }
-    }
-
-    const supabase = await supabaseServiceClient();
-
-    const { data: studentData, error: studentDataError } =
-        await supabase
-            .from("student")
-            .select("id")
-            .eq("link_code", code)
-            .eq("school_id", schoolId)
-            .maybeSingle()
-
-    if (studentDataError || studentData === null) {
-        return { error: PARENT_LINK_ERROR }
-    }
-
-    const { error: insertStudentDataError } =
-        await supabase.from("user_student_pair").insert({
-            user_id: userData.id,
-            student_id: studentData.id
-        })
-
-    if (insertStudentDataError) {
-        return { error: PARENT_LINK_ERROR }
-    }
-
-    return {}
+    const { status } = await redeemLinkCode("parent_link", schoolId, linkCode)
+    return status === "linked" ? {} : { error: linkFailureMessage(status) }
 }
 
 export async function deleteStudentFromParent(

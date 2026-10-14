@@ -7,6 +7,10 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ### Added
 - When a student's points have gone up since they last looked, the total on their page counts up and the gold rule beneath it shimmers once. Reduced-motion settings skip it.
+- Students and parents see "N points to move up" for the whole school, the grade and each category. Grade and category gaps show only when at least 10 students there have points, and nothing shows at first place. No other student is named.
+- A student who shared a score that a teacher later changed is told on their next visit: "Your shared score for <assignment> changed, so it is no longer shared."
+- Student group leaders see one letter (S, or A to E) per member for each ranked category under "Groups you lead", refreshed once a day. A category is shown as "Not shown for this group" when the group is small, under half took part, or one or two members would stand out at D or E.
+- Members of a led group, and their parents, now see "<Leader>, who leads <Group>, can see your letter grade (S, or A to E) for each category", with the member's own letters.
 - Students see friendly messages when there are no recent points, no categories, no groups to share with, or nothing shared with them yet.
 - Teachers and admins can open the hallway displays from a new "Open hallway display" link on the teacher home and the school admin page.
 - The display menu (`/dashboard`) now names your school, lets staff with several schools switch between them, and carries the school into every display. If you ask for a school you cannot open, it says so and shows your own.
@@ -14,12 +18,13 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
 - Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin. Screens are not switched over yet.
 - Database support for dashboard leaderboards that show only the top of each cohort (overall, grade, category, team), never a count, and for a "points to the next rank" figure on student and parent pages.
-- A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side; the notice is not shown on screen yet).
+- A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side).
 - Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
 - Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
 - "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 ### Changed
+- **BREAKING:** Ranks on the student page and the parent child page now count only students with points this timeframe, and tied students share the better rank, the same as the mobile app. A student with no points shows "Not ranked yet" instead of a last-place rank. Categories show a rank only for ranked categories, and an assignment with fewer than 4 students shows no rank. "Points to move up" for the whole school needs at least 10 ranked students.
 - Opening a display link while signed out now takes you to sign-in and then straight back to that display. A wrong password says so plainly and keeps your place; the email box now suggests saved emails and shows the right phone keyboard.
 - The older `/dashboard/feature` address keeps its school when it forwards to the featured display.
 - In the scorebook, "Add New Point Event" is now "Add an assignment", and deleting one names it and says how many saved scores go with it. The duplicate "Open Unified Scorebook" button, which opened this same page, is gone.
@@ -57,6 +62,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
 
 ### Security
+- A student's birthdate and gender are no longer sent to the browser on the home screen or the student pages; nothing there shows them.
 - Removed console logging of student and dashboard data from the teacher home and the admin school layout.
 - Dashboards no longer show a student who is missing from a point group's ranking, and small grades now hide at least three students and round their share down.
 - Removed two unused school-wide statistics endpoints (student and teacher versions) and an unused global dashboard endpoint that could return school rosters.
@@ -74,6 +80,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014223157`). The leader's group screen shows an error until the mobile app is updated.
 - **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014230650`). Needs a mobile app update released at the same time.
 - Hallway displays stop working if the staff member who paired them is no longer staff at that school, until an admin of the school re-confirms them (database side).
+- **BREAKING:** Connecting a student, parent or teacher account is now limited to 5 wrong codes per account and 20 per network each hour, after which the screen says "Too many tries". Two people can no longer claim the same teacher account at once. Deploy step: the server setting `LINK_RATE_LIMIT_SECRET` must be set first, or every connect attempt says "Linking is not available right now".
+- New teacher accounts, and teacher codes reissued when an admin unlinks a teacher, now get a 10-character code from a secure generator instead of a short guessable one.
 
 ### Fixed
 - The Recent points list on the student page no longer re-checks sharing status over and over.

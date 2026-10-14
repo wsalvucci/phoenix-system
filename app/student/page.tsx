@@ -6,6 +6,14 @@ import StandingPlate from "./StandingPlate";
 import dynamic from "next/dynamic";
 import StickyHeader from "./StickyHeader";
 import PointDistribution from "./PointDistribution";
+import { pointsToMoveUp } from "./StandingPlate";
+import { LedLettersNotice, LeaderGroupLettersTable, LeaderGroupNames } from "./LeaderLetters";
+import {
+    getLeaderGroupLetters,
+    getOwnLedLetters,
+    getPointsToNextRank,
+    takeShareWithdrawalNotices,
+} from "@/app/supaApi/server/student/ownRecordRpc";
 const StudentTabs = dynamic(() => import('./StudentTabs'), { ssr: false });
 
 
@@ -65,6 +73,15 @@ export default async function StudentDashboard() {
     }
 
     const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, pointGroupRankings, pointEventRankings } = dashboardData;
+    // Session-scoped RPCs (BACKEND_PLAN.md §3, §5, §7). Each re-checks the caller in TS and in SQL.
+    const [pointsToNext, withdrawals, leaderLetters, ownLedLetters] = await Promise.all([
+        getPointsToNextRank(student.id, dashboardData.timeframe.id),
+        takeShareWithdrawalNotices(),
+        getLeaderGroupLetters(),
+        getOwnLedLetters(student.id),
+    ]);
+    const lettersByGroup = new Map(leaderLetters.map((g) => [g.groupId, g]));
+    const categoryGap = new Map((pointsToNext?.pointGroups ?? []).map((g) => [g.pointGroupId, g.pointsToNext]));
     const hasRoles = taGroups.length > 0 || (leaderGroups?.groups.length ?? 0) > 0;
 
     return (
@@ -77,6 +94,20 @@ export default async function StudentDashboard() {
                 gradeOutOf={gradeOutOf}
                 timeframe={dashboardData.timeframe}
             />
+            {withdrawals.length > 0 && (
+                <div role="status" className="mx-auto w-full max-w-3xl px-4 pt-6">
+                    <Plate className="space-y-1 p-4">
+                        {withdrawals.map((notice, i) => (
+                            <p key={i} className="text-base">
+                                {notice.eventName
+                                    ? `Your shared score for ${notice.eventName} changed, so it is no longer shared.`
+                                    : "One of your shared scores changed, so it is no longer shared."}
+                            </p>
+                        ))}
+                        <p className="text-sm text-muted-foreground">You can share it again from your recent points.</p>
+                    </Plate>
+                </div>
+            )}
             <div className="w-full">
                 <StudentTabs
                     dashboardContent={
@@ -97,7 +128,7 @@ export default async function StudentDashboard() {
                                                 <LedgerRow
                                                     key={ranking.pointGroupId}
                                                     title={ranking.pointGroupName}
-                                                    detail={standingText(ranking.rank, ranking.outOf)}
+                                                    detail={[standingText(ranking.rank, ranking.outOf), categoryGap.has(ranking.pointGroupId) ? pointsToMoveUp(categoryGap.get(ranking.pointGroupId)!) : null].filter(Boolean).join(" · ")}
                                                     amount={<GradeBadge grade={ranking.letterGrade.letter} />}
                                                 />
                                             ))}
@@ -114,10 +145,20 @@ export default async function StudentDashboard() {
                             <section className="vic-enter">
                                 <SectionTitle>Where you stand</SectionTitle>
                                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                    <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" />
-                                    <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} />
+                                    <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" pointsToNext={pointsToNext?.overall ?? null} />
+                                    <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} pointsToNext={pointsToNext?.grade ?? null} />
                                 </div>
                             </section>
+
+                            {/* L10: who can see your letters, and what they see */}
+                            {ownLedLetters.length > 0 && (
+                                <section className="vic-enter">
+                                    <SectionTitle>Your group leaders</SectionTitle>
+                                    <div className="mt-4">
+                                        <LedLettersNotice groups={ownLedLetters} />
+                                    </div>
+                                </section>
+                            )}
 
                             {/* 5. Roles (only when the student has one) */}
                             {hasRoles && (
@@ -139,23 +180,25 @@ export default async function StudentDashboard() {
                                             </div>
                                         </div>
                                     )}
-                                    {/* Names only: letter grades stay off until DATA_DISCLOSURE D13 conditions L1-L12 are met. */}
+                                    {/* D13: letters per point group where SQL returned them (L1-L12), names only otherwise. */}
                                     {leaderGroups && leaderGroups.groups.length > 0 && (
                                         <div>
                                             <SectionTitle as="h3">Groups you lead</SectionTitle>
-                                            <div className="mt-3 space-y-4">
-                                                {leaderGroups.groups.map((group) => (
-                                                    <div key={group.id}>
-                                                        <h4 className="text-base font-semibold">{group.name}</h4>
-                                                        <ul className="mt-2">
-                                                            {group.students.map((member) => (
-                                                                <li key={member.id} className="min-h-11 truncate border-b border-rule py-3 last:border-b-0">
-                                                                    {member.firstName} {member.lastName}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                ))}
+                                            <div className="mt-3 space-y-6">
+                                                {leaderGroups.groups.map((group) => {
+                                                    const letters = lettersByGroup.get(group.id);
+                                                    return letters ? (
+                                                        <LeaderGroupLettersTable key={group.id} group={letters} />
+                                                    ) : (
+                                                        <LeaderGroupNames
+                                                            key={group.id}
+                                                            name={group.name}
+                                                            members={group.students
+                                                                .filter((member) => member.id !== student.id)
+                                                                .map((member, i) => ({ key: `${group.id}:${i}`, firstName: member.firstName, lastName: member.lastName }))}
+                                                        />
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

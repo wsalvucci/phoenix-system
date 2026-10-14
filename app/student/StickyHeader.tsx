@@ -8,8 +8,8 @@ import { Flourish, Frame, RankBadge, WaxSeal } from "./ui";
 interface StickyHeaderProps {
     student: Student;
     totalPoints: number;
-    gradeRank: number;
-    gradeOutOf: number;
+    gradeRank: number | null;
+    gradeOutOf: number | null;
     timeframe: { id: number; name: string; startsAt: string; endsAt: string; active: boolean };
 }
 
@@ -48,8 +48,8 @@ export default function StickyHeader({ student, totalPoints, gradeRank, gradeOut
                     <p className="flex flex-wrap items-center justify-center gap-2 px-2 pb-6 pt-4 text-sm font-semibold text-foreground">
                         {ranked ? (
                             <>
-                                <RankBadge rank={gradeRank} tier={rankTier(gradeRank, gradeOutOf)} />
-                                <span>{numberToOrdinal(gradeRank)} of {gradeOutOf} in Grade {student.grade}</span>
+                                <RankBadge rank={gradeRank as number} tier={rankTier(gradeRank, gradeOutOf)} />
+                                <span>{numberToOrdinal(gradeRank as number)} of {gradeOutOf} in Grade {student.grade}</span>
                             </>
                         ) : (
                             <span>{NOT_RANKED_YET}</span>

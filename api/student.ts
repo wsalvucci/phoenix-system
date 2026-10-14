@@ -9,6 +9,7 @@ import { TeacherTimeframe } from "@/types/domain";
 import { getCallerAccess } from "@/app/supaApi/server/staffAccess";
 import { competitionRank } from "@/lib/ranking";
 import { partitionShareGroups, compareSharedEntries } from "@/lib/sharing";
+import { getOwnStanding, type OwnStanding } from "@/app/supaApi/server/student/ownRecordRpc";
 
 export async function getOwnStudentData(): Promise<Student | null> {
     const logger = createServerLogger({ component: 'StudentAPI', action: 'getOwnStudentData' });
@@ -29,7 +30,7 @@ export async function getOwnStudentData(): Promise<Student | null> {
         const supabase = await supabaseServiceClient();
         const { data: studentData, error: studentError } = await supabase
             .from("student")
-            .select("id, school_id, first_name, last_name, birthdate, grade, gender, linkedUser")
+            .select("id, school_id, first_name, last_name, grade, linkedUser")
             .eq("linkedUser", phoenixUser.id)
             .single();
 
@@ -43,16 +44,16 @@ export async function getOwnStudentData(): Promise<Student | null> {
             schoolId: studentData.school_id,
             firstName: studentData.first_name,
             lastName: studentData.last_name,
-            birthdate: studentData.birthdate,
+            // DATA_DISCLOSURE.md §11.4 #26: no student surface renders these, so they never leave the server.
+            birthdate: null,
             grade: studentData.grade,
-            gender: studentData.gender,
+            gender: null,
             linkedUserId: studentData.linkedUser,
         };
 
         logger.info('Student data retrieved successfully', { 
             studentId: student.id,
-            schoolId: student.schoolId,
-            studentName: `${student.firstName} ${student.lastName}`
+            schoolId: student.schoolId
         });
 
         return student;
@@ -97,7 +98,7 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
         // Get all students whose linkedUser field matches the current user's ID
         const { data: studentData, error: studentError } = await supabase
             .from("student")
-            .select("id, school_id, first_name, last_name, birthdate, grade, gender, linkedUser")
+            .select("id, school_id, first_name, last_name, grade, linkedUser")
             .eq("linkedUser", userData.id);  // Find all students linked to this user
 
         if (studentError !== null) {
@@ -120,16 +121,16 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
             schoolId: studentRecord.school_id,
             firstName: studentRecord.first_name,
             lastName: studentRecord.last_name,
-            birthdate: studentRecord.birthdate,
+            // DATA_DISCLOSURE.md §11.4 #26: no student surface renders these, so they never leave the server.
+            birthdate: null,
             grade: studentRecord.grade,
-            gender: studentRecord.gender,
+            gender: null,
             linkedUserId: studentRecord.linkedUser,
         };
 
         logger.info('Student data retrieved successfully', { 
             studentId: student.id,
-            schoolId: student.schoolId,
-            studentName: `${student.firstName} ${student.lastName}`
+            schoolId: student.schoolId
         });
 
         return student;
@@ -226,6 +227,8 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
 
         // Calculate student statistics
         const studentStats = calculateStudentStats(student, allStudents, pointEvents, pointGroups, timeframe);
+        // D22: own ranks and "of N" come from SQL over the D19 cohort, not from the Node sort above.
+        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents, student.id);
         
         return {
             student,
@@ -591,13 +594,44 @@ function calculateStudentStats(
 
     return {
         totalPoints: studentPoints.get(student.id) || 0,
-        totalRank: studentRank,
-        totalOutOf: sortedStudents.length,
-        gradeRank,
-        gradeOutOf: gradeStudents.length,
+        totalRank: studentRank as number | null,
+        totalOutOf: sortedStudents.length as number | null,
+        gradeRank: gradeRank as number | null,
+        gradeOutOf: gradeStudents.length as number | null,
         pointGroupRankings,
         pointEventRankings
     };
+}
+
+/**
+ * Replaces the Node-computed own standing with the SQL one (DATA_DISCLOSURE.md D22, §11.4 #21):
+ * the D19 cohort (total > 0), ties sharing the better rank, ranked point groups only (D18), and null
+ * rank and N for "Not ranked yet". On a lookup failure every rank is null (fails closed, never "last").
+ * Category points are the student's own raw point_value per point_event.point_group_id, the same
+ * grouping the SQL cohort uses, so the figure beside each rank comes from the same computation.
+ */
+function applyOwnStanding(stats: ReturnType<typeof calculateStudentStats>, standing: OwnStanding | null, pointEvents: any[], studentId: number): void {
+    stats.totalRank = standing?.overall?.rank ?? null;
+    stats.totalOutOf = standing?.overall?.outOf ?? null;
+    stats.gradeRank = standing?.grade?.rank ?? null;
+    stats.gradeOutOf = standing?.grade?.outOf ?? null;
+
+    const ownByGroup = new Map<number, number>();
+    pointEvents.forEach((event) => {
+        const own = event.student_point.find((sp: any) => sp.student_id === studentId);
+        if (own && typeof event.point_group_id === 'number') {
+            ownByGroup.set(event.point_group_id, (ownByGroup.get(event.point_group_id) ?? 0) + own.point_value);
+        }
+    });
+    stats.pointGroupRankings = (standing?.pointGroups ?? []).map((g) => ({
+        pointGroupId: g.pointGroupId,
+        pointGroupName: g.pointGroupName,
+        pointGroupColor: g.pointGroupColor,
+        points: ownByGroup.get(g.pointGroupId) ?? 0,
+        rank: g.rank,
+        outOf: g.outOf,
+        letterGrade: percentileToRating(1 - (g.rank - 1) / g.outOf),
+    }));
 }
 
 /**
@@ -669,7 +703,10 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
             const participantCount = participantScores.length;
 
             // Tied scores share the better rank (§10.5).
-            const studentRank = competitionRank(participantScores, studentParticipation.point_value);
+            // §10.12 floor: no rank and no "of N" below K_HIDDEN + 1 (4) participants.
+            const studentRank: number | null = participantCount >= 4
+                ? competitionRank(participantScores, studentParticipation.point_value)
+                : null;
             const studentPoints = studentParticipation.point_value;
 
             pointEventRankings.push({
@@ -679,7 +716,7 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
                 maxPoints: event.max_input,
                 points: studentPoints,
                 rank: studentRank,
-                outOf: participantCount,
+                outOf: studentRank === null ? null : participantCount,
                 studentPointId: studentParticipation.id,
                 pointGroup: {
                     id: (event.point_group && event.point_group.id) || event.point_group_id,
@@ -746,9 +783,10 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
             schoolId: studentData.school_id,
             firstName: studentData.first_name,
             lastName: studentData.last_name,
-            birthdate: studentData.birthdate,
+            // DATA_DISCLOSURE.md §11.4 #26: no student surface renders these, so they never leave the server.
+            birthdate: null,
             grade: studentData.grade,
-            gender: studentData.gender,
+            gender: null,
             linkedUserId: studentData.linkedUser,
         };
 
@@ -822,6 +860,8 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
 
         // Calculate student statistics
         const studentStats = calculateStudentStats(student, allStudents, pointEvents, pointGroups, timeframe);
+        // D22: own ranks and "of N" come from SQL over the D19 cohort, not from the Node sort above.
+        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents, student.id);
         
         return {
             student,
