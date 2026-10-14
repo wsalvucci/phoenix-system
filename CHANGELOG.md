@@ -6,12 +6,18 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 ## [Unreleased]
 
 ### Added
+- Students see friendly messages when there are no recent points, no categories, no groups to share with, or nothing shared with them yet.
 - Teachers and admins can open the hallway displays from a new "Open hallway display" link on the teacher home and the school admin page.
 - The display menu (`/dashboard`) now names your school, lets staff with several schools switch between them, and carries the school into every display. If you ask for a school you cannot open, it says so and shows your own.
 - Parents and guardians now have a home entry: "Your children" with how many are connected, and a "Connect my child" button when none are.
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
 
 ### Changed
+- The student page now leads with your name and points, then Recent points, By category, Where you stand, and any roles you have. Labels like "Performance overview" and "Student record" are gone.
+- Student tabs are now "My points" and "Shared with me". Shared with me explains it shows points students in your groups chose to show you.
+- Sharing a point now says who will see it before you commit, and shows a short confirmation ("Shared with Band", "Stopped sharing"). Students in one group share with a single tap; others get a button that says what it will do, such as "Share with 2 groups".
+- Students who are not ranked yet see "Not ranked yet" instead of a rank.
+- The parent page for a child now shows their name and points first, then Recent points, By category, and standing. The percentile tile is removed.
 - Student, parent and teacher account linking is now one screen: type the code from your school, press Enter or the button. The school number can be passed as `?school=<id>`. The code is never put in a link.
 - The display menu describes the whole-school screen as "Whole-school highlights on one screen" and also lists the phone view and top cards.
 - Signed-out visitors see "Have you used Phoenix before?" with Sign in and Create an account, instead of an empty list of destinations.
@@ -60,6 +66,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
 - Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
 
+### Fixed
+- The Recent points list on the student page no longer re-checks sharing status over and over.
 
 ## [1.0.0] - 2026-09-12
 
