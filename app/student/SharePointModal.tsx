@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { getStudentGroups, shareStudentPoint, unshareStudentPoint, getPointSharedGroups } from "@/api/student";
 import { StudentGroupWithChildren } from "@/types/domain";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
-import "./victorian-theme.css";
 
 interface SharePointModalProps {
     studentPointId: number;
@@ -174,23 +173,23 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
 
     return (
         <div 
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-off-black/60 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="share-point-title"
-                className="victorian-content w-full max-w-md max-h-[90vh] bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                className="vic-enter flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-lg border border-rule bg-card text-card-foreground shadow-3 sm:rounded-lg"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header - Mobile optimized */}
-                <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 id="share-point-title" className="victorian-title text-xl sm:text-2xl font-bold">{title}</h2>
+                <div className="flex-shrink-0 border-b border-rule p-4 sm:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                        <h2 id="share-point-title" className="font-display text-xl font-semibold leading-tight sm:text-2xl">{title}</h2>
                         <button
                             onClick={onClose}
-                            className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                             aria-label="Close"
                         >
                             <span className="text-2xl">×</span>
@@ -202,19 +201,19 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                     {loading ? (
                         <div className="space-y-3" role="status">
-                            {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />)}
+                            {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-lg bg-secondary" />)}
                             <span className="sr-only">Loading your groups…</span>
                         </div>
                     ) : loadFailed ? (
-                        <p role="alert" className="py-4 text-red-700 dark:text-red-400">{error}</p>
+                        <p role="alert" className="py-4 text-base font-semibold text-destructive">{error}</p>
                     ) : groups.length === 0 ? (
-                        <div className="py-8 text-center text-slate-600 dark:text-slate-400">
-                            <p className="font-semibold text-slate-900 dark:text-slate-100">You are not in any groups yet.</p>
-                            <p className="mt-2 text-sm">Your teacher adds students to groups, so there is nothing to share with right now.</p>
+                        <div className="py-8 text-center text-muted-foreground">
+                            <p className="font-display text-lg font-semibold text-foreground">You are not in any groups yet.</p>
+                            <p className="mt-2 text-base">Your teacher adds students to groups, so there is nothing to share with right now.</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            <p className="pb-2 text-sm text-slate-700 dark:text-slate-300">
+                            <p className="pb-2 text-sm text-muted-foreground">
                                     {onlyGroup ? (
                                         <>Students in <strong>{onlyGroup.name}</strong>{onlyGroup.childGroups.length > 0 && <>, including {joinNames(includedNames(onlyGroup))},</>} will see your name, this assignment, and the points you earned.</>
                                     ) : (
@@ -228,19 +227,19 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
 
                                 return (
                                     <div key={group.id} className="space-y-1">
-                                        <label className="flex items-center gap-3 p-3 sm:p-4 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors min-h-[44px]">
+                                        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors hover:bg-accent">
                                             <input
                                                 type="checkbox"
                                                 checked={isSelected}
                                                 onChange={() => handleGroupToggle(group.id, hasChildren)}
-                                                className="w-5 h-5 sm:w-6 sm:h-6 rounded border-slate-300 text-victorian-burgundy focus:ring-2 focus:ring-victorian-burgundy focus:ring-offset-2 cursor-pointer"
+                                                className="h-5 w-5 cursor-pointer rounded border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                             />
                                             <div className="flex-1">
-                                                <div className="font-medium text-base sm:text-lg text-slate-900 dark:text-slate-100">
+                                                <div className="text-base font-semibold text-foreground">
                                                     {group.name}
                                                 </div>
                                                 {hasChildren && (
-                                                    <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                                    <div className="mt-1 text-sm text-muted-foreground">
                                                         Includes {joinNames(includedNames(group))}
                                                     </div>
                                                 )}
@@ -249,21 +248,21 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                                         
                                         {/* Child groups - Indented */}
                                         {hasChildren && (
-                                            <div className="ml-8 sm:ml-12 space-y-1">
+                                            <div className="ml-8 space-y-1 sm:ml-12">
                                                 {group.childGroups.map(child => {
                                                     const childSelected = selectedGroupIds.has(child.id);
                                                     return (
                                                         <label
                                                             key={child.id}
-                                                            className="flex items-center gap-3 p-2 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors min-h-[44px]"
+                                                            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg p-2 transition-colors hover:bg-accent sm:p-3"
                                                         >
                                                             <input
                                                                 type="checkbox"
                                                                 checked={childSelected}
                                                                 onChange={() => handleGroupToggle(child.id, false)}
-                                                                className="w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-300 text-victorian-burgundy focus:ring-2 focus:ring-victorian-burgundy focus:ring-offset-2 cursor-pointer"
+                                                                className="h-5 w-5 cursor-pointer rounded border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                                             />
-                                                            <div className="text-sm sm:text-base text-slate-700 dark:text-slate-300">
+                                                            <div className="text-base text-foreground">
                                                                 {child.name}
                                                             </div>
                                                         </label>
@@ -279,33 +278,33 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                                     type="button"
                                     onClick={handleSingleToggle}
                                     disabled={saving}
-                                    className="victorian-button mt-2 min-h-12 w-full rounded-lg px-4 py-3 text-base font-semibold disabled:opacity-50"
+                                    className="button-primary mt-2 h-auto min-h-12 w-full px-4 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                 >
                                     {saving ? 'Saving…' : onlyGroupShared ? `Stop sharing with ${onlyGroup.name}` : `Share with ${onlyGroup.name}`}
                                 </button>
                             )}
-                            {error && <p role="alert" className="pt-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
+                            {error && <p role="alert" className="pt-2 text-sm font-semibold text-destructive">{error}</p>}
                         </div>
                     )}
                 </div>
 
                 {/* Footer: single group shares from the body button; everyone else gets one outcome-labelled button. */}
-                <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2">
+                <div className="flex-shrink-0 space-y-2 border-t border-rule p-4 sm:p-6">
                     {!loading && !loadFailed && groups.length > 1 && (
                         <>
                             <button
                                 onClick={() => commit(selectedGroupIds, toastMessage)}
                                 disabled={saving || !changed}
-                                className="w-full px-4 py-3 rounded-lg victorian-button font-semibold transition-colors min-h-12 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="button-primary h-auto min-h-12 w-full px-4 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                             >
                                 {saving ? 'Saving…' : actionLabel}
                             </button>
-                            {actionHint && <p className="text-center text-sm text-slate-600 dark:text-slate-400">{actionHint}</p>}
+                            {actionHint && <p className="text-center text-sm text-muted-foreground">{actionHint}</p>}
                         </>
                     )}
                     <button
                         onClick={onClose}
-                        className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] text-base"
+                        className="button-secondary h-auto min-h-11 w-full px-4 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                     >
                         {!loading && !loadFailed && groups.length > 0 ? 'Cancel' : 'Close'}
                     </button>

@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { rankTier } from "@/lib/rankTier";
 import { isRanked, standingText } from "@/lib/rankText";
 import { SectionTitle } from "./ui";
-import "./victorian-theme.css";
 import SharePointModal from "./SharePointModal";
 import { checkPointsSharedStatus } from "@/api/student";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
@@ -92,7 +91,7 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
         <>
             <SectionTitle>Recent points</SectionTitle>
             {pointEventRankings.length === 0 ? (
-                <p className="py-6 text-base">
+                <p className="py-6 text-base text-muted-foreground">
                     No points yet this term. Points your teachers award will show up here.
                 </p>
             ) : (
@@ -107,7 +106,7 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
                                 <div className="flex min-w-0 flex-1 items-start gap-3">
                                     <span
                                         aria-hidden="true"
-                                        className="mt-1.5 h-3 w-3 shrink-0 rounded-full"
+                                        className="vic-dot mt-1.5 h-3 w-3"
                                         style={{ backgroundColor: event.pointGroup.color }}
                                     />
                                     <div className="min-w-0">
@@ -125,17 +124,17 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
                                             )}
                                         </p>
                                         {event.studentPointId && sharedStatus[event.studentPointId] && (
-                                            <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-400">✓ Shared with your groups</p>
+                                            <p className="mt-1 text-xs font-semibold text-success">✓ Shared with your groups</p>
                                         )}
                                     </div>
                                 </div>
                                 <div className="flex shrink-0 flex-col items-end gap-2">
-                                    <p className="vic-numeral whitespace-nowrap text-lg font-bold">+{event.points}</p>
+                                    <p className="vic-numeral whitespace-nowrap text-lg text-gilt-ink">+{event.points}</p>
                                     {event.studentPointId && (
                                         <button
                                             type="button"
                                             onClick={() => handleShareClick(event)}
-                                            className="victorian-button-secondary inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold"
+                                            className="button-secondary h-auto min-h-11 gap-2 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                             aria-label={`Share ${event.eventName}`}
                                         >
                                             <ShareIcon />
@@ -151,7 +150,7 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
             {canExpand && (
                 <div className="mt-6 flex justify-center">
                     <button
-                        className="victorian-button min-h-11 rounded-lg px-6 py-3"
+                        className="button-primary h-auto min-h-11 px-6 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         onClick={() => setCount(count + 5)}
                     >
                         Show {Math.min(5, pointEventRankings.length - count)} more
@@ -172,7 +171,7 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
             )}
             <div aria-live="polite" role="status" className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4">
                 {toast && (
-                    <div className="pointer-events-auto rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
+                    <div className="pointer-events-auto rounded-lg bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-3">
                         {toast}
                     </div>
                 )}

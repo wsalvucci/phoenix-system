@@ -166,3 +166,35 @@
     animation: none;
   }
 }
+
+/* Page: flat paper with one faint vignette. No image, no fixed attachment. */
+.vic-page {
+  background-image: radial-gradient(ellipse at 50% 0%, hsl(var(--card) / 0.6), transparent 70%);
+}
+
+/* Bottom nav: the only blur in the theme. */
+.vic-nav {
+  @apply fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-card/95 backdrop-blur;
+}
+
+/* Balance numeral: 40px at 320, 48px from 390, 60px from 640. */
+.vic-balance {
+  @apply text-gilt-ink;
+  font-size: 2.5rem;
+}
+@media (min-width: 390px) {
+  .vic-balance {
+    font-size: 3rem;
+  }
+}
+@media (min-width: 640px) {
+  .vic-balance {
+    font-size: 3.75rem;
+  }
+}
+
+/* Data marks keep their data colour but get an ink outline so they hold 3:1 on paper. */
+.vic-dot {
+  @apply inline-block shrink-0 rounded-full;
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.4);
+}

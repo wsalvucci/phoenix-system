@@ -69,6 +69,7 @@ const pairs = [
   ['gilt-foreground', 'gilt', T], ['gilt-ink', 'card', T], ['gilt-ink', 'background', T],
   ['gilt-ink', 'secondary', T], ['gilt', 'card', 1],
   ['seal-foreground', 'seal', T],
+  ...[1, 2, 3, 4, 5].map((n) => [`chart-${n}`, 'card', U]),
 ]
 for (const t of ['1', '2', '3', '4', '5', 'top10', 'top20', 'none']) {
   pairs.push([`rank-${t}-foreground`, `rank-${t}`, T])
@@ -82,7 +83,7 @@ const rows = []
 for (const [ctxName, ctx] of Object.entries(contexts)) {
   for (const [fg, bg, min] of pairs) {
     // Global (wave-1) semantic tokens are not part of this pass; only the new families are gated there.
-    if (ctxName.startsWith('global') && !/^(gilt|seal|rank-)/.test(fg)) continue
+    if (ctxName.startsWith('global') && !/^(gilt|seal|rank-|chart-)/.test(fg)) continue
     // Primary is a fill, and text only in light mode (dark primary is never used as text).
     if (ctxName === 'victorian dark' && fg === 'primary') continue
     let r

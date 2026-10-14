@@ -43,6 +43,11 @@
     --rule: 214 20% 80%;
     --seal: 8 50% 26%;
     --seal-foreground: 42 48% 97%;
+    --chart-1: 215 55% 38%;
+    --chart-2: 36 80% 36%;
+    --chart-3: 150 45% 28%;
+    --chart-4: 8 50% 40%;
+    --chart-5: 255 30% 46%;
     --shadow-seal: inset 0 1px 2px 0 hsl(8 60% 8% / 0.45), 0 1px 2px 0 hsl(222 47% 11% / 0.20);
     --rank-1: 51 100% 45%;
     --rank-1-foreground: 22 28% 12%;
@@ -106,6 +111,11 @@
     --rule: 217 20% 26%;
     --seal: 8 46% 34%;
     --seal-foreground: 42 48% 96%;
+    --chart-1: 212 60% 64%;
+    --chart-2: 40 72% 58%;
+    --chart-3: 150 40% 52%;
+    --chart-4: 10 60% 62%;
+    --chart-5: 255 40% 72%;
     --shadow-seal: inset 0 1px 2px 0 hsl(8 60% 5% / 0.60), 0 1px 2px 0 hsl(0 0% 0% / 0.45);
     --rank-1: 50 100% 55%;
     --rank-1-foreground: 24 22% 8%;
