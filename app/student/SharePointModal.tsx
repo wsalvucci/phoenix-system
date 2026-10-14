@@ -10,7 +10,7 @@ interface SharePointModalProps {
     eventName: string;
     isOpen: boolean;
     onClose: () => void;
-    onSuccess?: () => void;
+    onSuccess?: (message?: string) => void;
 }
 
 export default function SharePointModal({ studentPointId, eventName, isOpen, onClose, onSuccess }: SharePointModalProps) {
@@ -20,6 +20,7 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     // Fetch groups and existing shares
     useEffect(() => {
@@ -28,6 +29,7 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
         async function loadData() {
             setLoading(true);
             setError(null);
+            setLoadFailed(false);
             try {
                 const [groupsData, existingShareIdsArray] = await Promise.all([
                     wrapServerAction(getStudentGroups)(),
@@ -41,7 +43,8 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                 setExistingShareIds(shareIds);
                 setSelectedGroupIds(new Set(shareIds));
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load groups');
+                setLoadFailed(true);
+                setError('We could not load your groups. Close this and try again.');
             } finally {
                 setLoading(false);
             }
@@ -74,14 +77,22 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
         });
     };
 
-    const handleSave = async () => {
+    const groupName = (id: number) => {
+        for (const g of groups) {
+            if (g.id === id) return g.name;
+            const child = g.childGroups.find(c => c.id === id);
+            if (child) return child.name;
+        }
+        return 'your group';
+    };
+
+    const commit = async (next: Set<number>, successMessage: string) => {
         setSaving(true);
         setError(null);
 
         try {
-            // Get groups to share and unshare
-            const toShare = Array.from(selectedGroupIds).filter(id => !existingShareIds.has(id));
-            const toUnshare = Array.from(existingShareIds).filter(id => !selectedGroupIds.has(id));
+            const toShare = Array.from(next).filter(id => !existingShareIds.has(id));
+            const toUnshare = Array.from(existingShareIds).filter(id => !next.has(id));
 
             // Perform share/unshare operations
             const results = await Promise.all([
@@ -91,18 +102,73 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
 
             const hasError = results.some(r => !r.success);
             if (hasError) {
-                setError('Some operations failed. Please try again.');
+                // Some calls may have landed: reload what is really shared so the button tells the truth.
+                try {
+                    const fresh = new Set(await wrapServerAction(getPointSharedGroups)(studentPointId));
+                    setExistingShareIds(fresh);
+                } catch {
+                    // keep the previous state; the message below still tells the student what to do
+                }
+                setError('Some changes did not save. Check your groups and try again.');
             } else {
-                setExistingShareIds(new Set(selectedGroupIds));
-                onSuccess?.();
+                setExistingShareIds(new Set(next));
+                onSuccess?.(successMessage);
                 onClose();
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to save changes');
+            setError(err instanceof Error ? err.message : 'Your changes did not save. Try again.');
         } finally {
             setSaving(false);
         }
     };
+
+    const isSingle = groups.length === 1;
+    const onlyGroup = isSingle ? groups[0] : null;
+    const onlyGroupIds = onlyGroup ? [onlyGroup.id, ...onlyGroup.childGroups.map(c => c.id)] : [];
+    const onlyGroupShared = onlyGroup ? existingShareIds.has(onlyGroup.id) : false;
+
+    // One tap for the common case: a student in a single group.
+    const handleSingleToggle = () => {
+        if (!onlyGroup) return;
+        if (onlyGroupShared) {
+            commit(new Set(), 'Stopped sharing');
+        } else {
+            commit(new Set(onlyGroupIds), `Shared with ${onlyGroup.name}`);
+        }
+    };
+
+    // Multi-group: the button says what pressing it will do.
+    const changed =
+        selectedGroupIds.size !== existingShareIds.size ||
+        Array.from(selectedGroupIds).some(id => !existingShareIds.has(id));
+    let actionLabel: string;
+    let actionHint: string | null = null;
+    let toastMessage: string;
+    if (!changed) {
+        actionLabel = existingShareIds.size === 0 ? 'Share' : 'Update sharing';
+        actionHint = existingShareIds.size === 0 ? 'Pick at least one group' : 'Change a group above to update';
+        toastMessage = '';
+    } else if (selectedGroupIds.size === 0) {
+        actionLabel = 'Stop sharing';
+        toastMessage = 'Stopped sharing';
+    } else if (existingShareIds.size > 0) {
+        actionLabel = 'Update sharing';
+        toastMessage = 'Sharing updated';
+    } else {
+        const n = selectedGroupIds.size;
+        actionLabel = `Share with ${n} ${n === 1 ? 'group' : 'groups'}`;
+        toastMessage = n === 1 ? `Shared with ${groupName(Array.from(selectedGroupIds)[0])}` : `Shared with ${n} groups`;
+    }
+
+    const includedNames = (g: StudentGroupWithChildren) => g.childGroups.map(c => c.name);
+    const joinNames = (names: string[]) =>
+        names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+    const title = loading
+        ? `Share "${eventName}"`
+        : onlyGroup
+            ? `Share "${eventName}" with ${onlyGroup.name}`
+            : `Share "${eventName}" with your groups`;
 
     if (!isOpen) return null;
 
@@ -111,42 +177,52 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
             onClick={onClose}
         >
-            <div 
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="share-point-title"
                 className="victorian-content w-full max-w-md max-h-[90vh] bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header - Mobile optimized */}
                 <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
                     <div className="flex items-center justify-between mb-2">
-                        <h2 className="victorian-title text-xl sm:text-2xl font-bold">Share Points</h2>
+                        <h2 id="share-point-title" className="victorian-title text-xl sm:text-2xl font-bold">{title}</h2>
                         <button
                             onClick={onClose}
-                            className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             aria-label="Close"
                         >
                             <span className="text-2xl">×</span>
                         </button>
                     </div>
-                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 truncate">
-                        {eventName}
-                    </p>
                 </div>
 
                 {/* Content - Scrollable */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                     {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <div className="text-slate-600 dark:text-slate-400">Loading groups...</div>
+                        <div className="space-y-3" role="status">
+                            {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />)}
+                            <span className="sr-only">Loading your groups…</span>
                         </div>
-                    ) : error ? (
-                        <div className="text-red-600 dark:text-red-400 py-4">{error}</div>
+                    ) : loadFailed ? (
+                        <p role="alert" className="py-4 text-red-700 dark:text-red-400">{error}</p>
                     ) : groups.length === 0 ? (
-                        <div className="text-center py-12 text-slate-600 dark:text-slate-400">
-                            You are not in any groups.
+                        <div className="py-8 text-center text-slate-600 dark:text-slate-400">
+                            <p className="font-semibold text-slate-900 dark:text-slate-100">You are not in any groups yet.</p>
+                            <p className="mt-2 text-sm">Your teacher adds students to groups, so there is nothing to share with right now.</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {groups.map(group => {
+                            <p className="pb-2 text-sm text-slate-700 dark:text-slate-300">
+                                    {onlyGroup ? (
+                                        <>Students in <strong>{onlyGroup.name}</strong>{onlyGroup.childGroups.length > 0 && <>, including {joinNames(includedNames(onlyGroup))},</>} will see your name, this assignment, and the points you earned.</>
+                                    ) : (
+                                        <>Students in the groups you pick will see your name, this assignment, and the points you earned.</>
+                                    )}{' '}
+                                    Students who join those groups later will see it too. You can stop sharing at any time.
+                            </p>
+                            {isSingle ? null : groups.map(group => {
                                 const isSelected = selectedGroupIds.has(group.id);
                                 const hasChildren = group.childGroups.length > 0;
 
@@ -165,7 +241,7 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                                                 </div>
                                                 {hasChildren && (
                                                     <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                                        {group.childGroups.length} {group.childGroups.length === 1 ? 'subgroup' : 'subgroups'} included
+                                                        Includes {joinNames(includedNames(group))}
                                                     </div>
                                                 )}
                                             </div>
@@ -198,24 +274,40 @@ export default function SharePointModal({ studentPointId, eventName, isOpen, onC
                                     </div>
                                 );
                             })}
+                            {isSingle && onlyGroup && (
+                                <button
+                                    type="button"
+                                    onClick={handleSingleToggle}
+                                    disabled={saving}
+                                    className="victorian-button mt-2 min-h-12 w-full rounded-lg px-4 py-3 text-base font-semibold disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving…' : onlyGroupShared ? `Stop sharing with ${onlyGroup.name}` : `Share with ${onlyGroup.name}`}
+                                </button>
+                            )}
+                            {error && <p role="alert" className="pt-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
                         </div>
                     )}
                 </div>
 
-                {/* Footer - Mobile optimized buttons */}
-                <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 flex gap-3">
+                {/* Footer: single group shares from the body button; everyone else gets one outcome-labelled button. */}
+                <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2">
+                    {!loading && !loadFailed && groups.length > 1 && (
+                        <>
+                            <button
+                                onClick={() => commit(selectedGroupIds, toastMessage)}
+                                disabled={saving || !changed}
+                                className="w-full px-4 py-3 rounded-lg victorian-button font-semibold transition-colors min-h-12 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {saving ? 'Saving…' : actionLabel}
+                            </button>
+                            {actionHint && <p className="text-center text-sm text-slate-600 dark:text-slate-400">{actionHint}</p>}
+                        </>
+                    )}
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-3 sm:py-3.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] text-base"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] text-base"
                     >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={loading || saving}
-                        className="flex-1 px-4 py-3 sm:py-3.5 rounded-lg victorian-button font-medium transition-colors min-h-[44px] text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {saving ? 'Saving...' : 'Save'}
+                        {!loading && !loadFailed && groups.length > 0 ? 'Cancel' : 'Close'}
                     </button>
                 </div>
             </div>
