@@ -18,7 +18,7 @@ import {
 } from "../../mappers/rpcMappers";
 
 export type { LeaderGroupLetters, OwnLedLetters, PointsToNextRank };
-export type ShareWithdrawalNotice = { eventName: string | null; eventDate: string | null; withdrawnAt: string };
+export type ShareWithdrawalNotice ={ eventName: string | null; eventDate: string | null; withdrawnAt: string };
 
 /**
  * "N points to move up" per cohort, replacing the nearby lists (§9.3, §10.2). Overall always; grade,
@@ -40,7 +40,88 @@ export async function getPointsToNextRank(studentId: number, timeframeId: number
         console.error("points_to_next_rank failed", error.message);
         return null;
     }
-    return mapPointsToNext(data ?? []);
+    const gaps = mapPointsToNext(data ?? []);
+    // §11.5 G-b (proposed ruling in force): the overall gap also needs MIN_COHORT_FOR_AGGREGATE (10)
+    // ranked students. points_to_next_rank does not apply it to 'overall' yet, so it is applied here
+    // from the same D19 cohort size until the SQL is amended.
+    if (gaps.overall !== null) {
+        // The floor is read from publication_cut_policy(), the single copy of the thresholds (D20).
+        const [standing, policy] = await Promise.all([
+            getOwnStanding(studentId, timeframeId),
+            supabase.rpc("publication_cut_policy"),
+        ]);
+        const floor = policy.data?.[0]?.min_cohort_for_aggregate;
+        if (!standing?.overall || typeof floor !== "number" || standing.overall.outOf < floor) gaps.overall = null;
+    }
+    return gaps;
+}
+
+export type OwnRank = { rank: number; outOf: number };
+export type OwnStanding = {
+    overall: OwnRank | null;
+    grade: OwnRank | null;
+    /** Ranked point groups only (D18), and only those where the student is ranked. */
+    pointGroups: ({ pointGroupId: number; pointGroupName: string; pointGroupColor: string } & OwnRank)[];
+};
+
+/**
+ * Own rank and own denominator over the D19 cohort (students with a total > 0), computed in SQL by
+ * mobile_own_rank, the same function the mobile app's figures use (DATA_DISCLOSURE.md D22, §11.4 #21).
+ * Ties share the better rank. null = "Not ranked yet". mobile_own_rank is an internal helper that
+ * takes a student id and does no actor check, so the actor is checked here first (canViewStudent),
+ * and the school, timeframe and ranked point groups are all read from the student's own school.
+ */
+export async function getOwnStanding(studentId: number, timeframeId: number): Promise<OwnStanding | null> {
+    if (!Number.isInteger(timeframeId) || timeframeId <= 0) return null;
+    const userId = await getSessionUserId();
+    if (userId === null || !(await canViewStudent(userId, studentId))) return null;
+
+    const supabase = await supabaseServiceClient();
+    const { data: student } = await supabase.from("student").select("school_id, grade").eq("id", studentId).maybeSingle();
+    if (!student) return null;
+    const { data: tf } = await supabase
+        .from("school_timeframes")
+        .select("starts_at, ends_at")
+        .eq("id", timeframeId)
+        .eq("school_id", student.school_id)
+        .maybeSingle();
+    if (!tf) return null;
+    const { data: groups, error: groupsError } = await supabase
+        .from("point_group")
+        .select("id, name, color")
+        .eq("school_id", student.school_id)
+        .eq("ranked", true)
+        .order("name");
+    if (groupsError) return null;
+
+    const own = async (kind: "overall" | "grade" | "point_group", cohortId: number | null): Promise<OwnRank | null> => {
+        const { data, error } = await supabase.rpc("mobile_own_rank", {
+            p_student_id: studentId,
+            p_school_id: student.school_id,
+            p_starts: tf.starts_at,
+            p_ends: tf.ends_at,
+            p_kind: kind,
+            p_cohort_id: cohortId as number,
+        });
+        if (error) {
+            console.error("mobile_own_rank failed", error.message);
+            return null;
+        }
+        const row = data?.[0];
+        return row && row.own_rank > 0 && row.cohort_size >= row.own_rank ? { rank: row.own_rank, outOf: row.cohort_size } : null;
+    };
+
+    const [overall, grade, ...perGroup] = await Promise.all([
+        own("overall", null),
+        own("grade", student.grade),
+        ...(groups ?? []).map((g) => own("point_group", g.id)),
+    ]);
+    const pointGroups: OwnStanding["pointGroups"] = [];
+    (groups ?? []).forEach((g, i) => {
+        const r = perGroup[i];
+        if (r) pointGroups.push({ pointGroupId: g.id, pointGroupName: g.name, pointGroupColor: g.color, ...r });
+    });
+    return { overall, grade, pointGroups };
 }
 
 /**

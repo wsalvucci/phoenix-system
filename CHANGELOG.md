@@ -24,6 +24,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 ### Changed
+- **BREAKING:** Ranks on the student page and the parent child page now count only students with points this timeframe, and tied students share the better rank, the same as the mobile app. A student with no points shows "Not ranked yet" instead of a last-place rank. Categories show a rank only for ranked categories, and an assignment with fewer than 4 students shows no rank. "Points to move up" for the whole school needs at least 10 ranked students.
 - Opening a display link while signed out now takes you to sign-in and then straight back to that display. A wrong password says so plainly and keeps your place; the email box now suggests saved emails and shows the right phone keyboard.
 - The older `/dashboard/feature` address keeps its school when it forwards to the featured display.
 - In the scorebook, "Add New Point Event" is now "Add an assignment", and deleting one names it and says how many saved scores go with it. The duplicate "Open Unified Scorebook" button, which opened this same page, is gone.
@@ -61,6 +62,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
 
 ### Security
+- A student's birthdate and gender are no longer sent to the browser on the home screen or the student pages; nothing there shows them.
 - Removed console logging of student and dashboard data from the teacher home and the admin school layout.
 - Dashboards no longer show a student who is missing from a point group's ranking, and small grades now hide at least three students and round their share down.
 - Removed two unused school-wide statistics endpoints (student and teacher versions) and an unused global dashboard endpoint that could return school rosters.

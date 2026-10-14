@@ -114,15 +114,12 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
                                         <p className="text-sm text-muted-foreground">
                                             {formatDate(event.eventDate)} · {event.pointGroup.name}
                                         </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {ranked ? (
-                                                <>
-                                                    <span className="text-rank-ink" data-rank-tier={rankTier(event.rank, event.outOf)}>{standingText(event.rank, event.outOf)}</span>
-                                                </>
-                                            ) : (
-                                                standingText(event.rank, event.outOf)
-                                            )}
-                                        </p>
+                                        {/* Events with fewer than 4 participants carry no rank (§10.12 floor), so no line. */}
+                                        {ranked && (
+                                            <p className="text-sm text-muted-foreground">
+                                                <span className="text-rank-ink" data-rank-tier={rankTier(event.rank, event.outOf)}>{standingText(event.rank, event.outOf)}</span>
+                                            </p>
+                                        )}
                                         {event.studentPointId && sharedStatus[event.studentPointId] && (
                                             <p className="mt-1 text-xs font-semibold text-success">✓ Shared with your groups</p>
                                         )}

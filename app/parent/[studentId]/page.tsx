@@ -50,8 +50,8 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
                     <p className="mt-3 flex items-center gap-2 text-sm font-semibold">
                         {isRanked(gradeRank, gradeOutOf) ? (
                             <>
-                                <RankBadge rank={gradeRank} tier={rankTier(gradeRank, gradeOutOf)} />
-                                <span>{numberToOrdinal(gradeRank)} of {gradeOutOf} in Grade {student.grade}</span>
+                                <RankBadge rank={gradeRank as number} tier={rankTier(gradeRank, gradeOutOf)} />
+                                <span>{numberToOrdinal(gradeRank as number)} of {gradeOutOf} in Grade {student.grade}</span>
                             </>
                         ) : (
                             <span>{NOT_RANKED_YET}</span>
