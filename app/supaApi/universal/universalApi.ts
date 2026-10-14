@@ -3,8 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
-import { getDashboardFilters, DashboardFilterConfig } from "./dashboardFilters";
-import { isStudentPublished } from "./publicationCut";
 import { getCallerAccess, isStaffOfSchool } from "../server/staffAccess";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
@@ -529,43 +527,16 @@ export async function adminGetGlobalPointStats(
     if (adminData === null) return null;
     if (adminData.schools.find((school) => school === schoolId) === undefined) return null;
 
-    const filters = getDashboardFilters('ADMIN');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+    return await getGlobalPointStats(schoolId, timeframeId);
 }
 
-export async function featuredDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('FEATURED');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function mobileDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('MOBILE');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function globalDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('GLOBAL');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
+/**
+ * ADMIN tier only (adminGetGlobalPointStats, checked against admin_school_pair). Every student of
+ * the school, uncut. Never feed a DISPLAY surface from this: dashboards use getDisplayBoards (D20).
+ */
 async function getGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,
-    numStudentsOverall: number | null,
-    numStudentsPerPointGroup: number | null,
-    ratioStudentsPerGrade: number | null,
 ) : Promise<GlobalPoints | null> {
 
     // --- START: Artificial Delay for Local Testing ---
@@ -732,7 +703,6 @@ async function getGlobalPointStats(
         studentsByGrade.get(student.grade)?.push(student);
     });
 
-    const gradeSizes = new Map(Array.from(studentsByGrade.entries()).map(([grade, list]) => [grade, list.length]));
 
     // Group students by point group for ranking
     const studentsByPointGroup = new Map<number, CompiledStudentPoints[]>();
@@ -1005,24 +975,6 @@ async function getGlobalPointStats(
                 monthToMonthChange: student.totalPoints - lastMonthPts,
                 studentGroups: student.studentGroups
             }
-        }).filter((student) => {
-            // This is a privacy filter so that people who are not admins
-            // can't see the full list of students beyond the best
-            if (
-                numStudentsOverall === null ||
-                ratioStudentsPerGrade === null ||
-                numStudentsPerPointGroup === null
-            ) return true;
-            // Fails closed: rank 0 (absent from a rank map) or an unknown grade size never publishes.
-            return isStudentPublished(
-                student,
-                gradeSizes,
-                {
-                    overall: numStudentsOverall,
-                    perPointGroup: numStudentsPerPointGroup,
-                    gradeRatio: ratioStudentsPerGrade,
-                },
-            );
         }),
         pointGroups: pointGroups ?? [],
         // Use the recalculated and sorted top-level student group data

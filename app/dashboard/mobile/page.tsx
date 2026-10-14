@@ -5,8 +5,8 @@ import { displayRankTier } from "@/lib/rankTier";
 import { useEffect, useState } from "react";
 import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";
-import { mobileDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
-import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
+import { getDisplayBoards } from "@/app/supaApi/server/dashboard/displayBoards";
+import type { DisplayBoards } from "@/app/supaApi/universal/displayTypes";
 import Color from "color";
 import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
@@ -21,13 +21,13 @@ const azeret = Azeret_Mono({
 });
 
 export default function MobileDashboard() {
-    const [mobileDashData, setMobileDashData] = useState<GlobalPoints | null>(null);
+    const [mobileDashData, setMobileDashData] = useState<DisplayBoards | null>(null);
 
     const { schoolId } = useDashboardSchool();
 
     useEffect(() => {
         if (schoolId === null) return;
-        mobileDashGetGlobalStats(schoolId, null).then((data) => {
+        getDisplayBoards(schoolId, null).then((data) => {
             setMobileDashData(data);
         });
     }, [schoolId]);
@@ -60,15 +60,15 @@ export default function MobileDashboard() {
                 <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
                 <div>
                     {
-                        mobileDashData?.students
-                        .map((student, index) => {
+                        mobileDashData?.overall.rows
+                        .map((student) => {
                             return (
-                                <div key={student.id || index} className="my-1">{
+                                <div key={student.key} className="my-1">{
                                         topStudentCard(
                                             {
                                                 fullName: student.firstName + " " + student.lastName,
                                                 points: student.totalPoints,
-                                                rank: index + 1
+                                                rank: student.rank
                                             }
                                         )
                                     }
@@ -87,10 +87,9 @@ export default function MobileDashboard() {
                 <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
                 {
                     mobileDashData?.grades
-                    .sort((a, b) => a - b)
                     .map((grade) => {
                         return (
-                            <div key={grade} className="pb-3">
+                            <div key={grade.key} className="pb-3">
                                 <div className="px-2 py-1 my-1 flex justify-center text-lg" style={{
                                     background: backgroundGradient([
                                         {
@@ -110,64 +109,23 @@ export default function MobileDashboard() {
                                     borderRight: `1px solid ${Color('#555').toString()}`,
                                     backgroundSize: "cover",
                                     textShadow: metalTextShadow
-                                }}>Grade {grade}</div>
+                                }}>{grade.title}</div>
                                 <div>
                                     {
-                                        mobileDashData.students
-                                        .filter(student => student.grade === grade)
-                                        .map((student, index) => {
-                                            return topStudentCard(
+                                        grade.rows
+                                        .map((student) => {
+                                            return <div key={student.key}>{topStudentCard(
                                                 {
                                                     fullName: student.firstName + " " + student.lastName,
                                                     points: student.totalPoints,
-                                                    rank: index + 1
+                                                    rank: student.rank
                                                 }
-                                            );
+                                            )}</div>;
                                         })
                                     }
                                 </div>
                             </div>
                         )
-                    })
-                }
-            </div>
-            <div>
-                {
-                    mobileDashData?.rankingGroups.map((rankingGroup) => {
-                        return (
-                            <div key={rankingGroup.id} className="pb-10">
-                                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">
-                                    {rankingGroup.name}
-                                </div>
-                                {
-                                    rankingGroup.studentGroups
-                                    .sort((a, b) => {
-                                        const groupAPoints = a.averagePoints + b.rawPoints;
-                                        const groupBPoints = a.averagePoints + b.rawPoints;
-                                        return groupBPoints - groupAPoints;
-                                    })
-                                    .map((group, index) => {
-                                        const groupData = mobileDashData.studentGroups.find((studentGroup) => studentGroup.id === group.id);
-                                        if (!groupData) {
-                                            return null;
-                                        }
-                                        return (
-                                            <div key={index}>
-                                                <div className="grid grid-cols-3 px-2 py-1 my-1" data-rank-tier={displayRankTier(index + 1)} style={{
-                                                    background: 'hsl(var(--rank))',
-                                                    color: 'hsl(var(--rank-foreground))',
-                                                    gridTemplateColumns: "1fr 4fr 1fr",
-                                                }}>
-                                                    <div className="flex ">{index + 1}</div>
-                                                    <div className="flex ">{groupData.name}</div>
-                                                    <div className={`flex justify-end ${azeret.className}`}>{Math.round(groupData.averagePoints + groupData.rawPoints).toLocaleString()}</div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })
-                                }
-                            </div>
-                        );
                     })
                 }
             </div>

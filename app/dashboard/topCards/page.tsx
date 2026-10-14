@@ -1,13 +1,11 @@
 "use client";
-import { getTopScrollingDashboard } from "@/api/dashboard";
+import { getDisplayBoards } from "@/app/supaApi/server/dashboard/displayBoards";
 
 import { numberToOrdinal } from "@/app/dataClasses";
 import { displayRankTier } from "@/lib/rankTier";
 import { LoadingState } from "@/components/LoadingLayout";
-import { percentileToRating, Timeframe } from "@/types/domain";
-import type { SimpleDashboardData } from "@/api/service/dashboard";
+import type { DisplayStudentRow, DisplayTimeframe } from "@/app/supaApi/universal/displayTypes";
 import { useQuery } from "@tanstack/react-query";
-import Color from "color";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
@@ -19,14 +17,19 @@ export default function TopCards() {
     const { data, isLoading, error } = useQuery({
         queryKey: ["topCards", schoolId, selectedTimeframeId],
         enabled: schoolId !== null,
-        queryFn: () => getTopScrollingDashboard(schoolId as number, selectedTimeframeId)
+        queryFn: async () => {
+            const boards = await getDisplayBoards(schoolId, selectedTimeframeId);
+            if (!boards) throw new Error("No dashboard data available");
+            // Overall board only: already cut by the server (public.display_cut).
+            return { timeframes: boards.timeframes, students: boards.overall.rows };
+        }
     })
 
     const pinnedItemRef = useRef<HTMLDivElement>(null);
     const [pinnedItemHeight, setPinnedItemHeight] = useState(0);
 
     // Timeframe dropdown component
-    const TimeframeDropdown = ({ timeframes }: { timeframes: Timeframe[] }) => {
+    const TimeframeDropdown = ({ timeframes }: { timeframes: readonly DisplayTimeframe[] }) => {
         return (
             <div className="w-full">
                 <label htmlFor="timeframe-select" className="block text-sm font-medium text-off-white mb-2">
@@ -44,7 +47,7 @@ export default function TopCards() {
                     <option value="">Active Timeframe</option>
                     {timeframes.map((timeframe) => (
                         <option key={timeframe.id} value={timeframe.id}>
-                            {timeframe.name} {timeframe.active ? "(Active)" : ""}
+                            {timeframe.name} {timeframe.isActive ? "(Active)" : ""}
                         </option>
                     ))}
                 </select>
@@ -52,85 +55,10 @@ export default function TopCards() {
         );
     };
 
-    const StudentCard = ({ student }: { student: SimpleDashboardData["students"][0] }) => {
-        // Function to create gradient text
-        const createGradientText = (color: string, rating: string) => {
-            // Special holographic effect for S ranks
-            if (rating.startsWith('S')) {
-                return {
-                    background: `linear-gradient(45deg, #ff6b9d 0%, #c44569 12.5%, #feca57 25%, #ff9ff3 37.5%, #54a0ff 50%, #5f27cd 62.5%, #00d2d3 75%, #ff9f43 87.5%, #ff6b9d 100%)`,
-                    backgroundSize: '25% 25%',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    textShadow: `
-                        2px 2px 3px rgba(0,0,0,0.3),
-                        -2px -2px 3px rgba(255,255,255,0.4)
-                    `,
-                };
-            }
-            // Shiny metallic effect for other ranks
-            const baseColor = Color(color);
-            // Create shiny metallic effect
-            const veryLight = baseColor.lighten(0.6).toString();
-            const light = baseColor.lighten(0.3).toString();
-            const dark = baseColor.darken(0.2).toString();
-            const veryDark = baseColor.darken(0.4).toString();
-            return {
-                background: `linear-gradient(45deg, ${veryLight} 0%, ${light} 25%, ${baseColor} 40%, ${dark} 60%, ${veryDark} 75%, ${light} 100%)`,
-                backgroundSize: '200% 200%',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                textShadow: `
-                    2px 2px 3px rgba(0,0,0,0.2),
-                    -2px -2px 3px rgba(255,255,255,0.3)
-                `,
-            };
-        };
-
-        // Create dynamic gradient based on point group breakdown
-        const createPointGroupGradient = () => {
-            if (!student.pointGroups || student.pointGroups.length === 0) {
-                return `linear-gradient(45deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #cccccc 100%)`;
-            }
-
-            // Calculate total points for percentage calculation
-            const totalPoints = student.pointGroups.reduce((sum, pg) => sum + pg.points, 0);
-            if (totalPoints === 0) {
-                return `linear-gradient(45deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #cccccc 100%)`;
-            }
-
-            // Sort point groups by ID to maintain consistent order across all students
-            const sortedPointGroups = [...student.pointGroups].sort((a, b) => a.id - b.id);
-            
-            // Start with black section to push point group colors to the side
-            let gradient = 'linear-gradient(45deg, #000000 0%, #000000 50%';
-            let currentPercent = 50; // Start point group colors at 50%
-            
-            sortedPointGroups.forEach((pg, index) => {
-                const percentage = (pg.points / totalPoints) * 50; // Use remaining 50% of space
-                const startPercent = currentPercent;
-                currentPercent += percentage;
-                
-                // Darken the color to be less jarring against dark background
-                const darkenedColor = Color(pg.color).darken(0.4).toString();
-                
-                gradient += `, ${darkenedColor} ${startPercent}%, ${darkenedColor} ${currentPercent}%`;
-            });
-            
-            // Fill remaining space with black if needed
-            if (currentPercent < 100) {
-                gradient += `, #000000 ${currentPercent}%, #000000 100%`;
-            }
-            
-            gradient += ')';
-            return gradient;
-        };
-
+    const StudentCard = ({ student }: { student: DisplayStudentRow }) => {
         return (
             <div className="flex-shrink-0 w-screen p-4 text-off-white rounded-lg shadow-xl border border-border" style={{
-                background: createPointGroupGradient(),
+                background: "linear-gradient(45deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #cccccc 100%)",
             }}>         
                 <div className="relative h-full" style={{ width: "45%"}}>
                     {/* Left side content */}
@@ -147,7 +75,7 @@ export default function TopCards() {
                                 fontSize: "2rem",
                                 fontWeight: "bold"
                             }}>
-                                {student.student.first_name} {student.student.last_name}
+                                {student.firstName} {student.lastName}
                             </div>
                             <div style={{
                                 fontSize: "2.5rem",
@@ -158,17 +86,8 @@ export default function TopCards() {
                         </div>
                         <div className="flex flex-col items-end">
                             <div className="text-off-white text-lg mb-2">
-                                Grade {student.student.grade}
+                                Grade {student.grade}
                             </div>
-                            {student.studentGroups && student.studentGroups.length > 0 && (
-                                <div className="text-off-white text-sm">
-                                    {student.studentGroups.map((sg, index) => (
-                                        <div key={sg.id} className="text-right mb-1">
-                                            {sg.name}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -234,7 +153,7 @@ export default function TopCards() {
                             >
                                 {scrollingItems.map((student, index) => (
                                     <motion.div
-                                        key={`${student.studentId}-${index}`}
+                                        key={`${student.key}-${index}`}
                                         initial={{ opacity: 0, y: 50 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.05 }}
