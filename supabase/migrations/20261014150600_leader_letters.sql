@@ -7,16 +7,24 @@
 -- Cohort (L4): students of the school with a point-group total > 0 in the school's current timeframe
 --   (the "ranked students"). If the cohort has fewer than 30 students, that point group gets no letters
 --   at all, so every leader's column for it is null.
---   A student with no points in the category gets E (p = 0). See BACKEND_PLAN.md decision LL-1: this
---   needs privacy-boundary's confirmation.
--- Columns (L5): point groups of the school with at least one event in the current timeframe.
--- Stability (L9): letters are read only from a snapshot, refreshed at most once per day per school
---   (UTC date; decision LL-2). Only the CURRENT snapshot is kept, and the previous one is deleted on
---   refresh, so no letter history exists to diff (L7).
+--   A student with no student_point rows, a zero total, or a negative total in the category gets E,
+--   never a per-member blank (D15, RULED). That E counts toward L8(b) like any other E.
+-- Columns (L5, D18): RANKED point groups of the school with at least one event in the snapshot window.
+--   An unranked point group never gets letters.
+-- Snapshot window (D16): events with starts_at <= date <= ends_at AND date < 00:00 UTC of the snapshot
+--   date. A snapshot therefore holds whole UTC days only, whoever triggers it and whenever. UTC is
+--   allowed for schools where 00:00 UTC falls outside 07:00-15:00 local (US mainland). Schools in
+--   Hawaii, the Pacific islands, and most of Asia and Oceania need a school.timezone column and a
+--   local-midnight boundary before letters go live there. No such column exists yet.
+-- Stability (L9): letters are read only from a snapshot, refreshed at most once per day per school.
+--   Only the CURRENT snapshot is kept, and the previous one is deleted on refresh, so no letter history
+--   exists to diff (L7). Participation is captured in the snapshot too.
 -- Suppression (L8), per (group, point group) column. Shown only if ALL of these hold:
 --   at least 6 members besides the leader; the point group met the cohort floor; every member has a
---   snapshot letter (a student enrolled since the snapshot would otherwise be a gap); and the number of
---   members holding D is 0 or at least 3, and likewise for E. Otherwise the whole column is null.
+--   snapshot letter (a student enrolled since the snapshot would otherwise be a gap); the number of
+--   members holding D is 0 or at least 3, and likewise for E; and (L8(c), D15) MORE THAN HALF of the
+--   listed members took part in that point group in the window, where taking part means at least one
+--   student_point row, of any value, on an event of that point group. Otherwise the whole column is null.
 -- Output (L2): names, point group id/name/colour and the letter only. No points, percentile, cohort
 --   size, count, or student id. The server replaces row identity with an opaque per-response key.
 -- Audience: get_leader_group_letters is LEADER ONLY. The actor must be the student's own account
@@ -38,6 +46,8 @@ create table public.leader_letter (
   point_group_id bigint not null references public.point_group (id) on update cascade on delete cascade,
   student_id bigint not null references public.student (id) on update cascade on delete cascade,
   letter character(1) not null check (letter in ('S', 'A', 'B', 'C', 'D', 'E')),
+  -- L8(c): at least one student_point row (any value) on an event of this point group in the window.
+  participated boolean not null,
   primary key (school_id, point_group_id, student_id)
 );
 -- Serves the per-member lookups in both read functions (student_id within a school).
@@ -80,6 +90,8 @@ declare
   _starts timestamptz;
   _ends timestamptz;
   _today date := (now() at time zone 'utc')::date;
+  -- D16: the snapshot holds only events dated before 00:00 UTC of its snapshot date.
+  _day_start timestamptz := ((now() at time zone 'utc')::date)::timestamp at time zone 'utc';
   _run public.leader_letter_run%rowtype;
   _floor constant integer := 30;
 begin
@@ -106,22 +118,25 @@ begin
   insert into public.leader_letter_run (school_id, timeframe_id, snapshot_date, point_group_ids)
   select p_school_id, _tf, _today, coalesce(array_agg(distinct pe.point_group_id order by pe.point_group_id), '{}')
   from public.point_event pe
-  join public.point_group pg on pg.id = pe.point_group_id and pg.school_id = p_school_id
-  where pe.date >= _starts and pe.date <= _ends;
+  join public.point_group pg on pg.id = pe.point_group_id and pg.school_id = p_school_id and pg.ranked
+  where pe.date >= _starts and pe.date <= _ends and pe.date < _day_start;
 
-  insert into public.leader_letter (school_id, point_group_id, student_id, letter)
+  insert into public.leader_letter (school_id, point_group_id, student_id, letter, participated)
   with active_groups as (
     select unnest(r.point_group_ids) as pgid from public.leader_letter_run r where r.school_id = p_school_id
   ),
-  totals as (
+  per_student as (
+    -- Every (point group, student) with at least one score row in the window: the participants.
     select pe.point_group_id as pgid, sp.student_id, sum(sp.point_value) as total
     from public.student_point sp
     join public.point_event pe on pe.id = sp.point_event_id
     join public.student s on s.id = sp.student_id and s.school_id = p_school_id
-    where pe.date >= _starts and pe.date <= _ends
+    where pe.date >= _starts and pe.date <= _ends and pe.date < _day_start
       and pe.point_group_id in (select ag.pgid from active_groups ag)
     group by pe.point_group_id, sp.student_id
-    having sum(sp.point_value) > 0
+  ),
+  totals as (
+    select ps.pgid, ps.student_id, ps.total from per_student ps where ps.total > 0
   ),
   cohort as (
     select t.pgid, t.student_id,
@@ -135,10 +150,12 @@ begin
     select c.pgid from cohort c group by c.pgid having max(c.size) >= _floor
   )
   select p_school_id, e.pgid, s.id,
-    coalesce(public.letter_for_share_below(c.share_below), 'E')
+    coalesce(public.letter_for_share_below(c.share_below), 'E'),
+    (ps.student_id is not null)
   from eligible e
   join public.student s on s.school_id = p_school_id
-  left join cohort c on c.pgid = e.pgid and c.student_id = s.id;
+  left join cohort c on c.pgid = e.pgid and c.student_id = s.id
+  left join per_student ps on ps.pgid = e.pgid and ps.student_id = s.id;
 
   return _tf;
 end;
@@ -200,7 +217,7 @@ begin
     where r.school_id = _school and _tf is not null
   ),
   cells as (
-    select m.gid, m.sid, c.id as pgid, ll.letter::text as letter
+    select m.gid, m.sid, c.id as pgid, ll.letter::text as letter, coalesce(ll.participated, false) as participated
     from members m
     cross join columns c
     left join public.leader_letter ll
@@ -214,6 +231,8 @@ begin
       and count(*) filter (where ce.letter is null) = 0
       and count(*) filter (where ce.letter = 'D') not in (1, 2)
       and count(*) filter (where ce.letter = 'E') not in (1, 2)
+      -- L8(c): more than half of the listed members took part.
+      and count(*) filter (where ce.participated) * 2 > count(*)
   )
   select g.id, g.name, m.first_name, m.last_name, m.ord, c.id, c.name, c.color,
     case when sh.gid is not null then ce.letter end

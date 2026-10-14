@@ -10,24 +10,29 @@ database**, local or remote, because this task ruled out all DB commands.
 | # | File | What | Risk |
 |---|---|---|---|
 | 0 | `20260912000000_reconcile_live_baseline.sql` | Live schema (32 tables, 44 functions, 9 policies, auth trigger) for fresh databases. **Backdated** so a fresh replay works. | No-op on production (guarded). Destructive only on an empty, 2024-only database. |
-| 1 | `20261014150000_lock_down_function_execute.sql` | **URGENT.** EXECUTE grants, `search_path`, `create_school_and_pair_admin` caller check, admin-function shadowing fix, `student_class_pair` policy. Self-checking. | Low. No data change. |
+| 1 | `20261014150000_lock_down_function_execute.sql` | **URGENT.** EXECUTE grants, `search_path`, `create_school_and_pair_admin` caller check, admin-function shadowing fix, `student_class_pair` policy. Self-checking. Applied by the product owner as written. | Low. No data change. |
+| 1a | `20261014150050_led_group_member_points_names_only.sql` | **URGENT, same window as 1.** `get_led_group_member_points` rewritten names-only (alphabetical, NULL ids/totals/categories) **and revoked from `authenticated`** (D14: the app cannot decode NULL there, so the ruling's revoke branch applies). No dependencies. | No data change. **Mobile:** a leader's group screen fails (§1.5). |
 | 2 | `20261014150100_actor_helpers.sql` | `is_admin_of_school`, `is_staff_of_school`, `can_view_student`. | Additive. |
-| 3 | `20261014150200_display_devices.sql` | Kiosk credential tables and RPCs. | Additive. |
-| 4 | `20261014150300_publication_cut_functions.sql` | `publication_cut*`, `display_cut`, `points_to_next_rank`, 3 indexes. | Additive. |
+| 3 | `20261014150200_display_devices.sql` | Kiosk credential tables and RPCs. D17: device lapses when its pairer stops being staff; `display_device_live`, `display_device_reconfirm` (admin), `pairer_active` in the admin list. | Additive. |
+| 4 | `20261014150300_publication_cut_functions.sql` | `publication_cut*`, `display_cut` (live-device check), `points_to_next_rank` (D19: nothing for an unranked student), 3 indexes. | Additive. |
 | 5 | `20261014150400_withdraw_shares_on_score_change.sql` | Trigger that stops sharing a changed score, plus the notice table and RPC. | Additive. Changes runtime behaviour (D3). |
 | 6 | `20261014150500_link_codes_and_attempts.sql` | 50-bit generator as the new default, rate-limited redeem and preview, admin parent-link list, revoke and rotate. | Additive. Existing codes still work. |
-| 7 | `20261014150600_leader_letters.sql` | D13 snapshot and functions. | Additive. |
+| 7 | `20261014150600_leader_letters.sql` | D13 snapshot and functions, with D15 (zero points = E; L8(c) participation), D16 (whole UTC days), D18 (ranked point groups only). | Additive. |
+| 7a | `20261014150650_mobile_rpc_disclosure.sql` | D14 for 10 mobile RPCs: cut per cohort, peer ids/trends NULL, no neighbours, school scoping (G1), aggregate floors, per-event rank floor, `ranking_group` school + membership, `point_group` school + `ranked`. Also fixes all-time totals in 5 bodies. Depends on 4. | No data change. **BREAKING for the mobile app as shipped** (§1.5). |
 | 8 | `20261014150700_regenerate_link_codes.sql` | **FLAGGED.** Overwrites every link code, then UNIQUE (school_id, upper(link_code)) and a format CHECK. | **Data loss: every outstanding code stops working.** Needs a reissue plan and the product owner's go-ahead. |
 
-**Safe first, in this order:** 1 alone (urgent). Then 0 (recorded only, see below). Then 2 → 7 together.
-8 is last, only after its prerequisites (§6.4) and the reissue plan.
+**Apply order:** 1 and 1a together (urgent; 1a needs nothing else). Then 0 (recorded only, see below).
+Then 2 → 7 together. Then 7a, **in the same window as a mobile release that accepts the NULLs in §1.5**
+(decision M-1). 7a's timestamp sits after 7 and before 8, so holding it back while 2 → 7 apply does not
+make it out of order. If 8 is applied before 7a, 7a needs `db push --include-all`. 8 is last, only after
+its prerequisites (§6.4) and the reissue plan.
 
 **How production should record file 0 (needs approval):** `supabase migration repair --status applied 20260912000000`
 (metadata only). Alternatively `supabase db push --include-all`, where the guard makes it a no-op. A plain
 `db push` will refuse it because it is older than the latest remote migration. If file 1 is applied first by
 any route, file 0 cannot undo it: file 0 never runs `CREATE OR REPLACE` on production.
 
-**After 2–7 apply:** regenerate `types/supabase.ts` from the database. Only then build the TS
+**After 2–7 (and 7a) apply:** regenerate `types/supabase.ts` from the database. Only then build the TS
 wrappers in §3–§7. They call RPCs that are not in today's generated types, so they were not written
 now (writing them against hand-edited types would break rule 5).
 
@@ -67,8 +72,8 @@ No RPC is called with the bare anon role. The mobile app calls only after sign-i
   `import type` from `api/service/dashboard`.
 - The build's client chunks were grepped: no service-role key and no service-client code.
 
-### 1.4 Open disclosure findings in the live mobile RPCs (grants kept; needs a ruling)
-These are live, and file 1 keeps them working, because revoking would break the mobile app:
+### 1.4 Disclosure findings in the live mobile RPCs — RULED (D14, §10.12); fixed by 1a and 7a
+These were live, and file 1 keeps them working. 1a and 7a implement the ruling:
 - `get_school_leaderboard` and `get_point_group_leaderboard`: top 10 with **no cut**, plus 2 named
   neighbours above the caller (§9.3 / D2 DENY), plus `rank_change` (D10 DENY).
 - `get_grade_leaderboard`: top 10 per grade, no cut. A grade of 9 gets its complete ranking.
@@ -78,6 +83,37 @@ These are live, and file 1 keeps them working, because revoking would break the 
   counts with no `MIN_COHORT_FOR_AGGREGATE` floor, plus `top_student_points`.
 - `get_point_history` and `get_category_breakdown` accept any timeframe id, including another
   school's. They return only the caller's own points, so the impact is low.
+- Found while amending (not a disclosure finding, a point-math bug): `get_grade_leaderboard`,
+  `get_dashboard_totals` (rank), `get_my_visibility_snapshot` (overall and grade rank),
+  `get_student_group_leaderboard` and `get_ranking_group_leaderboard` LEFT JOIN `point_event` with the
+  timeframe in the ON clause and then sum `student_point.point_value` anyway, so they rank and average
+  on **all-time** points. 7a uses timeframe totals everywhere.
+- Still open (backend): `auth_current_student()` resolves through `"user".student_id`. If a parent
+  account ever carries `student_id`, every mobile function treats the parent as the child (§10.12
+  note, L11). Resolve with the link-model decision in §9.
+
+### 1.5 What the mobile app will notice (Phoenix Student Mobile, checked against its DTOs 2026-10-14)
+The ruling keeps every signature and NULLs denied values "so the app keeps running". **The app as
+shipped cannot decode most of those NULLs.** Its `@Serializable` DTOs declare them as non-nullable
+`Long`/`Double`, and supabase-kt's default `Json` does not coerce, so a NULL makes `decodeList` throw.
+Each repository call is in `runCatching`, so the screen shows its error state; it does not crash.
+
+| RPC (file) | What changes on the wire | App consequence until it ships the fix |
+|---|---|---|
+| `get_led_group_member_points` (1a) | Revoked (permission error) | `getStudentGroupLeaderboard` fetches members in the same `runCatching`, so **a leader's whole group screen fails**. Non-leaders unaffected. Fix: drop the call, or isolate its failure; later, the letters wrapper. |
+| `get_school_leaderboard`, `get_grade_leaderboard`, `get_point_group_leaderboard` (7a) | Peer `student_id` NULL; peer `points_change`/`rank_change` NULL; fewer rows (cut, no zero-point students, no neighbours); unranked caller has no own row; grade totals now timeframe-only | **Every board with a peer row fails** (`LeaderboardEntryDto.studentId: Long`). Fix: `studentId: Long?`, and change `LeaderboardScreen.kt:104` `key = { it.studentId }` to a key that is unique without it (e.g. index). Show "Not ranked yet" when no row has `is_current_student`. |
+| `get_dashboard_totals` (7a) | `school_rank`, `total_students` NULL for a caller with 0 points; 0 rows for a timeframe of another school; rank now timeframe-based | Home fails for zero-point students. Fix: `schoolRank`/`totalStudents: Long?`. |
+| `get_point_history` (7a) | `event_rank`, `event_participant_count` NULL for events with fewer than 4 participants | **History page fails** if any such event is on it. Fix: both `Long?`, hide "Nth of M" when null. |
+| `get_student_group_leaderboard` (7a) | `avg_points` NULL below 10 members; average now timeframe-based | Group screen fails for small groups. Fix: `avgPoints: Double?`. |
+| `get_ranking_group_leaderboard` (7a) | 0 rows unless the ranking group is in the caller's school and the caller is in one of its groups; `top_student_points` always NULL; groups under 10 members get NULL `rank`, `avg_student_points`, `group_points`, `total_score` | Fails on any row (`topStudentPoints` default does not absorb an explicit NULL). Fix: all five nullable; list unranked groups after ranked ones; key stays `groupId`. |
+| `get_my_visibility_snapshot` (7a) | `leaderboard_top_*` = 10 (ceiling), `rank_lookahead` = 0, ranks NULL when unranked; `category_ranks` lists only point groups where the caller is ranked | Decodes. Do not render "Top 10" headings (§10.12). |
+| `get_available_leaderboard_scopes` (7a) | Only scopes that would publish something: cut > 0 for school/grade/point group, groups of 10+ members, ranking groups with a 10+ group | Decodes. Fewer tabs. |
+| `get_category_breakdown` (7a) | Timeframe must be the caller's school | Decodes. |
+| `get_active_timeframe`, `get_all_timeframes`, `get_my_groups` | Unchanged | — |
+
+**Decision M-1 (product owner):** apply 7a only together with a mobile release that has the nullable
+DTOs, or apply it now and accept the error screens above. The ruling ranks the uncut grade board as
+the second-worst live leak, and "keeping a screen working is not a disclosure ground" (§10.12).
 
 ## 2. Baseline reconciliation (file 0, and `types/supabase.ts`)
 - The 2024 migrations describe a June 2024 schema. A fresh `db reset` failed at `20260912204234`.
@@ -147,11 +183,16 @@ Staff, on their own signed-in device, enter it and tap "Pair". The kiosk polls a
 256-bit token in an httpOnly cookie. Staff never type credentials on the kiosk. Alternative: a staff
 member signed in on the kiosk taps "Turn this screen into a display". The device is created and the
 staff session is signed out in the same response. Revoke: any admin of the school, or the pairer.
+**D17:** any staff of the school may pair. A device stops resolving (and `display_cut` refuses it) once
+its pairer is no longer staff of that school or the pairer's user row is gone. An admin re-confirms it
+with `display_device_reconfirm(actor, device_id)` and becomes its pairer. `display_devices_for_school`
+returns `pairer_active`. `display_pairing_claim` re-checks that the approver is still staff.
 
 **RPCs (service_role):** `display_pairing_start(secret_hash)`, `display_pairing_approve(actor, code, school, label)`
 → `'approved'|'no_match'`, `display_pairing_claim(secret_hash, token_hash)`, `display_device_create(actor, school, label, token_hash)`,
 `display_device_resolve(token_hash)` → `(device_id, school_id, school_name, label, paired_by_name)`,
-`display_device_revoke(actor, device_id)`, `display_devices_for_school(actor, school)`.
+`display_device_revoke(actor, device_id)`, `display_device_reconfirm(actor, device_id)` (admin only),
+`display_devices_for_school(actor, school)` → `(..., revoked_at, pairer_active)`.
 The database stores SHA-256 digests only.
 
 **TypeScript contract:**
@@ -174,6 +215,9 @@ export async function convertThisBrowserToDisplay(schoolId: number, label: strin
 export async function listDisplays(schoolId: number): Promise<{ deviceId: string; label: string;
   pairedAt: string; pairedByName: string | null; lastSeenAt: string | null; revokedAt: string | null }[]>;
 export async function revokeDisplay(deviceId: string): Promise<{ ok: boolean }>;
+/** Admin of the device's school only. Makes the caller the pairer of a lapsed device. */
+export async function reconfirmDisplay(deviceId: string): Promise<{ ok: boolean }>;
+// listDisplays rows also carry `pairerActive: boolean`.
 ```
 Wiring: `app/dashboard/layout.tsx` and every feeding action switch from `isStaffOfSchool(schoolId)` to
 `getDashboardViewer()`. A display viewer's `schoolId` overrides `?school=`. `startDisplayPairing` is
@@ -243,13 +287,17 @@ That also fixes §10.11's three distinguishable `linkStudentToParent` messages.
 
 ## 7. Leader letters (file 7) — D13, L1–L12
 - `refresh_leader_letters(school)`: at most one snapshot per school per UTC day (L9). Only the
-  current snapshot is kept (L7). Uses the school's active timeframe. Columns are the point groups
-  with an event in the timeframe (L5).
+  current snapshot is kept (L7). Uses the school's active timeframe. Columns are the **ranked** point
+  groups (D18) with an event in the window (L5). The window ends at 00:00 UTC of the snapshot date, so a
+  snapshot holds whole days whoever triggers it (D16). Each letter row also stores `participated`.
 - Cohort: students with a point-group total > 0. If there are fewer than 30, that point group has no
   letters. `p` = share strictly lower. Bands: S ≥ .93, A ≥ .75, B ≥ .57, C ≥ .39, D ≥ .20, E.
 - `get_leader_group_letters(actor)`: own student account only, never a parent (L11). Direct members
   minus the leader (L1). L8 per column: ≥ 6 members, cohort floor met, every member has a letter,
-  and D and E counts each 0 or ≥ 3, otherwise the whole column is null.
+  D and E counts each 0 or ≥ 3, and (L8(c), D15) more than half the listed members took part,
+  otherwise the whole column is null. A member with no points in the category gets E (D15).
+- Before letters go live at a school where 00:00 UTC is 07:00–15:00 local (Hawaii, Pacific, most of
+  Asia and Oceania), add `school.timezone` and a local-midnight boundary (D16). Not built.
 - `get_own_led_letters(actor, student)`: groups with a leader, the leaders' first name and last
   initial, and the student's own letters (L10). Never says whether a column is hidden.
 ```ts
@@ -299,16 +347,16 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
 
 ## 10. Decisions needed from the product owner
 - **S-1** Approve the production operations: apply file 1, and record file 0 with `migration repair`.
-- **S-2** Mobile RPC findings (§1.4): keep, change, or revoke. `get_led_group_member_points` contradicts D13.
-- **D-1** Who may pair a display: any staff of the school (built), or admins only (§7.5 wording)?
-- **P-1** Point-group cohorts are limited to `point_group.ranked = true` (built that way).
-- **P-2** Cohort size counts only students with points > 0 (stricter, built that way).
+- ~~S-2~~ RULED D14: implemented in 1a and 7a. **New: M-1** (§1.5): when to apply 7a relative to the mobile release.
+- ~~D-1~~ RULED D17: any staff, with lapse and admin re-confirm (file 3).
+- ~~P-1~~ RULED D18, ~~P-2~~ RULED D19: built everywhere, including letters and the mobile RPCs.
+- **Web follow-up (senior-developer, not backend SQL):** the §10.12 per-event floor applies to the web
+  `pointEventRankings[].outOf` too (`app/student/RecentEventsWithRankings.tsx:124`, `app/student/page.tsx:204`):
+  hide rank and "of N" for events with fewer than 4 participants.
 - **P-3** Totals: SQL sums stored `student_point.point_value` by `point_event.point_group_id`. The
   current Node dashboard re-applies the legacy template rule on top of `point_value` and uses
   `point_template.point_group_id`, so wiring §3 will change some dashboard numbers. Recommend SQL as the truth.
 - **L-1** Date and reissue plan for file 8 (BREAKING).
 - **L-2** Rate-limit numbers, and the new server secret `LINK_RATE_LIMIT_SECRET`.
-- **LL-1** (privacy-boundary) A member with no points in a category gets **E**. The alternative is
-  null, which singles them out. A category taught to only some groups makes E misleading.
-- **LL-2** The snapshot day boundary is UTC. A school timezone column would fix it.
+- ~~LL-1~~ RULED D15 (E, plus L8(c)); ~~LL-2~~ RULED D16 (UTC whole days; timezone before non-US schools). Built in file 7.
 - Optional: a cap on parent links per student.

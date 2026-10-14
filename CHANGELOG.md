@@ -12,6 +12,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
 
 ### Changed
+- Mobile app totals, ranks and group averages now count only the chosen timeframe; some used every point ever earned. A student with no points this timeframe is shown as not ranked yet instead of last (migration `20261014150650`).
 - Student, parent and teacher account linking is now one screen: type the code from your school, press Enter or the button. The school number can be passed as `?school=<id>`. The code is never put in a link.
 - The display menu describes the whole-school screen as "Whole-school highlights on one screen" and also lists the phone view and top cards.
 - Signed-out visitors see "Have you used Phoenix before?" with Sign in and Create an account, instead of an empty list of destinations.
@@ -52,6 +53,9 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Admin lookups of a school's point groups and student groups now return only the requested school's groups, instead of every school the admin manages.
 - Fixed a rule on the legacy class-enrolment table that let an admin of any school manage it for every school.
 - Requests with no signed-in session now run with public-level database access instead of full access. This closes a teacher link-code lookup that worked without signing in.
+- **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014150050`). The leader's group screen shows an error until the mobile app is updated.
+- **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014150650`). Needs a mobile app update released at the same time.
+- Hallway displays stop working if the staff member who paired them is no longer staff at that school, until an admin of the school re-confirms them (database side).
 
 ### Added
 - Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin. Screens are not switched over yet.
@@ -59,6 +63,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side; the notice is not shown on screen yet).
 - Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
 - Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
+- "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 
 ## [1.0.0] - 2026-09-12
