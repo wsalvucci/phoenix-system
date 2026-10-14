@@ -1,7 +1,7 @@
 -- Phoenix Student Mobile RPCs brought under DATA_DISCLOSURE.md D14 (§10.12), D18 and D19 (§10.15).
 --
--- Depends on: 20261014150300_publication_cut_functions.sql (publication_cut, publication_cut_policy).
--- get_led_group_member_points is handled by 20261014150050 and is not touched here.
+-- Depends on: 20261014230300_publication_cut_functions.sql (publication_cut, publication_cut_policy).
+-- get_led_group_member_points is handled by 20261014223157 and is not touched here.
 -- get_active_timeframe, get_all_timeframes and get_my_groups are ALLOW as live and are not touched.
 --
 -- Every function keeps its exact signature and RETURNS TABLE shape. Denied values come back as NULL.

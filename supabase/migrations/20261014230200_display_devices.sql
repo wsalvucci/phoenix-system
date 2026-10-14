@@ -107,7 +107,7 @@ end;
 $$;
 
 -- D17 condition 1: a device is usable only while it is unrevoked AND its pairer is still staff of the
--- device's school. Used by display_device_resolve and display_cut (20261014150300).
+-- device's school. Used by display_device_resolve and display_cut (20261014230300).
 create or replace function public.display_device_live(p_device_id uuid, p_school_id bigint)
 returns boolean
 language sql

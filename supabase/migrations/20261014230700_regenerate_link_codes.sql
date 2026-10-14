@@ -16,7 +16,7 @@
 -- 40 bits before the "Is this Maya R.?" preview may ship. These are 50.
 --
 -- Prerequisites:
---   * 20261014150200 (random_crockford) and 20261014150500 (generate_link_code) are applied.
+--   * 20261014230200 (random_crockford) and 20261014230500 (generate_link_code) are applied.
 --   * The TypeScript code generators in api/admin/teachers.ts and
 --     app/supaApi/client/admin/teachers/adminTeachersApi.ts have been switched to the database default
 --     or admin_rotate_link_code. Otherwise new 6-7 character codes keep appearing (BACKEND_PLAN.md 6.4).

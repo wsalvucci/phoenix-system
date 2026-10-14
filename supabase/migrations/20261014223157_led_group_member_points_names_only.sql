@@ -1,7 +1,7 @@
 -- get_led_group_member_points: names only, alphabetical, and no longer callable by the mobile app.
 -- DATA_DISCLOSURE.md D14, §10.12 ("Sequencing for get_led_group_member_points"), D13 L2, §4 GROUP LEADER.
 --
--- Ships in the same window as 20261014150000_lock_down_function_execute.sql and depends on nothing
+-- Ships in the same window as 20261014223115_lock_down_function_execute.sql and depends on nothing
 -- else. File 1 keeps EXECUTE for authenticated on this function; this file takes it away.
 --
 -- What was live: a group leader read every group mate's student_id, timeframe total and per-category

@@ -27,7 +27,7 @@
 -- point_event.conversion_formula and its CHECK (20260912215436), scorebook_event_copy_operation and
 -- its indexes (20260912204234, 20260912204826), duplicate_scorebook_events and
 -- edit_scorebook_point_event. Grants are left at Supabase defaults, as they are live.
--- 20261014150000 then locks them down.
+-- 20261014223115 then locks them down.
 
 do $baseline$
 declare

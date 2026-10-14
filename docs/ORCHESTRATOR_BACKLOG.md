@@ -3,8 +3,8 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
-1. **Apply `supabase/migrations/20261014150000_lock_down_function_execute.sql` to live** (asked 2026-10-14). Revokes anon/public EXECUTE on all 46 functions, re-grants 14 to `authenticated` for the mobile app, pins search_path, guards `create_school_and_pair_admin`. Self-check aborts on miss. Only syntax-checked, never run against a DB.
-1a. **M-1:** apply `150650` (mobile RPC disclosure) now and accept mobile error screens, or with the next mobile release. Mobile Kotlin DTO changes listed in BACKEND_PLAN §1.5.
+1. DONE 2026-10-14: `20261014223115` (lock-down) and `20261014223157` (leader points) applied to live via MCP; verified anon 0/46, authenticated 14/46. Repo files renamed to match recorded versions; remaining files moved to `20261014230xxx`.
+1a. Owner approved applying 230100–230650 (incl. mobile 230650, accepting mobile error screens). Pending: method (MCP transcription of ~100KB vs owner pastes into SQL editor / CLI `db push`).
 - Web follow-up (senior-dev): 4-participant rule on event "of N" (`RecentEventsWithRankings.tsx:124`, `page.tsx:204`) — after ux branch merges.
 2. **Record baseline migration on prod without running it** (`supabase migration repair --status applied 20260912000000`) — needs the Supabase CLI; owner would run it, or skip.
 3. **Apply 150100–150600** (helpers, display devices, cut functions, share withdrawal, link codes + rate limits, leader letters), then regenerate types.

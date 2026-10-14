@@ -19,7 +19,7 @@ Newest first. Each entry names the sections it changed.
   cohort definitions (§7.5, §10.7, §10.12–§10.15).** These answer `docs/schema/BACKEND_PLAN.md`
   §10 items S-2, LL-1, LL-2, D-1, P-1 and P-2. All were verified against the live function bodies
   (`docs/schema/baseline-2026-10-14/functions.sql`) and the unapplied migrations
-  `supabase/migrations/20261014150*`.
+  `supabase/migrations/20261014223115_* and 20261014230*`.
   - **D14. Phoenix Student Mobile RPCs: peer rows are DISPLAY-equivalent, own rows are STUDENT**
     (§10.12). Every leaderboard applies `publication_cut` per cohort with shrink-only ties. Peer
     rows carry rank, first name, last name and total only. Peer `student_id`, `points_change` and
@@ -51,7 +51,7 @@ Newest first. Each entry names the sections it changed.
   - **D18. Point-group cohorts are limited to `point_group.ranked = true`: CONFIRMED and widened**
     (§10.15). This now covers every rank, cut, letter and points-to-next figure for a point group,
     on every surface. It includes leader letters, which today take every point group
-    (`20261014150600_leader_letters.sql:106-110`), and the mobile `get_point_group_leaderboard`,
+    (`20261014230600_leader_letters.sql:106-110`), and the mobile `get_point_group_leaderboard`,
     which has no `ranked` check and no school check.
   - **D19. Cohort size counts only students with a total above 0: CONFIRMED** (§10.15). The same
     cohort supplies every rank and every own denominator. A student with zero points has no rank
@@ -1755,7 +1755,7 @@ and the shared rate-limit bucket.
 ### 10.12 Phoenix Student Mobile RPCs (BACKEND_PLAN §1.4, decision S-2) — D14
 
 ```
-SURFACE:  the 14 functions granted to `authenticated` by 20261014150000_lock_down_function_execute.sql
+SURFACE:  the 14 functions granted to `authenticated` by 20261014223115_lock_down_function_execute.sql
           (bodies: docs/schema/baseline-2026-10-14/functions.sql)
 AUDIENCE: STUDENT for the caller's own row. DISPLAY-equivalent (§9) for every other student's row.
           GROUP LEADER for get_led_group_member_points.
@@ -1774,7 +1774,7 @@ return signatures so the app keeps running; denied columns become NULL):
   `p_grade` must resolve inside the caller's school. Otherwise the function returns 0 rows.
   `timeframe_bounds()` (:1530) takes any id, from any school, and has to be replaced or wrapped.
 - **G2. The cut.** Every peer list uses `publication_cut(size)` from
-  `20261014150300_publication_cut_functions.sql`. Size means students in that cohort with a total
+  `20261014230300_publication_cut_functions.sql`. Size means students in that cohort with a total
   above 0 (D19). Ties shrink the list and never extend it (§3.3 rule 4). Each cohort gets its own
   cut. `visibility_config()` (:1574) must no longer act as a limit on rows. Where its columns are
   still returned, `leaderboard_top_*` is read from `publication_cut_policy().n_absolute` (a
@@ -1866,7 +1866,7 @@ parent who is not linked could pass for the child, and the L11 exclusion would f
   same "Not shown for this group" line as every other hidden column. Participation is captured
   in the snapshot, so it follows L9.
 - Letters exist only for `ranked` point groups (D18).
-- *Required change (`backend`, `20261014150600_leader_letters.sql`):* keep the
+- *Required change (`backend`, `20261014230600_leader_letters.sql`):* keep the
   `coalesce(..., 'E')` at :138. Add a per-(student, point group) participation flag to the
   snapshot, and add L8(c) to `shown` (:209-217). Restrict the snapshot's column list (:106-110) to
   `pg.ranked`. Update the header comment at :10-11. The decision is no longer pending.
@@ -1891,7 +1891,7 @@ parent who is not linked could pass for the child, and the L11 exclusion would f
 ```
 SURFACE: display_pairing_approve, display_device_create, display_device_resolve,
          display_device_revoke, display_devices_for_school
-         (supabase/migrations/20261014150200_display_devices.sql)
+         (supabase/migrations/20261014230200_display_devices.sql)
 AUDIENCE: STAFF of the school (pairing); DISPLAY (the device)
 SESSION IDENTITY: actor "user".id from the staff session, re-checked by is_staff_of_school (:144, :218)
 ```
@@ -1937,7 +1937,7 @@ cut, a letter or a points-to-next gap, would rank it anyway. This now holds on e
 - `display_cut` (:110) and `points_to_next_rank` (:223): built correctly.
 - `get_point_group_leaderboard` (mobile, `functions.sql:913`): violation. It has no `ranked`
   check and no school check (§10.12).
-- `refresh_leader_letters` (`20261014150600_leader_letters.sql:106-110`): violation. It builds
+- `refresh_leader_letters` (`20261014230600_leader_letters.sql:106-110`): violation. It builds
   letter columns for every point group that has an event.
 - A student's own total in an unranked point group (`get_category_breakdown`) is own data,
   not a rank. ALLOW.

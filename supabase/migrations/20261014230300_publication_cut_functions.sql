@@ -1,6 +1,6 @@
 -- Publication cut in SQL (DATA_DISCLOSURE.md §3, §8.7) and points-to-next-rank (§9.3, §10.2).
 -- Additive: new functions and three indexes. No existing object changes.
--- Depends on 20261014150100_actor_helpers.sql and 20261014150200_display_devices.sql.
+-- Depends on 20261014230100_actor_helpers.sql and 20261014230200_display_devices.sql.
 --
 -- Contract (see docs/schema/BACKEND_PLAN.md section 3):
 --   publication_cut_policy()  the four thresholds. Not caller-supplied, not runtime-mutable.

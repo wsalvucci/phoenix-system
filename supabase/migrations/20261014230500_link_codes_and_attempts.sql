@@ -1,7 +1,7 @@
 -- Link codes: CSPRNG generator, rate-limited redemption with uniform failure, a name preview, and
 -- admin-visible, revocable parent links (DATA_DISCLOSURE.md §10.4, §10.11, D11, D12).
 -- Additive. No existing code changes here. The one-time regeneration of existing codes and the
--- UNIQUE (school_id, link_code) constraint are in 20261014150700, which is flagged separately.
+-- UNIQUE (school_id, link_code) constraint are in 20261014230700, which is flagged separately.
 --
 -- Contract (BACKEND_PLAN.md section 6):
 --   generate_link_code()   10 Crockford base-32 characters = 50 bits (pgcrypto CSPRNG). New default
@@ -127,7 +127,7 @@ begin
     return 'rate_limited';
   end if;
 
-  -- Exactly one match is required. Until 20261014150700 adds uniqueness, legacy 28-bit codes can
+  -- Exactly one match is required. Until 20261014230700 adds uniqueness, legacy 28-bit codes can
   -- collide within a school, and an ambiguous code must never pick a child.
   if _code <> '' and p_school_id is not null then
     if p_purpose in ('student_claim', 'parent_link') then

@@ -14,7 +14,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ### Changed
 - Student pages have a new look: a printed prize-certificate style with a framed name card, a gilt points total, serif headings, ruled lists and a text-only tab bar, in light and dark. The old cyan console look and its sparkle effect are gone, along with an unused 3D library.
-- Mobile app totals, ranks and group averages now count only the chosen timeframe; some used every point ever earned. A student with no points this timeframe is shown as not ranked yet instead of last (migration `20261014150650`).
+- Mobile app totals, ranks and group averages now count only the chosen timeframe; some used every point ever earned. A student with no points this timeframe is shown as not ranked yet instead of last (migration `20261014230650`).
 - The student page now leads with your name and points, then Recent points, By category, Where you stand, and any roles you have. Labels like "Performance overview" and "Student record" are gone.
 - Student tabs are now "My points" and "Shared with me". Shared with me explains it shows points students in your groups chose to show you.
 - Sharing a point now says who will see it before you commit, and shows a short confirmation ("Shared with Band", "Stopped sharing"). Students in one group share with a single tap; others get a button that says what it will do, such as "Share with 2 groups".
@@ -41,7 +41,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Tied scores on an event now share the same rank on the student page.
 - Linking a student account now gives the same message for a wrong code, wrong school, or an already-linked student, and no longer repeats the code back.
 - The login page accepts an optional `next` address and only follows it when it stays on this site.
-- **BREAKING:** When migration `20261014150700_regenerate_link_codes` is applied, every student and teacher link code is replaced with a new 10-character code, and every code already handed out stops working. Accounts that are already linked stay linked. Admins must reissue codes to families and teachers who have not linked yet.
+- **BREAKING:** When migration `20261014230700_regenerate_link_codes` is applied, every student and teacher link code is replaced with a new 10-character code, and every code already handed out stops working. Accounts that are already linked stay linked. Admins must reissue codes to families and teachers who have not linked yet.
 
 ### Removed
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
@@ -60,8 +60,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Admin lookups of a school's point groups and student groups now return only the requested school's groups, instead of every school the admin manages.
 - Fixed a rule on the legacy class-enrolment table that let an admin of any school manage it for every school.
 - Requests with no signed-in session now run with public-level database access instead of full access. This closes a teacher link-code lookup that worked without signing in.
-- **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014150050`). The leader's group screen shows an error until the mobile app is updated.
-- **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014150650`). Needs a mobile app update released at the same time.
+- **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014223157`). The leader's group screen shows an error until the mobile app is updated.
+- **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014230650`). Needs a mobile app update released at the same time.
 - Hallway displays stop working if the staff member who paired them is no longer staff at that school, until an admin of the school re-confirms them (database side).
 
 ### Added
