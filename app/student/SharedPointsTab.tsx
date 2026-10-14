@@ -34,7 +34,7 @@ export default function SharedPointsTab() {
                 const data = await wrapServerAction(getSharedPointsForStudent)();
                 setSharedPoints(data);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load shared points');
+                setError('We could not load what was shared with you. Reload the page to try again.');
             } finally {
                 setLoading(false);
             }
@@ -49,10 +49,10 @@ export default function SharedPointsTab() {
     if (loading) {
         return (
             <div className="victorian-content w-full max-w-full !mx-0 overflow-x-hidden" role="status">
-                <div className="space-y-3 py-5" aria-label="Loading shared points">
+                <div className="space-y-3 py-5" aria-label="Loading points shared with you">
                     <div className="h-5 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
                     <div className="h-20 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800/70" />
-                    <span className="sr-only">Loading shared points…</span>
+                    <span className="sr-only">Loading points shared with you…</span>
                 </div>
             </div>
         );
@@ -61,7 +61,7 @@ export default function SharedPointsTab() {
     if (error) {
         return (
             <div className="victorian-content w-full max-w-full !mx-0 overflow-x-hidden">
-                <div className="text-red-600 dark:text-red-400 py-4 text-center">{error}</div>
+                <div role="alert" className="text-red-700 dark:text-red-400 py-4 text-center">{error}</div>
             </div>
         );
     }
@@ -70,8 +70,8 @@ export default function SharedPointsTab() {
         return (
             <div className="victorian-content w-full max-w-full !mx-0 overflow-x-hidden">
                 <div className="text-center py-12 text-slate-600 dark:text-slate-400">
-                    <p className="text-lg font-semibold text-slate-900 dark:text-white">No shared points yet</p>
-                    <p className="text-sm mt-2">Points shared by other students will appear here.</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-white">Nothing has been shared with you yet</p>
+                    <p className="text-sm mt-2">When students in your groups choose to share a point, it shows up here.</p>
                 </div>
             </div>
         );
@@ -80,8 +80,8 @@ export default function SharedPointsTab() {
     return (
         <div className="victorian-content w-full max-w-full !mx-0 overflow-x-hidden">
             <div className="mb-5 border-b border-slate-200 pb-4 dark:border-slate-800">
-                <h2 className="text-xl font-bold">Shared points</h2>
-                <p className="mt-1 text-sm text-slate-500">Recent points that students chose to share.</p>
+                <h2 className="text-xl font-bold">Shared with me</h2>
+                <p className="mt-1 text-sm text-slate-500">Points that students in your groups chose to show you.</p>
             </div>
             <div className="space-y-6">
                 {visibleEvents.map((event, eventIndex) => (
@@ -98,7 +98,7 @@ export default function SharedPointsTab() {
                             />
                             <div className="flex-1 min-w-0">
                                 <div className="font-bold victorian-subtitle text-base sm:text-lg mb-1">
-                                    {event.eventName || 'Unnamed Event'}
+                                    {event.eventName || 'Untitled assignment'}
                                 </div>
                                 <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">
                                     {formatDate(event.eventDate)}
@@ -123,7 +123,7 @@ export default function SharedPointsTab() {
                                     </div>
                                     <div className="text-right flex-shrink-0 ml-3">
                                         <div className="font-bold text-base sm:text-lg text-victorian-burgundy dark:text-victorian-dusty-rose">
-                                            +{point.pointValue} pts
+                                            +{point.pointValue}
                                         </div>
                                     </div>
                                 </div>
@@ -138,7 +138,7 @@ export default function SharedPointsTab() {
                         className="victorian-button px-6 py-3 rounded-lg min-h-[44px]"
                         onClick={() => setCount(count + 5)}
                     >
-                        Show more
+                        Show {Math.min(5, sharedPoints.length - count)} more
                     </button>
                 </div>
             )}
