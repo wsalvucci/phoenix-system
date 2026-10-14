@@ -1,10 +1,12 @@
 "use server";
 // Display pairing and management (BACKEND_PLAN.md §4, DATA_DISCLOSURE.md D17, §10.14).
 //
-// Kiosk side (no session): startDisplayPairing, pollDisplayPairing. The kiosk holds a random secret
-// in an httpOnly cookie; only its SHA-256 reaches the database.
-// Staff side (Supabase session, never a display cookie): approveDisplayPairing,
-// convertThisBrowserToDisplay, listDisplays, revokeDisplay, reconfirmDisplay.
+// Kiosk side (no session): getThisDisplay, startDisplayPairing, pollDisplayPairing. The kiosk holds a
+// random secret in an httpOnly cookie; only its SHA-256 reaches the database.
+// Staff side (Supabase session, never a display cookie): getPairingSchools, approveDisplayPairing,
+// convertThisBrowserToDisplay, listDisplays, revokeDisplay, reconfirmDisplay. Each resolves the
+// actor through getCallerAccess(), which reads only the Supabase session, so a display cookie can
+// never satisfy a staff action (D17 condition 4).
 //
 // Authorization: staff actions require getCallerAccess() to list the school (admin via
 // admin_school_pair, teacher via teacher.linked_user); device actions look the school up from the
@@ -20,6 +22,7 @@ import {
     byteaDigest,
     clearPairingCookie,
     mintSecret,
+    getDisplayContext,
     readPairingSecret,
     setDisplayCookie,
     setPairingCookie,
@@ -37,6 +40,12 @@ export type DisplayListItem = {
     revokedAt: string | null;
     pairerActive: boolean;
 };
+
+/** What a paired screen shows about itself. No device id, no token material. */
+export type ThisDisplay = { schoolName: string; label: string; pairedByName: string | null };
+
+/** A school the staff caller may pair a display for (own schools only, names only, §10.7). */
+export type PairingSchool = { id: number; name: string };
 
 function validLabel(label: unknown): label is string {
     return typeof label === "string" && label.trim().length >= 1 && label.trim().length <= 60;
@@ -63,6 +72,13 @@ async function staffOfDevice(deviceId: string): Promise<number | null> {
 // ---------------------------------------------------------------------------------------------
 // Kiosk
 // ---------------------------------------------------------------------------------------------
+
+/** The display bound to this browser's cookie, or null (none, revoked, or lapsed: D17 condition 1). */
+export async function getThisDisplay(): Promise<ThisDisplay | null> {
+    const display = await getDisplayContext();
+    if (display === null) return null;
+    return { schoolName: display.schoolName, label: display.label, pairedByName: display.pairedByName };
+}
 
 /** Unauthenticated. 20 starts per client per hour (in-memory, per instance). Fails closed without
  *  LINK_RATE_LIMIT_SECRET, which keys the client bucket. */
@@ -121,6 +137,22 @@ export async function pollDisplayPairing(): Promise<{ status: "pending" | "paire
 // Staff
 // ---------------------------------------------------------------------------------------------
 
+/** The session caller's own staff schools by name, so the pairing screen can name the school
+ *  (D17 condition 5). Session only: a display cookie gets []. */
+export async function getPairingSchools(): Promise<PairingSchool[]> {
+    const access = await getCallerAccess();
+    if (access === null || access.staffSchoolIds.length === 0) return [];
+    const supabase = await supabaseServiceClient();
+    const { data, error } = await supabase.from("school").select("id, name").in("id", access.staffSchoolIds);
+    if (error || !data) {
+        console.error("getPairingSchools: school lookup failed", error?.message);
+        return [];
+    }
+    return data
+        .map((school) => ({ id: school.id, name: school.name }))
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}
+
 /** Staff of `schoolId` approves the code shown on a kiosk. 10 tries per staff account per hour. */
 export async function approveDisplayPairing(userCode: string, schoolId: number, label: string): Promise<{ ok: boolean }> {
     const actor = await staffOf(schoolId);
@@ -150,7 +182,9 @@ export async function convertThisBrowserToDisplay(schoolId: number, label: strin
     const actor = await staffOf(schoolId);
     if (actor === null || !validLabel(label)) return { ok: false };
 
-    const { error: signOutError } = await createClient().auth.signOut();
+    // scope "local" ends only this browser's session. The default ("global") would also sign the
+    // staff member out of their own phone and laptop.
+    const { error: signOutError } = await createClient().auth.signOut({ scope: "local" });
     if (signOutError) {
         console.error("convertThisBrowserToDisplay: sign-out failed", signOutError.message);
         return { ok: false };

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardSchoolId, getDashboardSchools } from "@/app/supaApi/server/dashboard/dashboardSchool";
+import { getDashboardSchoolId, getDashboardSchools, getDashboardViewerSummary } from "@/app/supaApi/server/dashboard/dashboardSchool";
 
 type Tile = { title: string; desc: string; endpoint: string };
 
@@ -30,6 +30,13 @@ export default function Dashboard() {
         queryFn: () => getDashboardSchools(),
         staleTime: 5 * 60_000,
     });
+    const viewer = useQuery({
+        queryKey: ["dashboardViewer"],
+        queryFn: () => getDashboardViewerSummary(),
+        staleTime: 5 * 60_000,
+    });
+    const display = viewer.data?.kind === "display" ? viewer.data : null;
+    const isStaff = viewer.data?.kind === "staff";
 
     const schoolId = selected.data ?? null;
     const schoolName = schools.data?.find((s) => s.id === schoolId)?.name ?? null;
@@ -57,7 +64,9 @@ export default function Dashboard() {
 
     return (
         <div className="mx-auto w-full max-w-2xl px-5 py-6">
-            <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-medium hover:underline">← Home</Link>
+            {isStaff && (
+                <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-medium hover:underline">← Home</Link>
+            )}
             <h1 className="mt-2 text-3xl font-bold">Which display do you want to open?</h1>
 
             {loading ? (
@@ -71,7 +80,13 @@ export default function Dashboard() {
                     <p className="mt-3 text-base">
                         Showing: <span className="font-semibold">{schoolName ?? "your school"}</span>
                     </p>
-                    {fellBack && (
+                    {display && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {display.label}
+                            {display.pairedByName ? ` · Paired by ${display.pairedByName}` : ""}
+                        </p>
+                    )}
+                    {fellBack && isStaff && (
                         <p role="status" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
                             You do not have access to that school. Showing {schoolName ?? "your school"} instead.
                         </p>
@@ -99,6 +114,17 @@ export default function Dashboard() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {QUIET_TILES.map((t) => renderTile(t, false))}
             </div>
+            {isStaff && schoolId !== null && (
+                <div className="mt-6">
+                    <Link
+                        href={`/display/pair?school=${schoolId}`}
+                        className="block min-h-[44px] rounded-lg border border-dashed border-slate-300 p-5 text-slate-800 dark:border-slate-700 dark:text-slate-100"
+                    >
+                        <div className="text-lg font-semibold">Pair a new display</div>
+                        <div className="mt-1 text-sm">Put a hallway screen up without signing in on it.</div>
+                    </Link>
+                </div>
+            )}
         </div>
     );
 }

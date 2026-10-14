@@ -11,6 +11,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { DateTime } from "luxon";
 import Color from "color";
+import { ParentLinksPanel } from "@/components/admin/ParentLinksPanel";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
   const { selectedTimeframe } = useTimeframe();
@@ -232,6 +233,8 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                 </div>
               </div>
             )}
+
+            <ParentLinksPanel studentId={parseInt(studentId)} studentName={data.student.name} />
 
             {/* All Point Events (detailed list with rank) */}
             <div className="bg-card border border-border rounded-lg p-6 mt-6">

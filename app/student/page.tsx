@@ -11,6 +11,7 @@ import { LedLettersNotice, LeaderGroupLettersTable, LeaderGroupNames } from "./L
 import {
     getLeaderGroupLetters,
     getOwnLedLetters,
+    getOwnParentLinkDates,
     getPointsToNextRank,
     takeShareWithdrawalNotices,
 } from "@/app/supaApi/server/student/ownRecordRpc";
@@ -74,12 +75,15 @@ export default async function StudentDashboard() {
 
     const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, pointGroupRankings, pointEventRankings } = dashboardData;
     // Session-scoped RPCs (BACKEND_PLAN.md §3, §5, §7). Each re-checks the caller in TS and in SQL.
-    const [pointsToNext, withdrawals, leaderLetters, ownLedLetters] = await Promise.all([
+    const [pointsToNext, withdrawals, leaderLetters, ownLedLetters, parentLinkDates] = await Promise.all([
         getPointsToNextRank(student.id, dashboardData.timeframe.id),
         takeShareWithdrawalNotices(),
         getLeaderGroupLetters(),
         getOwnLedLetters(student.id),
+        getOwnParentLinkDates(),
     ]);
+    const formatLinkDate = (iso: string) =>
+        new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
     const lettersByGroup = new Map(leaderLetters.map((g) => [g.groupId, g]));
     const categoryGap = new Map((pointsToNext?.pointGroups ?? []).map((g) => [g.pointGroupId, g.pointsToNext]));
     const hasRoles = taGroups.length > 0 || (leaderGroups?.groups.length ?? 0) > 0;
@@ -149,6 +153,23 @@ export default async function StudentDashboard() {
                                     <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} pointsToNext={pointsToNext?.grade ?? null} />
                                 </div>
                             </section>
+
+                            {/* §10.11, §11.4 #25: the student is told when a parent account links. Dates only. */}
+                            {parentLinkDates.length > 0 && (
+                                <section className="vic-enter">
+                                    <SectionTitle>Your account</SectionTitle>
+                                    <div className="mt-3 space-y-1">
+                                        {parentLinkDates.map((date, i) => (
+                                            <p key={`${date}:${i}`} className="text-base">
+                                                A parent account was linked on {formatLinkDate(date)}.
+                                            </p>
+                                        ))}
+                                        <p className="text-sm text-muted-foreground">
+                                            If you do not recognise one, tell a teacher or the school office.
+                                        </p>
+                                    </div>
+                                </section>
+                            )}
 
                             {/* L10: who can see your letters, and what they see */}
                             {ownLedLetters.length > 0 && (

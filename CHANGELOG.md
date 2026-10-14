@@ -16,12 +16,16 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - The display menu (`/dashboard`) now names your school, lets staff with several schools switch between them, and carries the school into every display. If you ask for a school you cannot open, it says so and shows your own.
 - Parents and guardians now have a home entry: "Your children" with how many are connected, and a "Connect my child" button when none are.
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
-- Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin. Screens are not switched over yet.
+- Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin.
 - Database support for dashboard leaderboards that show only the top of each cohort (overall, grade, category, team), never a count, and for a "points to the next rank" figure on student and parent pages.
 - A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side).
 - Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
 - Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
 - "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
+- Hallway screens can be paired without signing in on them: open `/display` on the screen, then type the code it shows into "Pair a display" (`/display/pair`) from your own signed-in phone or laptop. A paired screen shows only its own school's displays, with its name and "Paired by" on the display menu.
+- Staff signed in on the screen itself can instead choose "Turn this browser into a display"; they are signed out of that browser in the same step and stay signed in on their other devices.
+- Admins have a new Displays page under each school to see every paired screen, remove one, or keep on a screen that was paused because the person who paired it is no longer staff there. Teachers see and can remove the screens they paired. The display menu has a "Pair a new display" tile.
+- Admins see the parent accounts linked to each student on the student's page and can remove any of them. Students see "A parent account was linked on <date>" on their own page.
 
 ### Changed
 - **BREAKING:** The hallway displays (featured, global, phone view and top cards) now show only the top of each list: overall, each grade and each ranked category, cut by the same rule as the mobile app (at most 10 per list, never a student with no points, and tied students shown together or not at all). Points are the stored scores, so some totals change. Student counts, "vs. last month" rank changes, the "Moving up" panel, the team standings panels and the per-student category colours are gone.
@@ -62,6 +66,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
 
 ### Security
+- A paired screen stops showing displays as soon as it is removed or its pairer stops being staff at that school, and then shows a new pairing code rather than a staff sign-in form.
 - Removed three unused dashboard server endpoints that returned any school's student points, rankings and nearby students without checking who was asking.
 - Hallway display data no longer carries student ids, every student's score on every assignment, or last-month figures; the list cut is applied in the database only, with no adjustable settings.
 - A student's birthdate and gender are no longer sent to the browser on the home screen or the student pages; nothing there shows them.
