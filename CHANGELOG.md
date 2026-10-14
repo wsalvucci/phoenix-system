@@ -61,6 +61,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Dashboards no longer show a student who is missing from a point group's ranking, and small grades now hide at least three students and round their share down.
 - Removed two unused school-wide statistics endpoints (student and teacher versions) and an unused global dashboard endpoint that could return school rosters.
 - Removed browser and server console logging of student and dashboard data from the student compare page and dashboard timeframe lookup.
+- Removed unused server code that could return a whole school's student list (including link codes), a group-leader league table, and an old featured-dashboard roster, so none of it can be switched on by accident.
 - Dashboard and student-stats server actions now check who is calling and only return data for that caller's own schools, students, or linked children.
 - Parents can no longer read a student they are not linked to.
 - Teaching assistants are checked for group membership before acting on a group.
