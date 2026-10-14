@@ -53,6 +53,12 @@ export function readPairingSecret(): string | null {
     return value && value.length >= 32 ? value : null;
 }
 
+/** True when this browser carries a display cookie at all, live or not. Navigation only: it lets a
+ *  revoked or lapsed kiosk go back to the pairing screen instead of a keyboard login. Never a grant. */
+export function hasDisplayCookie(): boolean {
+    return (cookies().get(DISPLAY_COOKIE)?.value ?? "").length > 0;
+}
+
 /** The display device bound to this browser, or null (no cookie, unknown, revoked, or lapsed). */
 export async function getDisplayContext(): Promise<DisplayContext | null> {
     const token = cookies().get(DISPLAY_COOKIE)?.value;
