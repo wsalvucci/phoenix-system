@@ -57,7 +57,6 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Tied scores on an event now share the same rank on the student page.
 - Linking a student account now gives the same message for a wrong code, wrong school, or an already-linked student, and no longer repeats the code back.
 - The login page accepts an optional `next` address and only follows it when it stays on this site.
-- **BREAKING:** When migration `20261014230700_regenerate_link_codes` is applied, every student and teacher link code is replaced with a new 10-character code, and every code already handed out stops working. Accounts that are already linked stay linked. Admins must reissue codes to families and teachers who have not linked yet.
 
 ### Removed
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
