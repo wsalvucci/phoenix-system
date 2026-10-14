@@ -79,8 +79,8 @@ module.exports = {
           foreground: "hsl(var(--rank-foreground) / <alpha-value>)",
           ink: "hsl(var(--rank-ink) / <alpha-value>)",
         },
-        "off-white": "hsl(var(--off-white))",
-        "off-black": "hsl(var(--off-black))",
+        "off-white": "hsl(var(--off-white) / <alpha-value>)",
+        "off-black": "hsl(var(--off-black) / <alpha-value>)",
       },
       boxShadow: {
         1: "var(--shadow-1)",
