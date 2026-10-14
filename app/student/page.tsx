@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { getStudentDataWithContext, getStudentDashboardData, getStudentTeachingAssistantGroups, getStudentLeaderGroups } from "@/api/student";
 import { standingText } from "@/lib/rankText";
-import { GradeBadge, LedgerRow, SectionTitle } from "./ui";
+import { GradeBadge, LedgerRow, Plate, SectionTitle } from "./ui";
 import StandingPlate from "./StandingPlate";
 import dynamic from "next/dynamic";
-import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
-import "./student-dashboard.css";
 import PointDistribution from "./PointDistribution";
 const StudentTabs = dynamic(() => import('./StudentTabs'), { ssr: false });
 
@@ -16,8 +14,8 @@ const RecentEventsWithRankings = dynamic(() => import("./RecentEventsWithRanking
     ssr: false,
     loading: () => (
         <div role="status" aria-label="Loading recent points" className="min-h-[22rem] space-y-3">
-            <div className="h-8 w-40 animate-pulse rounded bg-slate-800/60" />
-            {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-14 animate-pulse rounded bg-slate-800/40" />)}
+            <div className="h-8 w-40 animate-pulse rounded bg-secondary" />
+            {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-14 animate-pulse rounded bg-muted" />)}
             <span className="sr-only">Loading recent points…</span>
         </div>
     ),
@@ -28,21 +26,21 @@ export default async function StudentDashboard() {
     
     if (!studentData) {
         return (
-            <div className="victorian-bg min-h-screen flex items-center justify-center p-4">
-                <div className="victorian-content max-w-md w-full p-8 text-center space-y-6 victorian-fade-in">
-                                        <div className="space-y-4">
-                        <h1 className="victorian-title text-3xl">Connect your student account</h1>
-                        <p className="victorian-subtitle">
+            <div className="flex min-h-screen items-center justify-center p-4">
+                <Plate className="vic-enter w-full max-w-md space-y-6 p-8 text-center">
+                    <div className="space-y-3">
+                        <h1 className="font-display text-3xl font-semibold leading-tight">Connect your student account</h1>
+                        <p className="text-base text-muted-foreground">
                             Enter the code from your school to see your points.
                         </p>
                     </div>
-                    <Link 
+                    <Link
                         href="/linkAccount/student"
-                        className="victorian-button inline-flex items-center justify-center px-6 py-3 rounded-lg w-full"
+                        className="button-primary min-h-11 w-full px-6 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                     >
                         Connect my account
-                </Link>
-                </div>
+                    </Link>
+                </Plate>
             </div>
         );
     }
@@ -53,15 +51,15 @@ export default async function StudentDashboard() {
 
     if (!dashboardData) {
         return (
-            <div className="victorian-bg min-h-screen flex items-center justify-center p-4">
-                <div className="victorian-content max-w-md w-full p-8 text-center victorian-fade-in">
-                    <h1 className="victorian-title text-3xl mb-4">We could not load your points</h1>
-                    <p className="victorian-subtitle">
+            <div className="flex min-h-screen items-center justify-center p-4">
+                <Plate className="vic-enter w-full max-w-md p-8 text-center">
+                    <h1 className="mb-4 font-display text-3xl font-semibold leading-tight">We could not load your points</h1>
+                    <p className="text-base text-muted-foreground">
                         Something went wrong on our side. Reload the page to try again.
                     </p>
                     {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a full reload is the point */}
-                    <a href="/student" className="victorian-button mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-6 py-3">Reload</a>
-                </div>
+                    <a href="/student" className="button-primary mt-6 min-h-11 w-full px-6 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card">Reload</a>
+                </Plate>
             </div>
         );
     }
@@ -70,7 +68,7 @@ export default async function StudentDashboard() {
     const hasRoles = taGroups.length > 0 || (leaderGroups?.groups.length ?? 0) > 0;
 
     return (
-        <div className="student-console victorian-scrollbar w-full max-w-full">
+        <div className="w-full max-w-full">
             {/* 1. Identity and balance */}
             <StickyHeader
                 student={student}
@@ -79,17 +77,17 @@ export default async function StudentDashboard() {
                 gradeOutOf={gradeOutOf}
                 timeframe={dashboardData.timeframe}
             />
-            <div className="student-workspace">
+            <div className="w-full">
                 <StudentTabs
                     dashboardContent={
                         <div className="w-full max-w-full space-y-8">
                             {/* 2. Recent points */}
-                            <section className="victorian-fade-in">
+                            <section className="vic-enter">
                                 <RecentEventsWithRankings pointEventRankings={pointEventRankings ?? []} initialCount={5} />
                             </section>
 
                             {/* 3. By category */}
-                            <section className="victorian-fade-in">
+                            <section className="vic-enter">
                                 <SectionTitle>By category</SectionTitle>
                                 {pointGroupRankings.length > 0 ? (
                                     <>
@@ -113,9 +111,9 @@ export default async function StudentDashboard() {
                             </section>
 
                             {/* 4. Where you stand */}
-                            <section className="victorian-fade-in">
+                            <section className="vic-enter">
                                 <SectionTitle>Where you stand</SectionTitle>
-                                <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                     <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" />
                                     <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} />
                                 </div>
@@ -123,7 +121,7 @@ export default async function StudentDashboard() {
 
                             {/* 5. Roles (only when the student has one) */}
                             {hasRoles && (
-                                <section className="victorian-fade-in space-y-6">
+                                <section className="vic-enter space-y-6">
                                     {taGroups.length > 0 && (
                                         <div>
                                             <SectionTitle as="h3">Scorebooks you help with</SectionTitle>
@@ -132,10 +130,10 @@ export default async function StudentDashboard() {
                                                     <Link
                                                         key={g.group.id}
                                                         href={`/student/scorebook/${g.group.id}`}
-                                                        className="victorian-button-secondary inline-flex min-h-11 w-full items-center justify-between rounded-lg px-4 py-3"
+                                                        className="button-secondary h-auto min-h-11 w-full justify-between gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                                     >
                                                         <span>{g.group.name}</span>
-                                                        <span className="text-xs">{g.fullAccess ? 'All events' : 'Some events'}</span>
+                                                        <span className="vic-label shrink-0">{g.fullAccess ? 'All events' : 'Some events'}</span>
                                                     </Link>
                                                 ))}
                                             </div>

@@ -12,7 +12,7 @@ export default function PointGroupBreakdownBar({
 
     return (
         <div
-            className="w-full overflow-hidden rounded-full ring-1 ring-slate-200 dark:ring-slate-700"
+            className="w-full overflow-hidden rounded-full ring-1 ring-border"
             style={{ height }}
             aria-label="Point distribution by point group"
             role="img"
