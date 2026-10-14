@@ -1,9 +1,11 @@
 # Backend plan — 2026-10-14
 
 Owner: `backend`. Source of truth for the live schema: `docs/schema/baseline-2026-10-14/`.
-Disclosure rules: `docs/DATA_DISCLOSURE.md`. Nothing here has been applied to any database.
-Every migration was syntax-checked with libpg_query (`pglast`). **None has been run against a
-database**, local or remote, because this task ruled out all DB commands.
+Disclosure rules: `docs/DATA_DISCLOSURE.md`.
+**Status 2026-10-14:** files 1 through 7a (`20261014223115` to `20261014230650`) are applied to
+production, by the product owner. File 8 (`20261014230700`) is **not** applied and now lives in
+`supabase/held/`, outside `supabase/migrations/`, so `db push` cannot pick it up. `types/supabase.ts`
+was regenerated from production after the apply, and the TypeScript wrappers are built (§11).
 
 ## 0. Migration files and apply order
 
@@ -19,7 +21,7 @@ database**, local or remote, because this task ruled out all DB commands.
 | 6 | `20261014230500_link_codes_and_attempts.sql` | 50-bit generator as the new default, rate-limited redeem and preview, admin parent-link list, revoke and rotate. | Additive. Existing codes still work. |
 | 7 | `20261014230600_leader_letters.sql` | D13 snapshot and functions, with D15 (zero points = E; L8(c) participation), D16 (whole UTC days), D18 (ranked point groups only). | Additive. |
 | 7a | `20261014230650_mobile_rpc_disclosure.sql` | D14 for 10 mobile RPCs: cut per cohort, peer ids/trends NULL, no neighbours, school scoping (G1), aggregate floors, per-event rank floor, `ranking_group` school + membership, `point_group` school + `ranked`. Also fixes all-time totals in 5 bodies. Depends on 4. | No data change. **BREAKING for the mobile app as shipped** (§1.5). |
-| 8 | `20261014230700_regenerate_link_codes.sql` | **FLAGGED.** Overwrites every link code, then UNIQUE (school_id, upper(link_code)) and a format CHECK. | **Data loss: every outstanding code stops working.** Needs a reissue plan and the product owner's go-ahead. |
+| 8 | `supabase/held/20261014230700_regenerate_link_codes.sql` | **FLAGGED, held.** Overwrites every link code, then UNIQUE (school_id, upper(link_code)) and a format CHECK. | **Data loss: every outstanding code stops working.** Needs a reissue plan and the product owner's go-ahead. |
 
 **Apply order:** 1 and 1a together (urgent; 1a needs nothing else). Then 0 (recorded only, see below).
 Then 2 → 7 together. Then 7a, **in the same window as a mobile release that accepts the NULLs in §1.5**
@@ -32,9 +34,9 @@ its prerequisites (§6.4) and the reissue plan.
 `db push` will refuse it because it is older than the latest remote migration. If file 1 is applied first by
 any route, file 0 cannot undo it: file 0 never runs `CREATE OR REPLACE` on production.
 
-**After 2–7 (and 7a) apply:** regenerate `types/supabase.ts` from the database. Only then build the TS
-wrappers in §3–§7. They call RPCs that are not in today's generated types, so they were not written
-now (writing them against hand-edited types would break rule 5).
+**After 2–7 (and 7a) apply:** done. `types/supabase.ts` was regenerated from production and the
+wrappers in §3–§7 are built against it (§11). Before file 8 moves back into `supabase/migrations/`,
+regenerate the types again (it adds no functions, only a constraint and a CHECK).
 
 ## 1. Urgent security migration (file 1)
 
@@ -272,15 +274,17 @@ SQL: `redeem_link_code`, `preview_link_code`, `admin_list_parent_links`, `admin_
   and redeem. Failures are logged without the code, and rows are purged after 24 hours. Serialized
   per user with an advisory lock.
 
-### 6.3 Consumers to switch (owned by senior-developer, who is editing these now)
-`linkStudent.ts`, `linkTeacher.ts`, `app/linkAccount/serverActions.ts`, `parentApi.ts#linkStudentToParent` → `redeemLinkCode`.
-That also fixes §10.11's three distinguishable `linkStudentToParent` messages.
+### 6.3 Consumers switched
+`components/linkAccount/LinkAccountForm.tsx` calls `redeemLinkCode` for all three roles. `linkStudent.ts`,
+`linkTeacher.ts`, `app/linkAccount/serverActions.ts#linkTeacher` (dead, no importer) and
+`parentApi.ts#linkStudentToParent` are now thin delegates to `redeemLinkCode`, so none of them is an
+unthrottled POST-able path. The teacher claim gets `linked_user IS NULL` in the RPC's UPDATE (race guard).
+`LinkResult.status` gains `'unavailable'` (no session, `LINK_RATE_LIMIT_SECRET` missing, or an RPC error).
 
 ### 6.4 Before file 8 may apply (FLAGGED)
-1. Replace the TS generators that bypass the default: `api/admin/teachers.ts:155` (`Math.random`,
-   6 characters) and `app/supaApi/client/admin/teachers/adminTeachersApi.ts:19` (`md5(Date.now())`,
-   7 hex). Omit `link_code` on insert, or call `admin_rotate_link_code`. File 8's format CHECK
-   rejects their output, so inserts would fail.
+1. ~~Replace the TS generators that bypass the default~~ **Done (branch `agent/backend-rpc-wrappers`).**
+   `api/admin/teachers.ts` omits `link_code` on insert (DB default `generate_link_code()`), and
+   `adminTeachersApi.ts#clientRevokeTeacher` calls `rotateLinkCode` → `admin_rotate_link_code`.
 2. Reissue plan: admins print or send the new codes from the admin screens, on a chosen date.
 3. Product-owner go-ahead. **Data lost: every unredeemed code in circulation.** Links that already
    exist are kept.
@@ -360,3 +364,44 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
 - **L-2** Rate-limit numbers, and the new server secret `LINK_RATE_LIMIT_SECRET`.
 - ~~LL-1~~ RULED D15 (E, plus L8(c)); ~~LL-2~~ RULED D16 (UTC whole days; timezone before non-US schools). Built in file 7.
 - Optional: a cap on parent links per student.
+
+## 11. TypeScript wrappers (built 2026-10-14 against the regenerated types)
+
+Every wrapper resolves the actor (`"user".id`) from the Supabase session, checks it in TypeScript, then
+calls a service_role-only RPC that re-checks it in SQL. None takes a user id from the browser. Plain
+modules are imported by server components only; `"use server"` files are the ones a client must call.
+
+| Module | Kind | Exports | TS check (then SQL re-check) |
+|---|---|---|---|
+| `app/supaApi/server/sessionActor.ts` | plain | `getSessionUserId`, `getOwnStudent`, `canViewStudent`, `isAdminOfSchool` | helpers |
+| `app/supaApi/server/clientKey.ts` | plain | `getClientKey`, `computeClientKey`, `clientIpFrom`, `readRateLimitSecret` | HMAC of client IP |
+| `app/supaApi/server/link/linkCodeActions.ts` | use server | `redeemLinkCode`, `previewLinkCode` | session user; client key or fail closed |
+| `app/supaApi/server/admin/parentLinks.ts` | use server | `listParentLinks`, `revokeParentLink`, `rotateLinkCode` | admin of the record's own school (looked up from the row) |
+| `app/supaApi/server/student/ownRecordRpc.ts` | plain | `getPointsToNextRank`, `takeShareWithdrawalNotices`, `getLeaderGroupLetters`, `getOwnLedLetters`, `getOwnParentLinkDates` | `canViewStudent` (own or linked parent) / own student only |
+| `app/supaApi/mappers/rpcMappers.ts` | pure | row → domain for points-to-next and letters; L10 sentence | opaque keys, no peer ids |
+| `app/supaApi/server/display/displayAccess.ts` | plain | `getDisplayContext`, `getDashboardViewer`, cookie and digest helpers | display token → `display_device_resolve` |
+| `app/display/actions.ts` | use server | §4 contract (`start`/`poll` return `{ error }` when rate-limited or unavailable) | staff of school; device actions take the school from the device row |
+| `app/supaApi/server/dashboard/displayCut.ts` | plain | `getDisplayCut`, `cohortKey` | display viewer: own school only; staff: own schools |
+
+**Wired:** link screen → `redeemLinkCode`; student home → points to move up (overall, grade, category),
+share-withdrawn notice, Groups You Lead letters (names-only fallback), L10 member notice; parent child
+page → points to move up and the L10 notice (no leader letters, L11).
+**Built, not wired:** `previewLinkCode` (needs a UX step; refuses non-10-character codes without
+spending an attempt), the admin parent-link screen, `getOwnParentLinkDates`, the `/display` kiosk page
+and every `app/dashboard/*` feeding action (blocked on P-3, because SQL totals differ from the Node path).
+
+### 11.1 `LINK_RATE_LIMIT_SECRET` (new server secret, required)
+- **What:** the HMAC-SHA256 key for the rate-limit client key: `client_key = HMAC(secret, client IP)`, hex.
+  Only the digest reaches `link_attempt.client_key`; the raw IP is never stored or logged.
+- **Where:** server env only (Vercel project env for Production and Preview, `.env.local` for dev). Never
+  `NEXT_PUBLIC_`. Read by `app/supaApi/server/clientKey.ts`.
+- **Value:** at least 32 characters; generate with `openssl rand -base64 48`. Shorter counts as missing.
+- **Fails closed:** if it is missing or short, `redeemLinkCode` and `previewLinkCode` return `'unavailable'`
+  ("Linking is not available right now") without calling the database, and `startDisplayPairing` refuses.
+  So it must be set **before** this branch deploys.
+- **Rotation:** changing it resets the per-network buckets (old digests stop matching). The per-user
+  bucket is unaffected. Safe to rotate at any time.
+- Client IP: first hop of `x-forwarded-for` (set by Vercel), else `x-real-ip`, else one shared
+  `"unknown"` bucket.
+- Display pairing has no database bucket: `startDisplayPairing` (20 per client key per hour) and
+  `approveDisplayPairing` (10 per staff account per hour) use an in-memory, per-instance limiter.
