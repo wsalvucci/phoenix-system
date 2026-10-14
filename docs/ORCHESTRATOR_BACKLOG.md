@@ -4,7 +4,7 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 
 ## Decisions needed
 - ~~P-3~~ ANSWERED 2026-10-14: stored totals everywhere; legacy conversion rule removed; only per-event direct formulas (rarely used). Backend doing D20.
-- **`LINK_RATE_LIMIT_SECRET`** must be set in Vercel (≥32 chars, server-only) BEFORE deploying this branch, or all linking says "unavailable".
+- DONE 2026-10-14: `LINK_RATE_LIMIT_SECRET` set by owner in Vercel and `.env.local` (local verified 64 chars, gitignored).
 - **L-2** rate-limit numbers (5 fails/user/hr, 20/IP) — approve or change.
 - Not wired yet: D20 dashboards → `display_cut` (blocked on P-3), `/display` routes + pairing screen (needs UX), #25 admin parent-link UI, `previewLinkCode` confirm step. Follow-ups: G-b floor in SQL `points_to_next_rank`; `api/student.ts` loads every school student_point; `updateTeacher` takes arbitrary column name.
 - **QA early check FAIL (2 blocking):** (a) 230700 — now moved to `supabase/held/`; generators being fixed by backend. (b) `package.json` `"version": "1.0.0"` set by hand as the release baseline — owner to accept explicitly. Report: scratchpad/qa-report-1.md.
