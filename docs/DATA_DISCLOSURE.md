@@ -3,7 +3,8 @@
 **Status:** canonical. This document governs what data may reach which audience.
 **Scope:** every surface, server action, API route, and return type in this repository.
 **Owner:** disclosure authority. Mechanism (RLS, policies, query scoping) is owned by `backend`.
-**Last ruling recorded:** 2026-10-14 — backend plan rulings: mobile RPCs, letter edge cases,
+**Last ruling recorded:** 2026-10-14 — fourth audit of the live migrations and the code after the checkpoint
+(§11, D20–D24); backend plan rulings: mobile RPCs, letter edge cases,
 display pairing, cohort definitions (§10.12–§10.15, D14–D19); group-leader letter grades (§10.7, D13); rank colour
 system and the student's own link code (§10.10, §10.11, D8–D12); UX restructure and Victorian
 remake plans (§10); compare
@@ -14,6 +15,36 @@ retired, nearby lists reconciled (§9); dashboards are staff-only, DISPLAY tier 
 ## 0. Ruling log
 
 Newest first. Each entry names the sections it changed.
+
+- **2026-10-14 — Fourth audit: live migrations 20261014223115 to 20261014230650, and the code
+  at b738532 and after (§7.4, §8, §9, §10.3, §10.7, §10.11, §10.12, §10.15, new §11).** The
+  owner reports these migrations as live. `20261014230700_regenerate_link_codes.sql` is not
+  applied and stays flagged. The SQL was checked against every earlier ruling and conforms
+  (§11.1). The TypeScript mostly does not call it yet, so most open violations are unchanged
+  (§11.2).
+  - **D20. `dashboardFilters.ts` is to be deleted, not rewritten, and every DISPLAY list is to
+    come from `display_cut`** (§11.3; amends §8.3, §8.4, §8.6). The SQL cut is live and
+    correct. `publication_cut_policy()` is now the only copy of the thresholds. A TypeScript
+    `computeCut` may stay as a test oracle only. No DISPLAY payload may be built from
+    `getGlobalPointStats` again.
+  - **D21. Link-code redemption must go through `redeem_link_code`. Until it does, this is
+    the most severe open violation** (§11.4 #20). The rate limiter and the uniform failure are
+    live in SQL, and nothing calls them. Meanwhile every existing code is 28 bits and sign-up
+    is open.
+  - **D22. Own-view standing on the web must use the D19 cohort, computed in SQL** (§11.4
+    #21). The web computes ranks in Node over every student, zeros included. A student with
+    no points is shown as "412th of 450", and the "Not ranked yet" branch the pages already
+    have never fires.
+  - **D23. An unimported `"use server"` file that returns peer or credential data is a
+    violation, not dead code** (§11.4 #22). Today it is unreachable, and it needs only one
+    import to go live. Delete such files.
+  - **D24. Returning a staff member to the requested dashboard after sign-in
+    (`app/dashboard/layout.tsx`, a1252b5) is ALLOWED.** It does not close §7.4 #18 and makes
+    no change to it. It does make the forbidden fallback (a staff login on the kiosk) quicker,
+    which makes wiring the live display-device path more urgent (§11.4 #23).
+  - Two proposed rulings are now in force (§11.5): student-facing group averages are computed
+    over whole days only, and `points_to_next_rank` needs the 10-student floor on the overall
+    cohort too.
 
 - **2026-10-14 — Backend plan rulings: mobile RPCs, leader-letter edge cases, display pairing,
   cohort definitions (§7.5, §10.7, §10.12–§10.15).** These answer `docs/schema/BACKEND_PLAN.md`
@@ -609,6 +640,9 @@ authentication half is fixed; the disclosure half is not. **RESOLVED** = no furt
 `universalApi.ts` line numbers are approximate. The file is being edited in parallel, so
 locate by function name.
 
+> **Statuses re-audited 2026-10-14 (fourth audit): see §11.2.** The table there supersedes the
+> status word on each item below. New items #20 to #26 are in §11.4.
+
 1. **OPEN — `app/supaApi/universal/dashboardFilters.ts:23-28`** — `DASHBOARD_FILTERS.GLOBAL`
    sets all three limits to `null`, described as "No privacy filters - shows all data".
    Combined with the `=== null ... return true` branch in `getGlobalPointStats`
@@ -828,6 +862,12 @@ an unattended screen in a hallway full of children.
 For `backend` / `senior-developer` to implement. This replaces the current file entirely.
 The disclosure authority specifies the contract; `backend` owns the mechanism and has final
 say on how it is enforced in SQL.
+
+> **Amended 2026-10-14 (D20, §11.3).** The cut is now live in SQL (`publication_cut`,
+> `display_cut`). The file is to be **deleted**, not replaced by a TypeScript copy of the
+> arithmetic. §8.3's frozen constant and §8.4's `computeCut` survive only as a test oracle.
+> §8.6's `cutPolicyFor` is unnecessary, because no TypeScript code applies a policy. The tier
+> union (§8.2), the row-type rule (§8.7) and the disagreement procedure (§8.8) stand.
 
 ### 8.1 What must stop being true
 
@@ -1842,6 +1882,10 @@ caller knows who that is. Proposed: `event_rank` and `event_participant_count` a
 when the event has at least `K_HIDDEN + 1` (4) participants, and are otherwise NULL. This applies
 equally to the web `pointEventRankings[].outOf` (§10.5).
 
+**Status 2026-10-14 (fourth audit, §11.1):** all six amendments above are live in
+`20261014230650` and `20261014223157`. They were verified, and they are RESOLVED.
+`get_led_group_member_points` is revoked.
+
 **Also noted (backend, not disclosure):** these functions use the `"user".student_id` link
 model, and the web uses `student."linkedUser"` (BACKEND_PLAN §9). The disclosure requirement is
 that `auth_current_student()` resolves only a student's **own** account. If a parent account ever
@@ -1958,3 +2002,246 @@ of the crowd. Consequences, all ruled:
 - `MIN_COHORT_FOR_AGGREGATE` floors on **group averages** (§10.12) count the children the
   average is taken over, which is every member, zeros included. A floor and the figure it guards
   must count the same children.
+
+---
+
+## 11. Fourth audit: live migrations and the post-checkpoint code (2026-10-14)
+
+```
+SCOPE:   supabase/migrations/20261014223115 to 20261014230650 (live, per the owner).
+         20261014230700_regenerate_link_codes.sql is NOT applied and stays flagged.
+         Application code at b738532 and after: dashboard hub and sign-in return (a1252b5),
+         the restructured student and parent pages, the Victorian student screens, and the
+         award-balance count-up (93897db).
+METHOD:  Read every function body, and every server action that feeds a surface. Checked
+         importers for every "use server" file. Next 14 turns a "use server" export into a
+         POST endpoint only when its module is in the build graph, so a file with no importers
+         is latent (D23), not live.
+```
+
+### 11.1 The live SQL: verified against the rulings
+
+| object | verdict | evidence |
+|---|---|---|
+| `publication_cut_policy()`, `publication_cut(size)` (`20261014230300`:32-57) | **CONFORMS** to §3 and the §8.4 table | Three-way minimum, floored at 0, and 0 for a null or non-positive size. Spot checks: 3 → 0, 4 → 1, 9 → 2, 30 → 9, 31 → 10, 600 → 10. Immutable and service_role only. N=10, P=0.33, K=3, aggregate floor 10, all inside the §3.4 ceilings. |
+| `display_cut` (:66-156) | **CONFORMS** | One cohort per call (§3.3 rule 1). The cut is recomputed on every call (rule 2). No count and no student id leave it (rule 3). Shrink-only ties: a row is published only if `rnk + band − 1 <= cut`, so a band that straddles the cut is dropped whole (rule 4). Point groups must be `ranked` (D18). Totals must be above 0 (D19). The timeframe must belong to the school (G1). Callable by staff of the school, or by a live device (D17 condition 1). "Not allowed" and "nothing to show" both return 0 rows. |
+| `points_to_next_rank` (:166-253) | **CONFORMS**, with one gap (§11.5 G-b) | Actor must be the student's own account or a linked parent. No name, id or rank of anyone else. Omitted at rank 1 and for unranked students. The 10-student floor applies to grade, point-group and student-group cohorts. |
+| display devices (`20261014230200`) | **CONFORMS** to D17 conditions 1 and 2 | `display_device_live` (:111-127) is checked by both `resolve` and `display_cut`. The admin list shows `pairer_active`. Conditions 3 to 5 belong to TypeScript and are not built (§11.4 #23). |
+| share withdrawal (`20261014230400`) | **CONFORMS** to §10.3 violation 4 | `AFTER UPDATE OF point_value ... WHEN distinct` fires on every write path. The sharer's notice function exists but is not called (§11.4 #24). |
+| link codes (`20261014230500`) | **CONFORMS** to §10.4 conditions 1 to 4 and 6 | `redeem_link_code` gives one result for wrong code, wrong school and already linked. Ambiguous matches are refused. Only failures are counted, and the code is not logged. `preview_link_code` refuses legacy 7-character codes (D12) and returns no id. New rows get 50-bit codes. Existing codes stay 28 bits until 230700 runs. **Nothing in the application calls any of these functions** (§11.4 #20). |
+| leader letters (`20261014230600`) | **CONFORMS** to L1 to L9 and L11, D15, D16 and D18 | Whole-day window `pe.date < _day_start` (:122, :134). Ranked groups only (:121). Cohort floor of 30 (:96, :150). `coalesce(..., 'E')` (:153). L8(a)(b)(c) in `shown` (:226-236). The leader is resolved through `student."linkedUser"` only, so a parent gets nothing (L11). Not wired: the web "Groups you lead" stays names only, which is the ALLOWED fallback. |
+| mobile RPCs (`20261014230650`, `20261014223157`) | **CONFORMS** to D14 G1 to G5 | Every timeframe, point group and ranking group is checked against the caller's school. Every board goes through `publication_cut` with shrink-only ties. Peer `student_id`, `points_change` and `rank_change` are NULL. There are no neighbours. Averages need ≥ 10 members. `top_student_points` is NULL. Event rank needs ≥ 4 participants. `get_led_group_member_points` is names only **and revoked** (223157:76-77). §10.12 items (1) to (6) are closed. |
+| EXECUTE lock-down (`20261014223115`) | **CONFORMS** | The migration's self-check aborts if `anon` can execute any public function, or if `authenticated` can execute anything beyond the 14 listed (now 13). |
+
+### 11.2 Status of every earlier violation
+
+| item | status | evidence / what remains |
+|---|---|---|
+| §7.4 #1 GLOBAL = no limits | **OPEN** | `dashboardFilters.ts:23-28`; `universalApi.ts:1084-1087` still returns every student when any limit is null. Closed by D20. |
+| §7.4 #2 `globalDashGetGlobalStats` | **PARTLY RESOLVED** | Staff-gated (`universalApi.ts:619-626`), still uncut. Closed by D20. |
+| §7.4 #3 `pointEvents[].students[]` | **OPEN** | `universalApi.ts:1149-1153`: every student's score and rank on every event, on every dashboard. |
+| §7.4 #4 union, not minimum | **PARTLY RESOLVED** | The `-1` fall-through is fixed (`publicationCut.ts:13-17` fails closed). The union (`:54`) and the missing three-way minimum on the overall and point-group terms remain. Closed by D20. |
+| §7.4 #5 grade `ceil`, no K | **RESOLVED in TypeScript** | `gradeCut` floors and applies `size − K_HIDDEN` (`publicationCut.ts:23-28`). The code is moot once D20 lands. |
+| §7.4 #6 `getSchoolGlobalStats` | **RESOLVED** | Deleted. |
+| §7.4 #7 client pages | **PARTLY RESOLVED** | Unchanged. The fix belongs in the actions (D20). |
+| §7.4 #8 `studentDisplayLimit` | **OPEN** | Still present, and its test still expects 20. |
+| §7.4 #9, #10 `slice(0, 20)` and synthesized last rank | **OPEN** | `api/service/dashboard.ts:249`, `:272`, `:556`. |
+| §7.4 #11 MOBILE union | **OPEN** | `dashboardFilters.ts:45-50`. |
+| §7.4 #12 denominators on DISPLAY | **OPEN** | `app/dashboard/global/page.tsx:24` and `:87` are still rendered. |
+| §7.4 #13 trends on DISPLAY | **OPEN** | "Moving up" at `global/page.tsx:79`, `:101`. All `lastMonth*` fields are still in the payload. |
+| §7.4 #14, #15 mutators and fallback | **OPEN** | `dashboardFilters.ts:91-196`. Closed by deletion (D20). |
+| §7.4 #16 payload logging | **PARTLY RESOLVED** | The dashboard and `topCards` logs are gone. `teacherServerActions.ts:586` still writes each student id with input and value to stdout on every edit, and `:269` logs the access record. |
+| §7.4 #18 staff session on a kiosk | **OPEN** | The SQL half is live. There is no `/display` route, no `getDashboardViewer`, and no caller of `display_device_*`. See §11.4 #23 and D24. |
+| §7.4 #19 `isStaffOfSchool` as a whole-school scope | **OPEN** | `universalApi.ts:454-525`. `getAllTimeframePointEvents` still returns every per-event score in the school to any teacher. |
+| §9.1 / §10.1 compare | **RESOLVED** | `app/student/compare/**` and `getSchoolGlobalStats` are deleted. |
+| §9.2 `studentDashGetGlobalStats`, `teacherDashGetGlobalStats` | **RESOLVED** | Both deleted. |
+| §9.3 / §10.2 nearby lists | **RESOLVED** | Removed from `calculateStudentStats` (`api/student.ts:592-600`) and from both pages. `pointsToNextRank` is not yet wired. That is a missing feature, not a violation. |
+| §10.3 violations 1 to 3 (share scope, `inputScore`/ids, sort by points) | **RESOLVED** | `api/student.ts:1166-1190` (membership check). `:1324-1331` (narrow type, opaque `key`). `:1469` (sorted by share time, then name). |
+| §10.3 violation 4 (live join) | **RESOLVED in SQL** | The trigger is live. The sharer is not told yet (§11.4 #24). |
+| §10.3 recipient subtitle | **ALLOWED as changed** | "Points that students in your groups chose to show you." (`SharedPointsTab.tsx:84`) is more accurate than the approved line, and it is accepted. |
+| §10.6 points since last visit | **CONFORMS** | `AwardBalance.tsx` is `localStorage` only and celebrates only a positive delta. Nothing is stored on the server. |
+| §10.7 violation 2 (TA scorebook payload) | **RESOLVED** | `teacherServerActions.ts:305-359`, `:434`. A TA select carries no notes, PowerSchool id or other-group memberships. |
+| §10.7 violation 3 (teacher's own link code) | **RESOLVED** | Gone from `api/teacher.ts` and `app/teacher/page.tsx`. |
+| §10.7 Groups you lead | **CONFORMS (names only)** | `api/student.ts:323-444`. Low: the member key is the real `student.id`, serialized as a React key in the RSC stream (`app/student/page.tsx:152`). Use the ordinal. |
+| §10.10 rank colour | **CONFORMS** | `lib/rankTier.ts` gates 21 to 29 to `none`. `displayRankTier` takes no N. The caveat in §10.10 Q2 still holds: until D20, FEATURED can carry ranks above 20. |
+| §10.11 D11 own link code | **RESOLVED** | Explicit column lists (`api/student.ts:32`, `:100`). No `linkCode` on `Student`. |
+| §10.12 mobile items (1) to (6) | **RESOLVED** | §11.1. |
+| §10.13 LL-1, LL-2 | **RESOLVED in SQL** | §11.1. |
+| §10.15 D18, D19 | **RESOLVED in SQL; VIOLATED on the web own view** | §11.4 #21. |
+
+### 11.3 D20 — `dashboardFilters.ts` against the live cut functions
+
+**Ruling: yes, it can and must be done now. It is a deletion and a re-plumbing, not a rewrite
+of the arithmetic.** The arithmetic now lives in SQL, it is correct (§11.1), and a second copy in
+TypeScript can only drift from it. This amends §8.3, §8.4 and §8.6. §8.1, §8.2 (the tier union),
+§8.5's principle, §8.7 and §8.8 stand.
+
+1. **Delete** `app/supaApi/universal/dashboardFilters.ts`, its README section, and the
+   `isStudentPublished` and `gradeCut` call path from every DISPLAY action. There is no
+   TypeScript copy of N, P or K. `publication_cut_policy()` is the single source. If
+   `computeCut` is kept, it is test-only, and a test asserts that it matches the §8.4 table
+   (and so `publication_cut`).
+2. **Viewer resolution** lives in a server-only module (not `"use server"`, like
+   `staffAccess.ts`): `getDashboardViewer()` returns exactly one of
+   `{ kind: 'staff', userId }` (from the session) or `{ kind: 'device', deviceId }` (from the
+   httpOnly cookie through `display_device_resolve`). Neither may come from an argument.
+   `display_cut` gets `p_actor_user_id` or `p_display_device_id`, never both.
+3. **The exported actions** take at most `(requestedSchoolId, timeframeId)`. The school passes
+   through `getDashboardSchoolId` (staff) or is fixed by the device. The tier is DISPLAY by
+   construction, so no tier, filter name, limit or cohort size is a parameter.
+4. **Narrow row type** (§8.7): `{ key, rank, firstName, lastName, grade, totalPoints }`. `key`
+   is an opaque per-response ordinal, which closes the §7.1 `students[].id` caveat. A DISPLAY
+   response never contains `GlobalPoints`.
+5. **Cohorts.** Overall; each grade the school has; each `ranked` point group; and student
+   groups if the product wants team member boards (ALLOWED, §11.5 G-c). One call per cohort.
+   Each list is rendered on its own (§3.3 rule 6). A cohort with 0 rows gets no heading (§7.5).
+6. **Not covered by `display_cut`, and never to be filled from `getGlobalPointStats`:**
+   - team averages and raw points: need a SQL function with the `MIN_COHORT_FOR_AGGREGATE` floor
+     and no member count (§7.1). Backend has not built it. Until it exists, the team panels are
+     off.
+   - "Moving up": DENY until a server function returns only a rise magnitude for students
+     already above the overall cut (§7.4 #13). The recommendation is to drop it.
+   - upcoming events: metadata only (id, name, date, max points, point group), with no
+     `students[]`.
+   - school total: rounded per §7.5, or omitted.
+7. **Callers to move:** `featuredDashGetGlobalStats`, `mobileDashGetGlobalStats`,
+   `globalDashGetGlobalStats`, and `getTopScrollingDashboard` (`api/service/dashboard.ts`).
+   Delete `getGlobalDashboard` (no caller). After the move, `getGlobalPointStats` has one
+   caller, `adminGetGlobalPointStats` (ADMIN, checked against `admin_school_pair`), for an
+   ADMIN route outside `app/dashboard/`.
+8. **Numbers will change on the walls.** SQL totals are raw `point_value`, grouped by
+   `point_event.point_group_id`. The Node path applies the template conversion, keyed by
+   `point_template.point_group_id` (BACKEND_PLAN decision P3). That is not a disclosure
+   question. Wall, own view and mobile must agree, though, because a rank shown beside an N from
+   a different computation is a defect (D19).
+
+Landing D20 closes §7.4 #1, #2, #3 (for DISPLAY), #4, #8, #9, #10, #11, #14 and #15. It closes
+#12 and #13 once the render code stops referencing the removed fields. With §11.4 #23 it
+closes #18.
+
+### 11.4 New violations (most severe first)
+
+20. **OPEN, LIVE — link codes can be brute-forced with no rate limit.**
+    `app/supaApi/server/parent/parentApi.ts:34-71` (`linkStudentToParent`),
+    `app/supaApi/server/linkStudent.ts`, `app/supaApi/server/linkTeacher.ts`. All three match
+    `link_code` directly with the service client, and none calls `redeem_link_code`. Sign-up is
+    open (`app/login/page.tsx:36`). Every existing student code is 28 bits (§10.4; 230700 not
+    applied). *Consequence:* anyone can register an account and script guesses against a
+    school number. In a 600-student school, about one guess in 450,000 makes the guesser a
+    "parent" of some child, with the child's whole record: every score, rank and trend. Nothing
+    slows the guesser down, nobody is told, and the admin cannot see the link (#25). Teacher
+    codes are weaker still. `api/admin/teachers.ts:155` mints 6 base-36 characters from
+    `Math.random()`, and `adminTeachersApi.ts:19-20` uses `md5(Date.now())`. Claiming an
+    unlinked teacher code makes the claimant staff of that school, with #19's whole-school
+    reach. `linkTeacher.ts:16` also matches the code across **all** schools, and a cross-school
+    collision returns the distinct "Error fetching teacher" (`:20`), which is a collision
+    oracle (§10.4 condition 3). *Required change (senior-developer; backend confirms):* route all
+    three flows through `redeem_link_code(actor, school, code, purpose, clientKey)`, with
+    `clientKey` an HMAC of the client IP. Map `rate_limited` to its own message, and everything
+    else to the one no-match message. Switch both TypeScript teacher generators to the database
+    default or `admin_rotate_link_code`. Then apply 230700 (§11.6).
+
+21. **OPEN, LIVE — web own-view standing breaks D19, D18 and the small-event floor.**
+    `api/student.ts:575-600` (overall and grade), `:606-655` (point group), `:660-694`
+    (event). These feed `app/student/page.tsx` and `app/parent/[studentId]/page.tsx`.
+    - `totalOutOf` and `gradeOutOf` count every enrolled student, zeros included. Ranks use
+      `findIndex`, so ties, including the whole zero-point band, get distinct ranks in array
+      order. A student with no points sees "412th of 450 students", and so does their parent.
+      `StandingPlate` and `StickyHeader` have a "Not ranked yet" branch that can never fire,
+      because the server always sends a valid-looking rank. D19 says such a student is never
+      shown as last.
+    - Point-group standing is computed for **every** point group, `ranked` or not (D18). It is
+      rolled up to the top-level parent, which is a different cohort from the SQL one. It also
+      carries a `percentileToRating` letter (shown as plain text, which §10.10 allows on an own
+      view).
+    - Event standing has no 4-participant floor (§10.8, §10.12 gap), so "1st of 2" is shown.
+    - Hard rule 3: every student_point in the school, `input_score` included, is loaded into
+      the action to rank one child.
+    *Required change (backend, then senior-developer):* get own ranks and N from SQL over the D19
+    cohort. `mobile_own_rank` (service_role, `20261014230650`:108-140) already computes them.
+    Wrap it, or add a web function that checks the actor with `can_view_student`. Return
+    null rank and null N when the total is ≤ 0, use `ranked` point groups only, let ties share
+    the better rank, and return null event rank and N below 4 participants. The pages need no
+    change: they already render "Not ranked yet" for null.
+
+22. **OPEN, LATENT — unimported server actions that carry peer or credential data (D23).**
+    None of these is reachable today. Each needs only one import to become a live POST
+    endpoint. *Required change:* delete them.
+    - `app/supaApi/server/admin/students/getSchoolStudents.ts`: `"use server"` with **no
+      authorization at all**. It returns `select *` on every student of any `schoolId`,
+      including `link_code`, birthdate, gender and PowerSchool id, plus the linked user row.
+      Its only importer, `app/supaApi/client/admin/students/adminStudentsApi.ts`, has no
+      importer of its own. Delete both.
+    - `api/v2/group-leader.ts`: totals, ranks, "nearby ranking" and a caller-sized top-N of a
+      leader's group mates. That is the league table §4 forbids, and D13 does not allow it.
+    - `app/supaApi/server/dashboard/dashboardApi.ts` (`getFeaturedDashData`,
+      `newGetGlobalDashData`) with `app/dashboard/featured/screens/TopStudents.tsx` and
+      `TopStudentsByGroup.tsx`. The `studentGroups` key (:279) lists **every** grouped student
+      in the school, with totals and per-category points. The cut is `n / 2` with no K term, so
+      a grade of 2 publishes its top student, and the other learns they are last.
+    - `app/supaApi/client/teacher/clientGetOwnTeacherData.ts` with
+      `app/supaApi/server/teacher/getOwnTeacherData.ts`. They return the teacher's own
+      `link_code` (§10.7 violation 3 by another route).
+
+23. **OPEN, LIVE — the display-device path exists only in SQL** (§7.4 #18). No route mints a
+    pairing request, no staff screen approves one, and no dashboard action accepts a device.
+    The only way to put a wall up is a staff login on the kiosk, and a1252b5 now returns that
+    login straight to the screen (D24). *Required change:* build BACKEND_PLAN §4 in TypeScript,
+    including D17 conditions 3 to 5 (§10.14), and make `getDashboardViewer` (§11.3 item 2) the
+    only viewer source for `app/dashboard/*`.
+
+24. **OPEN, LOW — a withdrawn share is not explained to the sharer.**
+    `take_share_withdrawal_notices` has no caller. The share disappears silently. *Required
+    change:* call it on the student home and show the §10.3 sentence. Once the notice has been
+    read, the SQL marks it seen, as designed.
+
+25. **OPEN, MEDIUM — parent links are invisible and cannot be revoked.**
+    `admin_list_parent_links`, `admin_revoke_parent_link` and `own_parent_link_dates` have no
+    callers. That leaves the §10.4 policy-gap ruling (admin-visible, revocable links) and the
+    §10.11 "A parent account was linked on <date>" line unmet. These are the detection control
+    for #20. *Required change:* list and revoke on the admin student page. Show the date line on
+    the student's own account screen.
+
+26. **OPEN, LOW — the student identity call sends birthdate and gender to the browser.**
+    `components/home/HomeRoles.tsx:34` calls `getStudentDataWithContext` from a client
+    component, and it returns `birthdate` and `gender` (`api/student.ts:100`). The screen
+    renders name and grade only. This is own data, but test question 3 fails, and the screen
+    may be a shared family device. *Ruling:* `birthdate` and `gender` are ALLOW-IF the surface
+    renders them, and DENY in every other student payload. *Required change:* a narrow return
+    for the home and the student layout.
+
+### 11.5 Policy gaps (proposed rulings, in force until revisited)
+
+- **G-a. Group averages on mobile can be differenced over time.** `get_student_group_leaderboard`
+  and `get_ranking_group_leaderboard` compute live. In a group of 10, a member who watches the
+  average move after one classmate's single award (or deduction) learns its size, to within the
+  member's own change. *Proposed:* student-facing group figures cover whole days only (the D16
+  boundary: events before 00:00 UTC today). That is the same protection L9 gives the letters.
+  Backend, low severity.
+- **G-b. `points_to_next_rank` has no floor on the overall cohort** (:248). In a school with 5
+  ranked students, the gap plus your own total is the exact total of a student everyone can
+  name. *Proposed:* the overall cohort also needs `MIN_COHORT_FOR_AGGREGATE` (10) ranked
+  students. This amends §9.3 "overall cohort always". The function has no caller yet, so the
+  cost is nil.
+- **G-c. Student-group member boards on DISPLAY** (`display_cut` with `'student_group'`):
+  ALLOWED under the cut, like any cohort. The team name is already ALLOW (§7.1). A team of 12
+  publishes 3.
+- **G-d. Leader letters with live membership.** The roster is live and the letters are
+  snapshotted, so a member leaving can flip a hidden column to shown. That shows only letters
+  that pass L8. Teachers control membership, not leaders. No change is required.
+
+### 11.6 For the product owner
+
+- **Regenerating every link code (230700).** The cost is that every code staff have already
+  handed out stops working, and families who have not yet linked need new ones. The benefit is
+  that the 28-bit codes, which #20 shows can be guessed, are retired. The authority's order:
+  wire the rate limiter first (no data loss, and it closes most of #20), then regenerate on a
+  date staff can plan reissue around. The choice of date is yours.
+- **Point totals on the walls will change under D20** (§11.3 item 8). If the converted template
+  points are the "real" numbers, backend must move the SQL to them before the walls switch.
+  If raw `point_value` is the real number, the student pages must move too. Either is fine for
+  disclosure. Mixing them is not.
+- **"Moving up" and the team panels go dark under D20** until backend builds server-side,
+  floored versions. The alternative is to keep feeding them from `getGlobalPointStats`, which
+  keeps every student's trend and every team's size in the kiosk payload. The authority's
+  ruling is dark until built.
