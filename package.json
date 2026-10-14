@@ -36,7 +36,6 @@
     "react-papaparse": "^4.4.0",
     "recharts": "^2.15.0",
     "tailwindcss": "3.4.1",
-    "three": "0.180.0",
     "typescript": "5.5.4"
   },
   "devDependencies": {
@@ -47,7 +46,6 @@
     "@types/papaparse": "^5.3.14",
     "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
-    "@types/three": "0.180.0",
     "@vitest/ui": "^3.2.4",
     "encoding": "^0.1.13",
     "eslint": "8.57.1",
