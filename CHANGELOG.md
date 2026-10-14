@@ -13,6 +13,9 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
 
 ### Changed
+- Opening a display link while signed out now takes you to sign-in and then straight back to that display. A wrong password says so plainly and keeps your place; the email box now suggests saved emails and shows the right phone keyboard.
+- The older `/dashboard/feature` address keeps its school when it forwards to the featured display.
+- In the scorebook, "Add New Point Event" is now "Add an assignment", and deleting one names it and says how many saved scores go with it. The duplicate "Open Unified Scorebook" button, which opened this same page, is gone.
 - Student pages have a new look: a printed prize-certificate style with a framed name card, a gilt points total, serif headings, ruled lists and a text-only tab bar, in light and dark. The old cyan console look and its sparkle effect are gone, along with an unused 3D library.
 - Mobile app totals, ranks and group averages now count only the chosen timeframe; some used every point ever earned. A student with no points this timeframe is shown as not ranked yet instead of last (migration `20261014230650`).
 - The student page now leads with your name and points, then Recent points, By category, Where you stand, and any roles you have. Labels like "Performance overview" and "Student record" are gone.

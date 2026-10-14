@@ -321,7 +321,6 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
               {isTeacher && addNewPointEventButton()}
-              {isTeacher && openUnifiedScorebookButton()}
               {isTeacher && (
                 <details className="relative">
                   <summary className="cursor-pointer list-none rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600">
@@ -597,7 +596,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const addNewPointEventModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg w-1/2">
-        <h2 className="text-xl font-bold mb-4">Add New Point Event</h2>
+        <h2 className="text-xl font-bold mb-4">Add an assignment</h2>
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Point Group</label>
@@ -702,7 +701,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       onClick={() => setNewPointEventModalOpen(true)}
       className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
     >
-      Add New Point Event
+      Add an assignment
     </button>
   )
 
@@ -974,15 +973,6 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     >
       Import Template
     </button>
-  )
-
-  const openUnifiedScorebookButton = () => (
-    <a
-      href={`/scorebook/group/${groupId}`}
-      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-    >
-      Open Unified Scorebook
-    </a>
   )
 
   const teachingAssistantButton = () => (
@@ -1489,14 +1479,19 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const confirmDeletePointEventDialog = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg">
-        <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
-        <p className="mb-4">Are you sure you want to delete this point event?</p>
+        <h2 className="text-xl font-bold mb-4">Delete this assignment?</h2>
+        <p className="mb-4">
+          Delete &ldquo;{currentlyEditedPointEvent?.name}&rdquo;?{" "}
+          {currentlyEditedPointEvent && currentlyEditedPointEvent.studentPoints.length > 0
+            ? `This also removes ${currentlyEditedPointEvent.studentPoints.length} saved ${currentlyEditedPointEvent.studentPoints.length === 1 ? "score" : "scores"}. It cannot be undone.`
+            : "No scores have been entered for it yet."}
+        </p>
         <div className="flex space-x-4">
           <button
             onClick={confirmDeletePointEvent}
             className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
           >
-            Delete
+            Delete {currentlyEditedPointEvent?.name ?? "assignment"}
           </button>
           <button
             onClick={() => {
