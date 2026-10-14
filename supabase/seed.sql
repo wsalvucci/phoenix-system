@@ -192,7 +192,8 @@ insert into public.point_event (id, template_id, student_group_id, date, name, m
 values (7, 1, 1, now() - interval '150 days', 'Kindness A past term', 100, 1);
 
 -- Per-student totals. K = kindness, E = effort (odd ids only), A = attendance (T/5).
--- Odd ids: K = T/2, E = T - K - A.  Even ids: K = T - A, no effort row.
+-- Odd ids: K = T/2, E = T - K - A.  Even ids (and 19): K = T - A, no effort row. Student 19 is kept
+-- out of the split so Homeroom A has no lone D letter and the leader's Kindness column is shown.
 with totals as (
   select i,
     case
@@ -206,8 +207,8 @@ with totals as (
 ),
 split as (
   select i, t, t / 5 as a,
-    case when i % 2 = 1 then t / 2 else t - t / 5 end as k,
-    case when i % 2 = 1 then t - t / 2 - t / 5 end as e
+    case when i % 2 = 1 and i <> 19 then t / 2 else t - t / 5 end as k,
+    case when i % 2 = 1 and i <> 19 then t - t / 2 - t / 5 end as e
   from totals
 )
 insert into public.student_point (student_id, point_event_id, point_value, input_score)
