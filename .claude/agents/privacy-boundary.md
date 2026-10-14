@@ -50,7 +50,7 @@ Rules that go with the cut:
 4. **Resolve ties by shrinking, not extending.** If the students at positions `cut` and `cut + 1` are tied on the published measure, exclude the whole tied band and move the cut up. Extending the cut to include everyone tied can breach `size - K_HIDDEN`, and publishing an arbitrary ordering within a tie invents a distinction that the data does not support. If shrinking empties the list, publish nothing.
 5. **Treat the thresholds as policy, not configuration.** `N_ABSOLUTE`, `P_RATIO`, and `K_HIDDEN` are disclosure decisions. They may be read from config but must not be runtime-mutable by any caller, and loosening any of them is a ruling you make, not a tuning knob a dashboard passes in.
 
-The existing `app/supaApi/universal/dashboardFilters.ts` already carries both shapes of knob — `numStudentsOverall`, `numStudentsPerPointGroup`, and `ratioStudentsPerGrade` — but applies them to different cohorts independently rather than taking the minimum within each cohort, and exposes runtime mutators that violate rule 5. Treat that file as the thing to correct, not the thing to copy.
+The old `dashboardFilters.ts` applied these knobs to cohorts independently instead of taking the per-cohort minimum, and exposed runtime mutators; it was deleted under D20. The cut now lives in SQL (`publication_cut*` / `display_cut`, migration `20261014230300`). Audit changes there, not in TypeScript.
 
 ## Disclosure tiers
 

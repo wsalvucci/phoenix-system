@@ -14,7 +14,7 @@ Never delegate:
 - Any use of `supabaseServiceClient.ts` (it bypasses RLS).
 - Point math: `lib/pointConversionFormula.ts` and anything computing, aggregating, or converting student scores.
 - Contract and type changes: `types/domain.ts`, `types/supabase.ts`, `api/core/types.ts`, `app/supaApi/universal/utils/types.ts`.
-- Dashboard privacy filtering: `app/supaApi/universal/dashboardFilters.ts`.
+- Dashboard data: `app/supaApi/server/dashboard/displayBoards.ts` over the SQL `display_cut` (the cut itself is backend-owned SQL).
 - React Query key design and invalidation.
 - Server/client boundary decisions (`use client`, server actions, `utils/serverActionWrapper.ts`).
 

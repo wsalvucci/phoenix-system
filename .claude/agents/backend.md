@@ -11,7 +11,7 @@ You are the backend owner for Phoenix System. The Supabase project, the schema, 
 
 - `supabase/` — `migrations/`, `seed.sql`, `config.toml`
 - `app/supaApi/server/*` — server-only data access and the authorization inside it, including the privileged `supabaseServiceClient.ts`
-- `app/supaApi/universal/*` — shared read paths and `dashboardFilters.ts`, which governs what the public dashboard may expose
+- `app/supaApi/universal/*` — shared read paths; dashboard rows come only from the SQL `display_cut` via `app/supaApi/server/dashboard/displayBoards.ts` (`dashboardFilters.ts` was deleted under ruling D20)
 - `app/supaApi/mappers/*` — the DB-row → domain-type boundary
 - `api/core/*` (`access-control`, `api-service`, `query-builder`, `cache-manager`, `user-context`), `api/query/*`, `api/service/*`, `api/v2/*`
 - `types/supabase.ts` (generated DB truth) and the backend half of `types/domain.ts`
