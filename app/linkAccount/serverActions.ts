@@ -3,23 +3,24 @@ import { createClient } from "@/utils/supabase/server";
 
 const supabase = createClient();
 
+// One message for every way a code can fail to match. DATA_DISCLOSURE.md D11 / §10.4.
+const NO_MATCH_MESSAGE = "That code did not match. Check the school number and code and try again.";
+
 export async function linkTeacher(schoolId: number, linkCode: string): Promise<boolean | string> {
     // Check if the teacher exists
-    const { data: teacherData, error: teacherDataError } = await supabase.from("teacher").select("*").eq("link_code", linkCode);
+    const { data: teacherData, error: teacherDataError } = await supabase.from("teacher").select("id, school_id").eq("link_code", linkCode.trim());
     if (teacherDataError) {
         console.error("Error fetching teacher", teacherDataError);
         return "Error fetching teacher"
     } else if (teacherData === null || teacherData.length === 0) {
-        console.log("No teacher found for link code: " + linkCode);
-        return "No teacher found for link code: " + linkCode;
+        return NO_MATCH_MESSAGE;
     }
 
     const teacher = teacherData[0];
 
     // Check if the teacher belongs to the school
     if (teacher.school_id !== schoolId) {
-        console.log("Teacher is not associated with this school");
-        return "Teacher is not associated with this school"
+        return NO_MATCH_MESSAGE;
     }
 
     // Check if the teacher is already linked
@@ -28,8 +29,7 @@ export async function linkTeacher(schoolId: number, linkCode: string): Promise<b
         console.error("Error fetching linked user", linkedUserError);
         return "Error fetching linked user"
     } else if (linkedUser !== null && linkedUser.length > 0) {
-        console.log("Teacher is already linked");
-        return "Teacher is already linked"
+        return NO_MATCH_MESSAGE;
     }
 
     // Get the user's supabase id

@@ -164,7 +164,8 @@ export async function duplicateScorebookEvents(
                 provided_shift_amount: input.shiftAmount,
                 provided_shift_unit: input.shiftUnit,
                 provided_expected_source_event_ids: liveSourceEvents.map(event => event.id),
-                provided_destination_timeframe_id: input.destinationTimeframeId ?? null,
+                // Omitted means the SQL default (null): no destination timeframe.
+                provided_destination_timeframe_id: input.destinationTimeframeId ?? undefined,
                 provided_excluded_event_ids: allExcludedEventIds,
                 provided_request_id: input.requestId,
         });
@@ -300,6 +301,10 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
     // Check teacher access
     const hasTeacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
+    // A student assistant is a peer (DATA_DISCLOSURE.md §10.7): names and the per-event
+    // values for granted events only. No notes, no PowerSchool ids, no memberships in other groups.
+    const viewerIsAssistant = !hasTeacherAccess;
+
     // Check teaching assistant access and scope (support users who are both teacher and student)
     let accessiblePointEventIds: number[] | null = null;
     if (!hasTeacherAccess) {
@@ -341,16 +346,20 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
 
     const { data: studentGroupData, error: studentGroupDataError } = await supabase
         .from("student_group")
-        .select("*, student(*)")
+        .select("*, student(id, first_name, last_name)")
         .eq("id", studentGroupId)
         .single();
     if (studentGroupDataError) throw new Error(studentGroupDataError.message);
     if (studentGroupData == null) throw new Error("No student group data");
 
-    // Build point event query with optional timeframe filtering
+    // Build point event query with optional timeframe filtering. The assistant query never
+    // selects notes, PowerSchool ids, or other-group memberships, so they never leave the database.
+    const studentPointSelect = viewerIsAssistant
+        ? "student_point (id, student_id, input_score, point_value, student (id))"
+        : "student_point (*, student (id, first_name, last_name, powerschool_id, student_group (*)))";
     let pointEventQuery = supabase
         .from("point_event")
-        .select("*, point_group (*), student_point (*, student (id, first_name, last_name, powerschool_id, student_group (*)))")
+        .select(`*, point_group (*), ${studentPointSelect}`)
         .eq("student_group_id", studentGroupId);
 
     // Add timeframe filtering if timeframeId is provided
@@ -409,18 +418,20 @@ export async function newGetScorebookData(studentGroupId: number, timeframeId?: 
                 studentPoints: Array.isArray(pe.student_point) ? pe.student_point.map((sp: any) => {
                     if (sp.student == null) return null;
                     return {
-                        student: {
-                            id: sp.student.id,
-                            studentGroups: Array.isArray(sp.student.student_group) ? sp.student.student_group.map((sg: any) => ({
-                                id: sg.id,
-                                name: sg.name
-                            })) : [],
-                            powerschoolId: sp.student.powerschool_id
-                        },
+                        student: viewerIsAssistant
+                            ? { id: sp.student.id }
+                            : {
+                                id: sp.student.id,
+                                studentGroups: Array.isArray(sp.student.student_group) ? sp.student.student_group.map((sg: any) => ({
+                                    id: sg.id,
+                                    name: sg.name
+                                })) : [],
+                                powerschoolId: sp.student.powerschool_id
+                            },
                         pointData: {
                             input: sp.input_score ?? sp.point_value,
                             value: sp.point_value,
-                            notes: sp.notes ?? ""
+                            notes: viewerIsAssistant ? "" : (sp.notes ?? "")
                         }
                     };
                 }).filter((sp: any) => sp !== null) : []
@@ -527,13 +538,38 @@ export async function updateStudentPointsByAssistant(
 
     if (!allowed) return false;
 
-    // Upsert student points
+    // Every target student must belong to this group. Reject the whole batch otherwise
+    // (matches atomic_edit_point_event: "A student does not belong to this student group").
+    const targetIds = Array.from(new Set(updates.map((u) => u.studentId)));
+    if (targetIds.some((id) => !Number.isInteger(id))) {
+        console.error("Invalid student id in assistant point update", { studentGroupId, pointEventId });
+        return false;
+    }
+    if (targetIds.length > 0) {
+        const { data: members, error: membersError } = await supabase
+            .from("student_group_pair")
+            .select("student_id")
+            .eq("student_group_id", studentGroupId)
+            .in("student_id", targetIds);
+        if (membersError) {
+            console.error("Error verifying student group membership", membersError);
+            return false;
+        }
+        const memberIds = new Set((members ?? []).map((m) => m.student_id));
+        if (targetIds.some((id) => !memberIds.has(id))) {
+            console.error("A student does not belong to this student group", { studentGroupId, pointEventId, userId: userRow.id });
+            return false;
+        }
+    }
+
+    // Upsert student points. A student assistant never sees or writes notes (§10.7), so the
+    // notes column is left out of their upsert and existing teacher notes are preserved.
     const rows = updates.map((u) => ({
         student_id: u.studentId,
         point_event_id: pointEventId,
         input_score: u.input,
         point_value: evaluatePointConversionFormula(pointEvent.conversion_formula, u.input),
-        notes: u.notes ?? null,
+        ...(isTeacher ? { notes: u.notes ?? null } : {}),
     }));
 
     const { error: upsertError } = await supabase.from("student_point").upsert(rows, {

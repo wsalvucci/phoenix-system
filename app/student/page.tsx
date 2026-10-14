@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { getStudentDataWithContext, getStudentDashboardData, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroupsWithGrades } from "@/api/student";
-import { rankToColor, StudentMonthlyTrends } from "@/types/domain";
+import { getStudentDataWithContext, getStudentDashboardData, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroups } from "@/api/student";
+import { StudentMonthlyTrends } from "@/types/domain";
+import { rankTier } from "@/lib/rankTier";
 import dynamic from "next/dynamic";
 import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
@@ -48,7 +49,7 @@ export default async function StudentDashboard() {
     const dashboardData = await getStudentDashboardData();
     const monthlyTrends: StudentMonthlyTrends | null = await getStudentMonthlyTrends();
     const taGroups = await getStudentTeachingAssistantGroups();
-    const leaderGroups = await getStudentLeaderGroupsWithGrades();
+    const leaderGroups = await getStudentLeaderGroups();
 
     if (!dashboardData) {
         return (
@@ -63,10 +64,8 @@ export default async function StudentDashboard() {
         );
     }
 
-    const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, nearbyStudents, nearbyGradeStudents, pointGroupRankings, pointEventRankings } = dashboardData;
+    const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, pointGroupRankings, pointEventRankings } = dashboardData;
 
-    // Get the theme color based on overall rank
-    const themeColor = rankToColor(totalRank);
     return (
         <div className="student-console victorian-scrollbar w-full max-w-full"
         >
@@ -90,35 +89,11 @@ export default async function StudentDashboard() {
                             <div className="victorian-content victorian-delay-1">
                                 <div className="flex justify-between items-center gap-3 mb-4">
                                     <h3 className="victorian-title text-xl">Overall Ranking</h3>
-                                    <div className="victorian-stat-number text-2xl text-right" style={{ color: themeColor }}>
+                                    <div className="victorian-stat-number text-2xl text-right text-rank-ink" data-rank-tier={rankTier(totalRank, totalOutOf)}>
                                         <span>#{totalRank}</span>
                                         <span className="victorian-subtitle text-sm ml-2">
                                             of {totalOutOf} students
                                         </span>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="victorian-subtitle font-medium text-sm">Nearby Students</div>
-                                    <div className="space-y-2">
-                                        {nearbyStudents.map((nearby, index) => (
-                                            <div 
-                                                key={nearby.studentId}
-                                                className={`victorian-list-item grid grid-cols-3 max-w-full overflow-x-hidden ${
-                                                    nearby.studentId === student.id ? 'highlight' : ''
-                                                } victorian-slide-in`}
-                                                style={{ animationDelay: `${0.2 + index * 0.1}s`, gridTemplateColumns: '1fr 5fr 2fr' }}
-                                            >
-                                                <span className="font-medium" style={{ color: rankToColor(nearby.rank) }}>
-                                                    {numberToOrdinal(nearby.rank)}
-                                                </span>
-                                                <span className="font-medium victorian-student-name truncate">
-                                                    {nearby.firstName} {nearby.lastName}
-                                                </span>
-                                                <span className="text-sm text-right" style={{ color: rankToColor(nearby.rank) }}>
-                                                    {nearby.totalPoints.toLocaleString()} pts
-                                                </span>
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -127,35 +102,11 @@ export default async function StudentDashboard() {
                             <div className="victorian-content victorian-delay-2">
                                 <div className="flex justify-between items-center gap-3 mb-4">
                                     <h3 className="victorian-title text-xl">Grade {student.grade} Ranking</h3>
-                                    <div className="victorian-stat-number text-2xl text-right" style={{ color: themeColor }}>
+                                    <div className="victorian-stat-number text-2xl text-right text-rank-ink" data-rank-tier={rankTier(gradeRank, gradeOutOf)}>
                                         <span className="text-lg">#{gradeRank}</span>
                                         <span className="victorian-subtitle text-sm ml-2">
                                             of {gradeOutOf} students
                                         </span>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="victorian-subtitle font-medium text-sm">Grade Peers</div>
-                                    <div className="space-y-2">
-                                        {nearbyGradeStudents.map((nearby, index) => (
-                                            <div 
-                                                key={nearby.studentId}
-                                                className={`victorian-list-item grid grid-cols-3 max-w-full overflow-x-hidden ${
-                                                    nearby.studentId === student.id ? 'highlight' : ''
-                                                } victorian-slide-in`}
-                                                style={{ animationDelay: `${0.3 + index * 0.1}s`, gridTemplateColumns: '1fr 5fr 2fr' }}
-                                            >
-                                                <span className="font-medium" style={{ color: rankToColor(nearby.rank) }}>
-                                                    {numberToOrdinal(nearby.rank)}
-                                                </span>
-                                                <span className="font-medium victorian-student-name truncate" style={{ color: rankToColor(nearby.rank) }}>
-                                                    {nearby.firstName} {nearby.lastName}
-                                                </span>
-                                                <span className="text-sm text-gray-600 text-right" style={{ color: rankToColor(nearby.rank) }}>
-                                                    {nearby.points.toLocaleString()} pts
-                                                </span>
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -196,7 +147,7 @@ export default async function StudentDashboard() {
                                     <h3 className="victorian-title text-xl">Groups You Lead</h3>
                                 </div>
                                 <p className="victorian-subtitle mb-4 text-sm">
-                                    Letter grades for all students in your groups
+                                    Students in the groups you lead
                                 </p>
                                 <div className="space-y-6">
                                     {leaderGroups.groups.map((group, groupIndex) => (
@@ -206,62 +157,16 @@ export default async function StudentDashboard() {
                                             style={{ animationDelay: `${0.5 + groupIndex * 0.1}s` }}
                                         >
                                             <h4 className="victorian-title text-lg mb-4">{group.name}</h4>
-                                            <div className="space-y-3">
-                                                {group.students.map((student, studentIndex) => (
-                                                    <div 
-                                                        key={student.id}
-                                                        className="victorian-list-item p-4 rounded-lg border border-slate-200 dark:border-slate-600"
-                                                        style={{ animationDelay: `${0.6 + groupIndex * 0.1 + studentIndex * 0.05}s` }}
+                                            <ul className="space-y-2">
+                                                {group.students.map((member) => (
+                                                    <li
+                                                        key={member.id}
+                                                        className="victorian-list-item p-3 rounded-lg border border-slate-200 dark:border-slate-600 font-medium text-slate-900 dark:text-slate-100 truncate"
                                                     >
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                                                                    {student.firstName} {student.lastName}
-                                                                </span>
-                                                                <span className="text-sm text-slate-600 dark:text-slate-400">
-                                                                    Grade {student.grade}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-sm text-slate-600 dark:text-slate-400">Total Grade</div>
-                                                                <div className="text-lg font-bold" style={{ color: student.totalPointsLetterGrade.color }}>
-                                                                    {student.totalPointsLetterGrade.letter}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        {/* Point Group Grades */}
-                                                        {student.pointGroupGrades.length > 0 && (
-                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                                                {student.pointGroupGrades.map((pointGroup) => (
-                                                                    <div 
-                                                                        key={pointGroup.pointGroupId}
-                                                                        className="flex items-center gap-2 p-2 rounded bg-slate-50 dark:bg-slate-700"
-                                                                    >
-                                                                        <span 
-                                                                            className="w-3 h-3 rounded-full inline-block" 
-                                                                            style={{ backgroundColor: pointGroup.pointGroupColor }} 
-                                                                        />
-                                                                        <div className="flex-1 min-w-0">
-                                                                            <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                                                                                {pointGroup.pointGroupName}
-                                                                            </div>
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span 
-                                                                                    className="text-sm font-bold"
-                                                                                    style={{ color: pointGroup.letterGrade.color }}
-                                                                                >
-                                                                                    {pointGroup.letterGrade.letter}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                        {member.firstName} {member.lastName}
+                                                    </li>
                                                 ))}
-                                            </div>
+                                            </ul>
                                         </div>
                                     ))}
                                 </div>
@@ -296,37 +201,16 @@ export default async function StudentDashboard() {
                                                     {ranking.pointGroupName}
                                                 </div>
                                                 <div className="victorian-subtitle text-md">
-                                                    <span style={{ color: rankToColor(ranking.rank) }}>{numberToOrdinal(ranking.rank)}</span> of {ranking.outOf}
+                                                    <span className="text-rank-ink" data-rank-tier={rankTier(ranking.rank, ranking.outOf)}>{numberToOrdinal(ranking.rank)}</span> of {ranking.outOf}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 mb-3">
                                                 <div className="student-grade text-2xl font-bold">
                                                     {ranking.letterGrade.letter}
                                                 </div>
-                                                <div className="victorian-stat-number text-lg" style={{ color: rankToColor(ranking.rank) }}>
+                                                <div className="victorian-stat-number text-lg">
                                                     {ranking.points.toLocaleString()} pts
                                                 </div>
-                                            </div>
-                                            <div className="space-y-1">
-                                                {ranking.nearbyStudents.slice(0, 3).map((nearby: { studentId: number; firstName: string; lastName: string; points: number; rank: number }) => (
-                                                    <div 
-                                                        key={nearby.studentId}
-                                                        className={`grid grid-cols-3 text-xs max-w-full overflow-x-hidden ${
-                                                            nearby.studentId === student.id ? 'font-bold victorian-accent' : ''
-                                                        }`}
-                                                        style={{ gridTemplateColumns: '1fr 5fr 2fr' }}
-                                                    >
-                                                        <span className="text-left col-span-1 truncate">
-                                                            {numberToOrdinal(nearby.rank)}
-                                                        </span>
-                                                        <span className="text-left col-span-1 truncate min-w-0">
-                                                            {nearby.firstName} {nearby.lastName}
-                                                        </span>
-                                                        <span className="text-gray-600 col-span-1 text-right truncate">
-                                                            {nearby.points.toLocaleString()} pts
-                                                        </span>
-                                                    </div>
-                                                ))}
                                             </div>
                                         </div>
                                     ))}

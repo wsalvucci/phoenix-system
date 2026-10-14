@@ -51,12 +51,6 @@ export class DashboardService {
 
       const { data: timeframeData, error: timeframeError } = await timeframeQuery;
 
-      console.log("=== OLD API TIMEFRAME DEBUG ===");
-      console.log("Raw timeframe data from old API:", timeframeData);
-      console.log("Number of timeframes from old API:", timeframeData?.length);
-      console.log("Active timeframes from old API:", timeframeData?.filter(tf => tf.active));
-      console.log("=================================");
-
       if (timeframeError) {
         logger.error('Error fetching timeframe data', { schoolId, timeframeId, timeframeError });
         throw timeframeError;

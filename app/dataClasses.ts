@@ -449,7 +449,6 @@ export function convertPointUsingRuleType(
         ruleType: PointConversionRuleType,
         value: number,
         input: number,
-        formula: string | null = null
 ): number {
         switch (ruleType) {
                 case PointConversionRuleType.ADD:
@@ -461,8 +460,7 @@ export function convertPointUsingRuleType(
                 case PointConversionRuleType.DIVIDE:
                         return Number(input) / Number(value);
                 case PointConversionRuleType.FORMULA:
-                        if (!formula) return input;
-                        return eval(formula);
+                        return input;
                 case PointConversionRuleType.DIRECT:
                         return input;
         }
@@ -893,47 +891,6 @@ export type TimedTotalPointData = {
         }[];
 }
 
-export const rankToColor = (rank: number) => {
-        if (rank === 1) {
-                return Color("#FFD700");
-        } else if (rank === 2) {
-                return Color("#C0C0C0");
-        } else if (rank === 3) {
-                return Color("#CD7F32");
-        } else if (rank === 4) {
-                return Color("#800080");
-        } else if (rank === 5) {
-                return Color("#008080");
-        } else if (rank <= 10) {
-                return Color("#DC143C");
-        } else if (rank <= 20) {
-                return Color("#40D13B")
-        } else {
-                return Color("#FFFFFF");
-        }
-}
-
-export const rankToBackgroundColor = (rank: number) => {
-        if (rank > 20) {
-                return Color("#000000")
-        } else {
-                return rankToColor(rank)
-        }
-}
-
-export const rankToTextGradient = (rank: number) => {
-        if (rank === 1) {
-                `from-`
-        } else if (rank === 2) {
-        } else if (rank === 3) {
-        } else if (rank === 4) {
-        } else if (rank === 5) {
-        } else if (rank <= 10) {
-        } else if (rank <= 20) {
-        } else {
-        }
-}
-
 export type RankingGroupScorebookData = {
         id: number;
         name: string;
@@ -1051,21 +1008,3 @@ export const numberToOrdinal = (n: number) => {
         return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export const shinyBackgroundStyle = (color: string) => ({
-        background: backgroundGradient([
-                {
-                    color: Color(color).darken(0.75).toString(),
-                    percent: 0
-                },
-                {
-                    color: Color(color).darken(0.5).toString(),
-                    percent: 50
-                },
-                {
-                    color: Color(color).darken(0.75).toString(),
-                    percent: 100
-                }
-            ]),
-        borderLeft: `1px solid ${Color(color).toString()}`,
-        borderRight: `1px solid ${Color(color).toString()}`,
-})

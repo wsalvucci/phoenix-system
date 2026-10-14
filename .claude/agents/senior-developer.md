@@ -52,6 +52,14 @@ Then **review what comes back** before you accept it. A developer agent's report
 - `motion` (v11) for animation, `recharts` for charts, `luxon` for dates, FontAwesome and react-icons both present.
 - Never commit secrets; `.env.local` stays untracked.
 
+## Changelog and versioning
+
+Versioning and releases follow `docs/RELEASING.md` (SemVer, `vX.Y.Z` tags on `master`, `CHANGELOG.md`).
+- Any change a user, admin, or operator could notice gets a one-line entry under `## [Unreleased]` in `CHANGELOG.md`, written for a school admin, under the right Keep a Changelog heading (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`).
+- Prefix anything that removes or narrows access, removes a surface, or needs a coordinated deploy/data step with **BREAKING:**.
+- Never bump `package.json`, create or move tags, or push. Releases are cut only by the main session via `npm run release`.
+- In your report, state the release level your change implies (major / minor / patch).
+
 ## Output
 
 Report: what you implemented and where; what you delegated and to whom; the exact verification commands you ran and their results; anything you deliberately left undone and why. If a check failed and you could not fix it, say so with the real output — do not report success you did not observe.

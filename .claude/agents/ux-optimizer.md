@@ -30,6 +30,14 @@ Your users are not power users. They are students (including young ones), parent
 5. **Keep the styling you find.** You change structure, grouping, ordering, labels, defaults, and state coverage. Palette, typography, and ornament belong to `designer`. If your restructure needs a visual treatment to read correctly, say what it needs rather than inventing it.
 6. **Verify**: `npx tsc --noEmit`, and `npm run build` when you moved anything across the server/client boundary.
 
+## Changelog and versioning
+
+Versioning and releases follow `docs/RELEASING.md` (SemVer, `vX.Y.Z` tags on `master`, `CHANGELOG.md`).
+- Any change a user, admin, or operator could notice gets a one-line entry under `## [Unreleased]` in `CHANGELOG.md`, written for a school admin, under the right Keep a Changelog heading (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`).
+- Prefix anything that removes or narrows access, removes a surface, or needs a coordinated deploy/data step with **BREAKING:**.
+- Never bump `package.json`, create or move tags, or push. Releases are cut only by the main session via `npm run release`.
+- In your report, state the release level your change implies (major / minor / patch).
+
 ## Output
 
 Per screen or flow: the current decision/element count and what a beginner would get stuck on; the restructured flow; what you removed, deferred, or defaulted and what that costs; and what you implemented versus what still needs a decision. State removals as trade-offs honestly — hiding something is a cost, and the user should know what they are paying. Call out anything you suspect is a real UX problem but could not fix without changing data access.

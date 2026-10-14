@@ -2,6 +2,9 @@
 import getOwnUserData from "./getOwnUserData";
 import supabaseServiceClient from "./supabaseServiceClient";
 
+// One message for every way a code can fail to match. DATA_DISCLOSURE.md D11 / §10.4.
+const NO_MATCH_MESSAGE = "That code did not match. Check the school number and code and try again.";
+
 export default async function linkTeacher(schoolId: number, linkCode: string): Promise<{ success: boolean, message: string, linkId: number | null }> {
     const userData = await getOwnUserData();
 
@@ -10,33 +13,30 @@ export default async function linkTeacher(schoolId: number, linkCode: string): P
     const supabase = await supabaseServiceClient();
 
     // Check if the teacher exists
-    const { data: teacherData, error: teacherDataError } = await supabase.from("teacher").select("*").eq("link_code", linkCode).maybeSingle();
+    const { data: teacherData, error: teacherDataError } = await supabase.from("teacher").select("id, school_id, linked_user").eq("link_code", linkCode.trim()).maybeSingle();
 
     if (teacherDataError) {
-        console.error("Error fetching teacher", teacherDataError);
+        console.error("Error fetching teacher", teacherDataError.message);
         return { success: false, message: "Error fetching teacher", linkId: null };
     } else if (teacherData === null) {
-        console.log("No teacher found for link code: " + linkCode);
-        return { success: false, message: "No teacher found for link code: " + linkCode, linkId: null };
+        return { success: false, message: NO_MATCH_MESSAGE, linkId: null };
     }
 
     // Check if the teacher belongs to the school
     if (teacherData.school_id !== schoolId) {
-        console.log("Teacher is not associated with this school");
-        return { success: false, message: "Teacher is not associated with this school", linkId: null };
+        return { success: false, message: NO_MATCH_MESSAGE, linkId: null };
     }
 
     // Check if the teacher is already linked
     if (teacherData.linked_user !== null) {
-        console.log("Teacher is already linked");
-        return { success: false, message: "Teacher is already linked", linkId: null };
+        return { success: false, message: NO_MATCH_MESSAGE, linkId: null };
     }
 
     // Link the teacher
     const { data: linkedData, error: linkedDataError } = await supabase.from("teacher").update({ linked_user: userData.id }).eq("id", teacherData.id).select("id").single();
 
     if (linkedDataError) {
-        console.error("Error linking teacher", linkedDataError);
+        console.error("Error linking teacher", linkedDataError.message);
         return { success: false, message: "Error linking teacher", linkId: null };
     }
 

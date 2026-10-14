@@ -1,14 +1,14 @@
 "use client";
-import { backgroundGradient, metalStyle, metalTextShadow, rankToColor } from "@/app/dataClasses";
+import { backgroundGradient, metalStyle, metalTextShadow } from "@/app/dataClasses";
+import { displayRankTier } from "@/lib/rankTier";
 
-// Force static generation to reduce serverless functions
-export const dynamic = 'force-static';
 import { useEffect, useState } from "react";
 import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";
 import { mobileDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
 import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
 import Color from "color";
+import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 const customFont = Quicksand({
     weight: "400",
@@ -23,16 +23,14 @@ const azeret = Azeret_Mono({
 export default function MobileDashboard() {
     const [mobileDashData, setMobileDashData] = useState<GlobalPoints | null>(null);
 
-    const updateData = async () => {
-        mobileDashGetGlobalStats(12, null).then((data) => {
-            setMobileDashData(data);
-            console.log(data);
-        });
-    }
+    const { schoolId } = useDashboardSchool();
 
     useEffect(() => {
-        updateData();
-    }, []);
+        if (schoolId === null) return;
+        mobileDashGetGlobalStats(schoolId, null).then((data) => {
+            setMobileDashData(data);
+        });
+    }, [schoolId]);
 
     const topStudentCard = ({
         fullName,
@@ -44,26 +42,10 @@ export default function MobileDashboard() {
         rank: number;
     }) => {
         return (
-            <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
-                background: backgroundGradient([
-                    {
-                        color: rankToColor(rank).darken(0.5).toString(),
-                        percent: 0
-                    },
-                    {
-                        color: rankToColor(rank).darken(0.25).toString(),
-                        percent: 50
-                    },
-                    {
-                        color: rankToColor(rank).darken(0.5).toString(),
-                        percent: 100
-                    }
-                ]),
-                borderLeft: `1px solid ${rankToColor(rank).toString()}`,
-                borderRight: `1px solid ${rankToColor(rank).toString()}`,
+            <div className="grid grid-cols-3 px-2 py-1 my-1" data-rank-tier={displayRankTier(rank)} style={{
+                background: 'hsl(var(--rank))',
+                color: 'hsl(var(--rank-foreground))',
                 gridTemplateColumns: "1fr 6fr 2fr",
-                backgroundSize: "cover",
-                textShadow: metalTextShadow,
             }}>
                 <div className={`flex ${azeret.className}`}>{rank}</div>
                 <div className="flex ">{fullName}</div>
@@ -171,26 +153,10 @@ export default function MobileDashboard() {
                                         }
                                         return (
                                             <div key={index}>
-                                                <div className="grid grid-cols-3 px-2 py-1 my-1" style={{
-                                                    background: backgroundGradient([
-                                                        {
-                                                            color: rankToColor(index + 1).darken(0.5).toString(),
-                                                            percent: 0
-                                                        },
-                                                        {
-                                                            color: rankToColor(index + 1).darken(0.25).toString(),
-                                                            percent: 50
-                                                        },
-                                                        {
-                                                            color: rankToColor(index + 1).darken(0.5).toString(),
-                                                            percent: 100
-                                                        }
-                                                    ]),
-                                                    borderLeft: `1px solid ${rankToColor(index + 1).toString()}`,
-                                                    borderRight: `1px solid ${rankToColor(index + 1).toString()}`,
+                                                <div className="grid grid-cols-3 px-2 py-1 my-1" data-rank-tier={displayRankTier(index + 1)} style={{
+                                                    background: 'hsl(var(--rank))',
+                                                    color: 'hsl(var(--rank-foreground))',
                                                     gridTemplateColumns: "1fr 4fr 1fr",
-                                                    backgroundSize: "cover",
-                                                    textShadow: metalTextShadow,
                                                 }}>
                                                     <div className="flex ">{index + 1}</div>
                                                     <div className="flex ">{groupData.name}</div>

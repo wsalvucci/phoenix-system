@@ -4,8 +4,10 @@ import { DateTime } from "luxon";
 import { convertPointUsingRuleType, FeaturedDashboardData, GlobalDashboardData, stringToRuleType, TimedTotalPointData } from "@/app/dataClasses";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { getOwnStudentData } from "@/api/student";
+import { isStaffOfSchool } from "../staffAccess";
 
 export async function getFeaturedDashData(schoolId: number, timeframeId: number | null): Promise<FeaturedDashboardData> {
+        if (!(await isStaffOfSchool(schoolId))) throw new Error("Not authorized");
         const supabase = await supabaseServiceClient();
 
         const { data: schoolData, error: schoolDataError } = await supabase
@@ -333,6 +335,7 @@ export async function getFeaturedDashData(schoolId: number, timeframeId: number 
 }
 
 export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDashboardData> {
+        if (!(await isStaffOfSchool(schoolId))) throw new Error("Not authorized");
         const supabase = await supabaseServiceClient();
 
         const { data: schoolData, error: schoolDataError } = await supabase
@@ -413,18 +416,6 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
         const studentPointTotals = Object.values(allStudentPointsData.reduce((acc, cur) => {
                 if (!acc[cur.id]) {
 
-                        console.log("Points last week: " + cur.student_point.reduce((acc, cur) => {
-                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
-                                if (DateTime.fromISO(cur.point_event?.date ?? "") < DateTime.now().minus({ 'months': 1 })) {
-                                        acc += pointValue
-                                }
-                                return acc
-                        }, 0))
-                        console.log("Points now: " + cur.student_point.reduce((acc, cur) => {
-                                const pointValue = convertPointUsingRuleType(stringToRuleType(cur.point_event?.point_template?.point_conversion_rule_type?.name ?? ""), cur.point_event?.point_template?.conversion_rule_value ?? 0, cur.point_value ?? 0)
-                                acc += pointValue
-                                return acc
-                        }, 0))
                         acc[cur.id] = {
                                 id: cur.id,
                                 firstName: cur.first_name,
@@ -634,7 +625,6 @@ export async function newGetGlobalDashData(schoolId: number): Promise<GlobalDash
                                 return acc
                         }, [] as { grade: number, topStudents: { id: number, firstName: string, lastName: string, totalPoints: number }[] }[])
                                 .map((grade, index, array) => {
-                                        console.log(grade.topStudents.length)
                                         grade.topStudents = grade.topStudents.slice(0, Math.min(10, grade.topStudents.length / 2))
                                         return grade
                                 }),

@@ -4,11 +4,12 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
 import { ForgotPassButton } from "./forgot-pass-button";
+import { safeNextPath } from "@/lib/safeRedirect";
 
 export default function Login({
   searchParams,
 }: {
-  searchParams: { message: string };
+  searchParams: { message?: string; next?: string };
 }) {
   const signIn = async (formData: FormData) => {
     "use server";
@@ -26,7 +27,8 @@ export default function Login({
       return redirect("/login?message=Could not authenticate user");
     }
 
-    return redirect("/");
+    // Same-origin paths only; anything else goes home.
+    return redirect(safeNextPath(formData.get("next")));
   };
 
   const signUp = async (formData: FormData) => {
@@ -77,6 +79,7 @@ export default function Login({
       </Link>
 
       <form className="animate-in flex-1 flex flex-col w-full justify-center gap-2 text-foreground">
+        <input type="hidden" name="next" value={safeNextPath(searchParams?.next)} />
         <label className="text-md" htmlFor="email">
           Email
         </label>

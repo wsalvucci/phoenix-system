@@ -2,6 +2,12 @@
 const nextConfig = {
   // Allow extra time for static generation of the dashboard pages
   staticPageGenerationTimeout: 120,
+  // /student/compare was retired (DATA_DISCLOSURE.md §10.1); send old bookmarks home.
+  async redirects() {
+    return [
+      { source: "/student/compare", destination: "/student", permanent: false },
+    ];
+  },
   // Optimize images
   images: {
     unoptimized: true,

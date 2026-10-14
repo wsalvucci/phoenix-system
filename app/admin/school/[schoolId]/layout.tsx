@@ -20,8 +20,6 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
     }
 
     const userData = await getOwnUserData();
-    console.log(userData);
-
     if (userData === null) {
         return (
             <div>
@@ -40,7 +38,6 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
 
     if (adminData === null) {
         // User is not an admin and shouldn't be here
-        console.log("User is not an admin");
         redirect("/")
     }
 

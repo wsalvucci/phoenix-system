@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import TopStudentsByGroup from "./TopStudentsByGroup";
 import Link from "next/link";
+import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 type CurrentDisplay = {
   title: string,
@@ -37,8 +38,11 @@ export default function TopStudents(
     students: []
   })
 
+  const { schoolId } = useDashboardSchool()
+
   const updateData = async () => {
-    getFeaturedDashData(12, null).then((data) => {
+    if (schoolId === null) return
+    getFeaturedDashData(schoolId, null).then((data) => {
       setFeaturedDashData(data)
     })
   }
@@ -143,7 +147,6 @@ export default function TopStudents(
     'broadcast',
     { event: 'sync' },
     (payload) => {
-      console.log('Received broadcast:', payload);
       updateData();
     }
   ).subscribe();

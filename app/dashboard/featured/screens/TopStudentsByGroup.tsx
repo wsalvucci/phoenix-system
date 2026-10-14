@@ -1,4 +1,5 @@
-import { metalStyle, numberToOrdinal, rankToColor } from "@/app/dataClasses"
+import { numberToOrdinal } from "@/app/dataClasses"
+import { displayRankTier } from "@/lib/rankTier"
 import Color from "color";
 import { Quicksand } from "next/font/google"
 
@@ -71,8 +72,8 @@ export default function TopStudentsByGroup(
                             <div key={student.id} className="my-1" style={{
                                 width: `${100 * rankToSpan(index + 1)}%`,
                             }}>
-                                <div className="h-full mx-1 p-2 text-center" style={{
-                                    backgroundImage: metalStyle(rankToColor(index + 1).toString())
+                                <div className="h-full mx-1 p-2 text-center" data-rank-tier={displayRankTier(index + 1)} style={{
+                                    backgroundColor: 'hsl(var(--rank))'
                                 }}>
                                     <div className="p-3 rounded-lg bg-slate-900 h-full">
                                         <div style={{

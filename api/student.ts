@@ -6,6 +6,9 @@ import { createClient } from "@/utils/supabase/server";
 import { UserContextResolver } from "./core/user-context";
 import { createServerLogger } from "@/utils/serverLogger";
 import { TeacherTimeframe } from "@/types/domain";
+import { getCallerAccess } from "@/app/supaApi/server/staffAccess";
+import { competitionRank } from "@/lib/ranking";
+import { partitionShareGroups, compareSharedEntries } from "@/lib/sharing";
 
 export async function getOwnStudentData(): Promise<Student | null> {
     const logger = createServerLogger({ component: 'StudentAPI', action: 'getOwnStudentData' });
@@ -26,7 +29,7 @@ export async function getOwnStudentData(): Promise<Student | null> {
         const supabase = await supabaseServiceClient();
         const { data: studentData, error: studentError } = await supabase
             .from("student")
-            .select("*")
+            .select("id, school_id, first_name, last_name, birthdate, grade, gender, linkedUser")
             .eq("linkedUser", phoenixUser.id)
             .single();
 
@@ -38,7 +41,6 @@ export async function getOwnStudentData(): Promise<Student | null> {
         const student: Student = {
             id: studentData.id,
             schoolId: studentData.school_id,
-            linkCode: studentData.link_code,
             firstName: studentData.first_name,
             lastName: studentData.last_name,
             birthdate: studentData.birthdate,
@@ -95,7 +97,7 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
         // Get all students whose linkedUser field matches the current user's ID
         const { data: studentData, error: studentError } = await supabase
             .from("student")
-            .select("*")
+            .select("id, school_id, first_name, last_name, birthdate, grade, gender, linkedUser")
             .eq("linkedUser", userData.id);  // Find all students linked to this user
 
         if (studentError !== null) {
@@ -116,7 +118,6 @@ export async function getStudentDataWithContext(): Promise<Student | null> {
         const student: Student = {
             id: studentRecord.id,
             schoolId: studentRecord.school_id,
-            linkCode: studentRecord.link_code,
             firstName: studentRecord.first_name,
             lastName: studentRecord.last_name,
             birthdate: studentRecord.birthdate,
@@ -315,9 +316,11 @@ export async function getStudentRecentEvents(limit: number = 10) {
 }
 
 /**
- * Gets the groups that the current student leads and the letter grades for all students in those groups
+ * Gets the groups that the current student leads, with member names only.
+ * DATA_DISCLOSURE.md §10.7: a student leader is a peer, so no grade, totals,
+ * letter grades or any other standing leaves the server for group mates.
  */
-export async function getStudentLeaderGroupsWithGrades(): Promise<{
+export async function getStudentLeaderGroups(): Promise<{
     groups: Array<{
         id: number;
         name: string;
@@ -325,32 +328,22 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
             id: number;
             firstName: string;
             lastName: string;
-            grade: number;
-            totalPointsLetterGrade: { letter: string; color: string };
-            pointGroupGrades: Array<{
-                pointGroupId: number;
-                pointGroupName: string;
-                pointGroupColor: string;
-                letterGrade: { letter: string; color: string };
-            }>;
         }>;
     }>;
 } | null> {
-    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentLeaderGroupsWithGrades' });
-    
+    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentLeaderGroups' });
+
     try {
         const authClient = createClient();
         const supabase = await supabaseServiceClient();
-        
-        // Get the authenticated user
+
         const { data: { user: supabaseUser }, error: authError } = await authClient.auth.getUser();
-        
+
         if (authError || !supabaseUser) {
             logger.warn('No authenticated user found');
             return null;
         }
 
-        // Get user data to check for student relationship - use the same approach as other functions
         const { data: userData, error: userError } = await supabase
             .from('user')
             .select('id, student_id')
@@ -362,7 +355,6 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
             return null;
         }
 
-        // Check if user has any linked students
         const { data: linkedStudents, error: lsError } = await supabase
             .from('student')
             .select('id')
@@ -375,7 +367,6 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
 
         const linkedStudentIds = linkedStudents.map(s => s.id);
 
-        // Get groups that any of these students lead
         const { data: leaderGroups, error: leaderGroupsError } = await supabase
             .from('student_group_leaders')
             .select(`
@@ -393,8 +384,8 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
         }
 
         const groupIds = leaderGroups.map(lg => lg.group_id);
-        
-        // Get all students in these groups with their points data
+
+        // Names only: no grade, no points.
         const { data: studentsInGroups, error: studentsError } = await supabase
             .from('student_group_pair')
             .select(`
@@ -402,9 +393,7 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
                 student (
                     id,
                     first_name,
-                    last_name,
-                    grade,
-                    school_id
+                    last_name
                 )
             `)
             .in('student_group_id', groupIds);
@@ -414,166 +403,41 @@ export async function getStudentLeaderGroupsWithGrades(): Promise<{
             return null;
         }
 
-        if (!studentsInGroups || studentsInGroups.length === 0) {
-            logger.info('No students found in leader groups');
-            return { groups: [] };
-        }
-
-        // Get all student IDs
-        const studentIds = studentsInGroups.map(sig => sig.student!.id);
-        
-        // Get total points for all students
-        const { data: totalPointsData, error: totalPointsError } = await supabase
-            .from('student_point')
-            .select(`
-                student_id,
-                point_value
-            `)
-            .in('student_id', studentIds);
-
-        if (totalPointsError) {
-            logger.error('Error fetching total points', { totalPointsError });
-            return null;
-        }
-
-        // Calculate total points per student
-        const studentTotalPoints = new Map<number, number>();
-        totalPointsData?.forEach(point => {
-            const currentTotal = studentTotalPoints.get(point.student_id) || 0;
-            studentTotalPoints.set(point.student_id, currentTotal + point.point_value);
-        });
-
-        // Get point groups data
-        const { data: pointGroupsData, error: pointGroupsError } = await supabase
-            .from('point_group')
-            .select(`
-                id,
-                name,
-                color,
-                school_id
-            `)
-            .eq('school_id', studentsInGroups[0].student!.school_id);
-
-        if (pointGroupsError) {
-            logger.error('Error fetching point groups', { pointGroupsError });
-            return null;
-        }
-
-        // Get point group points for all students
-        const { data: pointGroupPointsData, error: pointGroupPointsError } = await supabase
-            .from('student_point')
-            .select(`
-                student_id,
-                point_value,
-            point_event (
-                point_group_id
-            )
-            `)
-            .in('student_id', studentIds);
-
-        if (pointGroupPointsError) {
-            logger.error('Error fetching point group points', { pointGroupPointsError });
-            return null;
-        }
-
-        // Calculate point group points per student
-        const studentPointGroupPoints = new Map<number, Map<number, number>>();
-        pointGroupPointsData?.forEach(point => {
-            const pointGroupId = point.point_event?.point_group_id;
-            if (pointGroupId) {
-                if (!studentPointGroupPoints.has(point.student_id)) {
-                    studentPointGroupPoints.set(point.student_id, new Map());
-                }
-                const studentGroups = studentPointGroupPoints.get(point.student_id)!;
-                const currentPoints = studentGroups.get(pointGroupId) || 0;
-                studentGroups.set(pointGroupId, currentPoints + point.point_value);
-            }
-        });
-
-        // Find the highest total points for percentile calculation
-        const allTotalPoints = Array.from(studentTotalPoints.values());
-        const highestTotalPoints = Math.max(...allTotalPoints, 1); // Avoid division by zero
-
-        // Find highest points for each point group
-        const highestPointGroupPoints = new Map<number, number>();
-        pointGroupsData?.forEach(pointGroup => {
-            const allGroupPoints: number[] = [];
-            studentPointGroupPoints.forEach(studentGroups => {
-                const points = studentGroups.get(pointGroup.id) || 0;
-                allGroupPoints.push(points);
-            });
-            highestPointGroupPoints.set(pointGroup.id, Math.max(...allGroupPoints, 1));
-        });
-
-        // Build the result
-        const groupsMap = new Map<number, any>();
-        
+        const groupsMap = new Map<number, { id: number; name: string; students: Array<{ id: number; firstName: string; lastName: string }> }>();
         leaderGroups.forEach(leaderGroup => {
-            const groupId = leaderGroup.group_id;
-            const groupName = leaderGroup.student_group!.name;
-            
-            groupsMap.set(groupId, {
-                id: groupId,
-                name: groupName,
+            groupsMap.set(leaderGroup.group_id, {
+                id: leaderGroup.group_id,
+                name: leaderGroup.student_group!.name,
                 students: []
             });
         });
 
-        // Add students to their respective groups
-        studentsInGroups.forEach(sig => {
-            const student = sig.student!;
-            const groupId = sig.student_group_id;
-            const totalPoints = studentTotalPoints.get(student.id) || 0;
-            
-            // Calculate total points letter grade
-            const totalPointsPercentile = totalPoints / highestTotalPoints;
-            const totalPointsLetterGrade = percentileToRating(totalPointsPercentile);
-            
-            // Calculate point group letter grades
-            const pointGroupGrades = pointGroupsData?.map(pointGroup => {
-                const points = studentPointGroupPoints.get(student.id)?.get(pointGroup.id) || 0;
-                const percentile = points / (highestPointGroupPoints.get(pointGroup.id) || 1);
-                const letterGrade = percentileToRating(percentile);
-                
-                return {
-                    pointGroupId: pointGroup.id,
-                    pointGroupName: pointGroup.name,
-                    pointGroupColor: pointGroup.color,
-                    letterGrade
-                };
-            }) || [];
-
-            const studentData = {
+        (studentsInGroups ?? []).forEach(sig => {
+            const student = sig.student;
+            if (!student) return;
+            groupsMap.get(sig.student_group_id)?.students.push({
                 id: student.id,
                 firstName: student.first_name,
-                lastName: student.last_name,
-                grade: student.grade,
-                totalPointsLetterGrade,
-                pointGroupGrades
-            };
-
-            groupsMap.get(groupId)!.students.push(studentData);
+                lastName: student.last_name
+            });
         });
 
-        // Sort students within each group by total points (descending)
+        // Alphabetical, never by standing.
         groupsMap.forEach(group => {
-            group.students.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
+            group.students.sort((a, b) =>
+                a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
         });
 
-        const result = {
-            groups: Array.from(groupsMap.values())
-        };
+        const result = { groups: Array.from(groupsMap.values()) };
 
-        logger.info('Student leader groups with grades retrieved successfully', {
-            linkedStudentIds: linkedStudentIds,
-            groupCount: result.groups.length,
-            totalStudents: result.groups.reduce((sum, group) => sum + group.students.length, 0)
+        logger.info('Student leader groups retrieved successfully', {
+            groupCount: result.groups.length
         });
 
         return result;
     } catch (error) {
-        logger.error('Failed to get student leader groups with grades', { 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+        logger.error('Failed to get student leader groups', {
+            error: error instanceof Error ? error.message : 'Unknown error'
         }, error instanceof Error ? error : undefined);
         return null;
     }
@@ -719,19 +583,6 @@ function calculateStudentStats(
     const gradeStudents = sortedStudents.filter(s => s.grade === student.grade);
     const gradeRank = gradeStudents.findIndex(s => s.id === student.id) + 1;
 
-    // Get nearby students (2 above, 2 below)
-    const studentIndex = sortedStudents.findIndex(s => s.id === student.id);
-    const nearbyStudents = sortedStudents.slice(
-        Math.max(0, studentIndex - 2),
-        Math.min(sortedStudents.length, studentIndex + 3)
-    );
-
-    const gradeIndex = gradeStudents.findIndex(s => s.id === student.id);
-    const nearbyGradeStudents = gradeStudents.slice(
-        Math.max(0, gradeIndex - 2),
-        Math.min(gradeStudents.length, gradeIndex + 3)
-    );
-
     // Calculate point group rankings
     const pointGroupRankings = calculatePointGroupRankings(allStudents, studentPointGroups, student.id, pointGroups);
 
@@ -744,20 +595,6 @@ function calculateStudentStats(
         totalOutOf: sortedStudents.length,
         gradeRank,
         gradeOutOf: gradeStudents.length,
-        nearbyStudents: nearbyStudents.map(s => ({
-            studentId: s.id,
-            firstName: s.first_name,
-            lastName: s.last_name,
-            totalPoints: s.totalPoints,
-            rank: sortedStudents.findIndex(ss => ss.id === s.id) + 1
-        })),
-        nearbyGradeStudents: nearbyGradeStudents.map(s => ({
-            studentId: s.id,
-            firstName: s.first_name,
-            lastName: s.last_name,
-            points: s.totalPoints,
-            rank: gradeStudents.findIndex(ss => ss.id === s.id) + 1
-        })),
         pointGroupRankings,
         pointEventRankings
     };
@@ -798,13 +635,6 @@ function calculatePointGroupRankings(
         const group = pointGroups.find((g: any) => g.id === groupId);
 
         if (studentRank > 0 && group) {
-            // Get nearby students (2 above, 2 below)
-            const studentIndex = studentsInGroup.findIndex(s => s.id === studentId);
-            const nearbyStudents = studentsInGroup.slice(
-                Math.max(0, studentIndex - 2),
-                Math.min(studentsInGroup.length, studentIndex + 3)
-            );
-
             // Calculate percentile for letter grade (1 = best, outOf = worst)
             const percentile = 1 - (studentRank - 1) / studentsInGroup.length;
             const letterGrade = percentileToRating(percentile);
@@ -816,14 +646,7 @@ function calculatePointGroupRankings(
                 points: studentPoints,
                 rank: studentRank,
                 outOf: studentsInGroup.length,
-                letterGrade,
-                nearbyStudents: nearbyStudents.map(s => ({
-                    studentId: s.id,
-                    firstName: s.first_name,
-                    lastName: s.last_name,
-                    points: s.points,
-                    rank: studentsInGroup.findIndex(ss => ss.id === s.id) + 1
-                }))
+                letterGrade
             });
         }
     });
@@ -842,15 +665,11 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
         const studentParticipation = event.student_point.find((sp: any) => sp.student_id === studentId);
         
         if (studentParticipation) {
-            // Sort all participants by points
-            const participants = event.student_point
-                .map((sp: any) => ({
-                    studentId: sp.student_id,
-                    points: sp.point_value
-                }))
-                .sort((a: { studentId: number; points: number }, b: { studentId: number; points: number }) => b.points - a.points);
+            const participantScores: number[] = event.student_point.map((sp: any) => sp.point_value);
+            const participantCount = participantScores.length;
 
-            const studentRank = participants.findIndex((p: { studentId: number; points: number }) => p.studentId === studentId) + 1;
+            // Tied scores share the better rank (§10.5).
+            const studentRank = competitionRank(participantScores, studentParticipation.point_value);
             const studentPoints = studentParticipation.point_value;
 
             pointEventRankings.push({
@@ -860,7 +679,7 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
                 maxPoints: event.max_input,
                 points: studentPoints,
                 rank: studentRank,
-                outOf: participants.length,
+                outOf: participantCount,
                 studentPointId: studentParticipation.id,
                 pointGroup: {
                     id: (event.point_group && event.point_group.id) || event.point_group_id,
@@ -875,13 +694,40 @@ function calculatePointEventRankings(pointEvents: any[], studentId: number) {
 }
 
 /**
- * Gets student dashboard data by student ID (for parent/compare pages)
+ * Gets student dashboard data by student ID (for the parent child page)
  */
 export async function getStudentDashboardDataById(studentId: number, timeframeId?: number | null) {
     const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentDashboardDataById' });
     
     try {
+        if (!Number.isInteger(studentId)) {
+            logger.warn('Invalid student id', { studentId });
+            return null;
+        }
+
+        // Authorization: caller must be linked to this student via user_student_pair.
+        const phoenixUser = await getPhoenixUser();
+        if (!phoenixUser) {
+            logger.warn('Unauthenticated access denied', { studentId });
+            return null;
+        }
+
         const supabase = await supabaseServiceClient();
+
+        const { data: pairing, error: pairingError } = await supabase
+            .from('user_student_pair')
+            .select('student_id')
+            .eq('student_id', studentId)
+            .eq('user_id', phoenixUser.id)
+            .maybeSingle();
+
+        if (pairingError || !pairing) {
+            logger.warn('Access denied: caller not linked to student', {
+                studentId,
+                userId: phoenixUser.id.toString()
+            });
+            return null;
+        }
         
         // Get student data
         const { data: studentData, error: studentError } = await supabase
@@ -898,7 +744,6 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
         const student: Student = {
             id: studentData.id,
             schoolId: studentData.school_id,
-            linkCode: studentData.link_code,
             firstName: studentData.first_name,
             lastName: studentData.last_name,
             birthdate: studentData.birthdate,
@@ -991,148 +836,6 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
         };
     } catch (error) {
         logger.error('Failed to get student dashboard data by ID', { 
-            error: error instanceof Error ? error.message : 'Unknown error' 
-        }, error instanceof Error ? error : undefined);
-        return null;
-    }
-}
-
-/**
- * Gets global stats for a school (for compare page)
- */
-export async function getSchoolGlobalStats(schoolId: number, timeframeId?: number | null) {
-    const logger = createServerLogger({ component: 'StudentAPI', action: 'getSchoolGlobalStats' });
-    
-    try {
-        const supabase = await supabaseServiceClient();
-        
-        // Get timeframe
-        let timeframe = null;
-        if (timeframeId) {
-            const { data: tfData } = await supabase
-                .from('school_timeframes')
-                .select('*')
-                .eq('id', timeframeId)
-                .eq('school_id', schoolId)
-                .single();
-            timeframe = tfData;
-        } else {
-            const { data: tfData } = await supabase
-                .from('school_timeframes')
-                .select('*')
-                .eq('school_id', schoolId)
-                .eq('active', true)
-                .single();
-            timeframe = tfData;
-        }
-
-        if (!timeframe) {
-            logger.warn('No timeframe found');
-            return null;
-        }
-
-        // Get all students and their points
-        const { data: allStudents } = await supabase
-            .from('student')
-            .select('id, first_name, last_name, grade')
-            .eq('school_id', schoolId);
-
-        if (!allStudents) {
-            logger.warn('No students found in school');
-            return null;
-        }
-
-        // Get point events
-        const { data: pointEvents } = await supabase
-            .from('point_event')
-            .select(`
-                id,
-                name,
-                date,
-                max_input,
-                point_group!inner(id, name, color),
-                point_group_id,
-                student_point(student_id, point_value, input_score)
-            `)
-            .eq('point_group.school_id', schoolId)
-            .gte('date', timeframe.starts_at)
-            .lte('date', timeframe.ends_at);
-
-        if (!pointEvents) {
-            logger.warn('No point events found');
-            return null;
-        }
-
-        // Calculate global statistics
-        const studentPoints = new Map<number, number>();
-        const studentPointGroups = new Map<number, Map<number, number>>();
-        
-        // Initialize maps
-        allStudents.forEach(s => {
-            studentPoints.set(s.id, 0);
-            studentPointGroups.set(s.id, new Map());
-        });
-
-        // Calculate points from events
-        pointEvents.forEach((event: any) => {
-            const pointGroupId: number | null = (event.point_group && event.point_group.id) || event.point_group_id || null;
-            if (pointGroupId === null) return; // skip events with no point group
-            
-            event.student_point.forEach((sp: any) => {
-                const currentPoints = studentPoints.get(sp.student_id) || 0;
-                studentPoints.set(sp.student_id, currentPoints + sp.point_value);
-                
-                const groupPoints = studentPointGroups.get(sp.student_id);
-                if (groupPoints) {
-                    const currentGroupPoints = groupPoints.get(pointGroupId) || 0;
-                    groupPoints.set(pointGroupId, currentGroupPoints + sp.point_value);
-                }
-            });
-        });
-
-        // Get unique point groups
-        const pointGroups = new Map<number, { id: number, name: string, color: string }>();
-        pointEvents.forEach((event: any) => {
-            const group = event.point_group;
-            if (!pointGroups.has(group.id)) {
-                pointGroups.set(group.id, {
-                    id: group.id,
-                    name: group.name,
-                    color: group.color
-                });
-            }
-        });
-
-        // Sort students by total points
-        const sortedStudents = allStudents
-            .map(s => ({
-                ...s,
-                totalPoints: studentPoints.get(s.id) || 0
-            }))
-            .sort((a, b) => b.totalPoints - a.totalPoints);
-
-        return {
-            schoolId,
-            totalStudents: allStudents.length,
-            timeframe: {
-                id: timeframe.id,
-                name: timeframe.name,
-                startsAt: timeframe.starts_at,
-                endsAt: timeframe.ends_at,
-                active: timeframe.active
-            },
-            students: sortedStudents.map((s, index) => ({
-                id: s.id,
-                firstName: s.first_name,
-                lastName: s.last_name,
-                grade: s.grade,
-                totalPoints: s.totalPoints,
-                rank: index + 1
-            })),
-            pointGroups: Array.from(pointGroups.values())
-        };
-    } catch (error) {
-        logger.error('Failed to get school global stats', { 
             error: error instanceof Error ? error.message : 'Unknown error' 
         }, error instanceof Error ? error : undefined);
         return null;
@@ -1459,9 +1162,34 @@ export async function shareStudentPoint(studentPointId: number, groupIds: number
             return { success: false, error: 'Unauthorized' };
         }
 
+        // The audience of a share is group membership (§10.3): only groups the
+        // sharer belongs to may be targeted. Reject the whole request otherwise.
+        if (!Array.isArray(groupIds) || groupIds.length === 0) {
+            return { success: false, error: 'Choose a group to share with' };
+        }
+        const { data: ownGroupRows, error: ownGroupError } = await supabase
+            .from('student_group_pair')
+            .select('student_group_id')
+            .eq('student_id', student.id);
+        if (ownGroupError) {
+            logger.error('Error fetching sharer groups', { error: ownGroupError });
+            return { success: false, error: 'Failed to share points' };
+        }
+        const { allowed, rejected } = partitionShareGroups(
+            groupIds,
+            (ownGroupRows || []).map(r => r.student_group_id)
+        );
+        if (rejected.length > 0) {
+            logger.warn('Share rejected: group(s) outside sharer membership', {
+                studentId: student.id,
+                rejectedCount: rejected.length
+            });
+            return { success: false, error: 'You can only share with groups you belong to' };
+        }
+
         // Get all groups to share to (including child groups)
         const allGroupIds = new Set<number>();
-        for (const groupId of groupIds) {
+        for (const groupId of allowed) {
             allGroupIds.add(groupId);
             const childIds = await getAllChildGroupIds(groupId);
             childIds.forEach(id => allGroupIds.add(id));
@@ -1581,7 +1309,8 @@ export async function unshareStudentPoint(studentPointId: number, groupIds: numb
 /**
  * Get all points that have been shared to groups the student belongs to
  * Returns points grouped by point event, sorted by date (newest first)
- * Within each event, points are sorted by point value (descending)
+ * Within each event, entries are ordered by share time (newest first), then name.
+ * Never by points, and recipients get no raw score and no real student id (§10.3).
  */
 export async function getSharedPointsForStudent(): Promise<Array<{
     eventId: number;
@@ -1593,11 +1322,9 @@ export async function getSharedPointsForStudent(): Promise<Array<{
         color: string;
     };
     sharedPoints: Array<{
-        studentPointId: number;
+        key: string;
         pointValue: number;
-        inputScore: number | null;
         sharer: {
-            id: number;
             firstName: string;
             lastName: string;
         };
@@ -1633,14 +1360,13 @@ export async function getSharedPointsForStudent(): Promise<Array<{
             .from('shared_point')
             .select(`
                 student_point_id,
+                created_at,
                 student_point!inner(
                     id,
                     point_value,
-                    input_score,
                     point_event_id,
                     student_id,
                     student:student!inner(
-                        id,
                         first_name,
                         last_name
                     ),
@@ -1669,14 +1395,24 @@ export async function getSharedPointsForStudent(): Promise<Array<{
             return [];
         }
 
-        // Remove duplicates by student_point_id (same point can be shared to multiple groups)
+        // Remove duplicates by student_point_id (same point can be shared to multiple groups),
+        // keeping the earliest share time.
         const uniquePoints = new Map<number, typeof sharedPoints[0]>();
         sharedPoints.forEach(sp => {
             const studentPointId = sp.student_point?.id;
-            if (studentPointId && !uniquePoints.has(studentPointId)) {
+            if (!studentPointId) return;
+            const existing = uniquePoints.get(studentPointId);
+            if (!existing || Date.parse(sp.created_at) < Date.parse(existing.created_at)) {
                 uniquePoints.set(studentPointId, sp);
             }
         });
+
+        type FeedPoint = {
+            key: string;
+            pointValue: number;
+            sharer: { firstName: string; lastName: string };
+            sharedAt: string;
+        };
 
         // Group by point_event_id
         const eventMap = new Map<number, {
@@ -1684,12 +1420,7 @@ export async function getSharedPointsForStudent(): Promise<Array<{
             eventName: string | null;
             eventDate: string | null;
             pointGroup: { id: number; name: string; color: string };
-            sharedPoints: Array<{
-                studentPointId: number;
-                pointValue: number;
-                inputScore: number | null;
-                sharer: { id: number; firstName: string; lastName: string };
-            }>;
+            sharedPoints: FeedPoint[];
         }>();
 
         uniquePoints.forEach((sp) => {
@@ -1712,41 +1443,53 @@ export async function getSharedPointsForStudent(): Promise<Array<{
                 });
             }
 
-            const event = eventMap.get(pointEvent.id)!;
-            event.sharedPoints.push({
-                studentPointId: studentPoint.id,
+            eventMap.get(pointEvent.id)!.sharedPoints.push({
+                key: '',
                 pointValue: studentPoint.point_value,
-                inputScore: studentPoint.input_score,
                 sharer: {
-                    id: sharer.id,
                     firstName: sharer.first_name,
                     lastName: sharer.last_name
-                }
+                },
+                sharedAt: sp.created_at
             });
         });
 
-        // Convert to array and sort
-        const events = Array.from(eventMap.values());
-        
         // Sort events by date (reverse chronological - newest first)
+        const events = Array.from(eventMap.values());
         events.sort((a, b) => {
             const dateA = a.eventDate ? new Date(a.eventDate).getTime() : 0;
             const dateB = b.eventDate ? new Date(b.eventDate).getTime() : 0;
             return dateB - dateA;
         });
 
-        // Sort points within each event by point value (descending)
-        events.forEach(event => {
-            event.sharedPoints.sort((a, b) => b.pointValue - a.pointValue);
+        // Order entries by share time then name (never by points), then assign opaque
+        // per-response keys. The real student_point id never reaches recipients.
+        let keyCounter = 0;
+        const result = events.map(event => {
+            event.sharedPoints.sort((a, b) => compareSharedEntries(
+                { sharedAt: a.sharedAt, ...a.sharer },
+                { sharedAt: b.sharedAt, ...b.sharer }
+            ));
+            return {
+                eventId: event.eventId,
+                eventName: event.eventName,
+                eventDate: event.eventDate,
+                pointGroup: event.pointGroup,
+                sharedPoints: event.sharedPoints.map(p => ({
+                    key: `sp-${++keyCounter}`,
+                    pointValue: p.pointValue,
+                    sharer: p.sharer
+                }))
+            };
         });
 
         logger.info('Shared points retrieved successfully', { 
             studentId: student.id,
-            eventCount: events.length,
+            eventCount: result.length,
             totalPoints: uniquePoints.size
         });
 
-        return events;
+        return result;
     } catch (error) {
         logger.error('Failed to get shared points for student', { 
             error: error instanceof Error ? error.message : 'Unknown error' 

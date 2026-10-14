@@ -36,8 +36,6 @@ export default function TeacherHome() {
         queryFn: () => wrapServerAction(getTeacherDashboardData)()
     });
 
-    console.log("TeacherHome debug:", { data, isLoading, error });
-
     const filteredAndSortedGroups = data?.studentGroups
         .filter(group => (showArchivedGroups || !group.archived) && group.name.toLowerCase().includes(groupSearch.toLowerCase()))
         .sort((a, b) => {
@@ -90,7 +88,10 @@ export default function TeacherHome() {
             {(data) => (
                 <div className="app-page animate-in w-full">
                     <header className="app-header flex w-full items-center justify-between gap-4 px-5 py-4 text-slate-900 dark:text-slate-100">
-                        <Link href="/" className="text-sm font-medium hover:underline">← Home</Link>
+                        <div className="flex flex-col">
+                            <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-medium hover:underline">← Home</Link>
+                            <Link href="/dashboard" className="inline-flex min-h-[44px] items-center text-sm text-slate-600 hover:underline dark:text-slate-300">Open hallway display</Link>
+                        </div>
                         <div className="text-right">
                             <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
                             <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">{data.teacher.firstName} {data.teacher.lastName}</p>
@@ -237,7 +238,7 @@ export default function TeacherHome() {
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-8">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
                             <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
                                 <h3 className="text-lg font-semibold mb-2">Teacher ID</h3>
                                 <p className="text-3xl font-bold text-blue-600">{data.teacher.id}</p>
@@ -253,10 +254,6 @@ export default function TeacherHome() {
                             <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
                                 <h3 className="text-lg font-semibold mb-2">Ranking Groups</h3>
                                 <p className="text-3xl font-bold text-orange-600">{data.rankingGroups.length}</p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Link Code</h3>
-                                <p className="text-3xl font-bold text-red-600">{data.teacher.linkCode}</p>
                             </div>
                         </div>
                     </div>

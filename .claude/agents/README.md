@@ -36,12 +36,17 @@ requirements
 
 These are settled. Do not re-litigate them; build on them.
 
-1. **The dashboards are public.** `app/dashboard/global` and `featured` are hallway displays *and* internet-reachable with no login — the intent is that anyone can stand a display up quickly. Therefore they are the **most restrictive** audience in the system, not the most permissive. The current `DASHBOARD_FILTERS.GLOBAL` tier ("no privacy filters") is a violation of this, not an implementation of it.
+1. **The dashboards are staff-only (ruling of 2026-10-14, superseding "the dashboards are public").** Every `app/dashboard/*` surface requires an admin or teacher login (`app/dashboard/layout.tsx`, plus `isStaffOfSchool` inside every feeding server action, `app/supaApi/server/staffAccess.ts`). They are still hallway displays, so the login decides who may *open* a dashboard, not who *reads* it. They are the **DISPLAY** tier in `docs/DATA_DISCLOSURE.md`: the full publication cut and every former PUBLIC field ruling still apply, and a staff login never widens the payload. Full-roster staff views belong outside `app/dashboard/`. `DASHBOARD_FILTERS.GLOBAL` ("no privacy filters") is still a violation.
 2. **`app/dashboard/feature/` is a one-line re-export alias** of `featured/page`. Make it a redirect or delete it; it is not a competing implementation.
 3. **The Victorian theme is the direction for the student surface, and it is to be remade completely** — a fresh rebuild rather than an extension of `victorian-theme.css`. The cyan `student-dashboard.css` console is retired, not merged in.
 4. **`PointConversionRuleType` is archaic and must not be used.** It is one of several legacy systems still in the database. The `convertPointUsingRuleType` / `eval(formula)` path in `types/domain.ts` and `app/dataClasses.ts` is deleted rather than hardened; `lib/pointConversionFormula.ts` (safe evaluator, already tested) is the one implementation.
+5. **Rank colour is a system-wide identity.** Across every surface (dashboards, student, parent, teacher, admin), a rank must be recognisable at a glance by its colour, using the existing tiers in `rankToColor` (`types/domain.ts`): 1st gold, 2nd silver, 3rd bronze, 4th purple, 5th teal, 6th–10th crimson, 11th–20th green, beyond 20th neutral. The hue family per tier is fixed; exact values may be tuned per theme and mode for contrast, and colour is always paired with the rank numeral so it is never the only signal. Themes (including the Victorian remake) adopt these tiers rather than replacing them.
 
 Treat "there are a lot of archaic systems in the database" as a standing warning: a table or enum existing in the schema is not evidence that it is current. Ask before building on one.
+
+## Versioning and releases
+
+SemVer with annotated `vX.Y.Z` tags on `master` and a root `CHANGELOG.md`; rules in `docs/RELEASING.md`. Implementers add `## [Unreleased]` entries with their change (marking access/surface removals **BREAKING:**) and state the release level in their report. `qa` checks the changelog and names the required bump. Only the main session cuts releases (`npm run release`); nobody pushes tags without the product owner's go-ahead.
 
 ## Model aliases
 

@@ -37,3 +37,10 @@ next-env.d.ts
 
 # ai scripts
 /ai/scripts
+
+# local data dumps (may contain real student records)
+/test.csv
+*.csv
+
+# editor
+/.idea

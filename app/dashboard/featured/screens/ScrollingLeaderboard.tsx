@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { rankToColor, shinyBackgroundStyle, metalTextShadow } from '@/app/dataClasses';
+import { metalTextShadow } from '@/app/dataClasses';
+import { displayRankTier } from '@/lib/rankTier';
 import { FiAward } from 'react-icons/fi';
 import { type DisplayRow, formatPoints } from './displayData';
 
@@ -62,7 +63,7 @@ export default function ScrollingLeaderboard({ rows, minimumDuration, running, r
     animations.current.forEach(animation => running ? animation.play() : animation.pause());
   }, [running]);
 
-  const renderRow = (row: DisplayRow, pinned = false) => <div className={`leaderboard-row ${row.rank <= 3 ? 'podium-row' : ''} ${pinned ? 'pinned-leader' : ''}`} key={row.id} style={{ ...(appearance === 'gloss' ? { ...shinyBackgroundStyle(rankToColor(row.rank).hex()), textShadow: metalTextShadow } : {}), '--rank-color': rankToColor(row.rank).hex() } as CSSProperties}>
+  const renderRow = (row: DisplayRow, pinned = false) => <div className={`leaderboard-row ${row.rank <= 3 ? 'podium-row' : ''} ${pinned ? 'pinned-leader' : ''}`} key={row.id} data-rank-tier={displayRankTier(row.rank)} style={(appearance === 'gloss' ? { background: 'linear-gradient(90deg, color-mix(in srgb, hsl(var(--rank)) 25%, #000), color-mix(in srgb, hsl(var(--rank)) 50%, #000) 50%, color-mix(in srgb, hsl(var(--rank)) 25%, #000))', borderLeft: '1px solid hsl(var(--rank))', borderRight: '1px solid hsl(var(--rank))', textShadow: metalTextShadow } : undefined) as CSSProperties}>
     <span className="row-rank">{String(row.rank).padStart(2, '0')}</span>
     <div className="row-person"><b>{row.name}</b><small>{row.detail}{pinned && <span className="pinned-label"> · LEADING THE WAY</span>}{row.change !== undefined && row.change > 0 && <span className="rank-rise"> ↑ {row.change} ranks vs. last month</span>}</small></div>
     <strong className="row-points">{formatPoints(row.points)}</strong>

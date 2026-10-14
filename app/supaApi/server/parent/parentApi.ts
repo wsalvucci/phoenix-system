@@ -27,13 +27,18 @@ export async function getStudentsOfParent(): Promise<{ id: number, fullName: str
     })
 }
 
+// One message for every failure (wrong code, wrong school, already linked, database error), and the
+// code is never echoed or logged. DATA_DISCLOSURE.md D11 / §10.4.
+const PARENT_LINK_ERROR = "That code did not match. Check the school number and code and try again.";
+
 export async function linkStudentToParent(
     schoolId: number,
     linkCode: string
 ): Promise<{ error?: string }> {
     const userData = await getOwnUserData()
-    if (!userData) {
-        return { error: "No user data found" }
+    const code = typeof linkCode === "string" ? linkCode.trim() : ""
+    if (!userData || !Number.isInteger(schoolId) || code === "") {
+        return { error: PARENT_LINK_ERROR }
     }
 
     const supabase = await supabaseServiceClient();
@@ -41,30 +46,23 @@ export async function linkStudentToParent(
     const { data: studentData, error: studentDataError } =
         await supabase
             .from("student")
-            .select("id, school_id")
-            .eq("link_code", linkCode)
+            .select("id")
+            .eq("link_code", code)
             .eq("school_id", schoolId)
-            .single()
+            .maybeSingle()
 
-    if (studentDataError) {
-        console.error(studentDataError.message)
-
-        if (studentData === null) {
-            return { error: "No student data found" }
-        }
-
-        return { error: "Error getting student data" }
+    if (studentDataError || studentData === null) {
+        return { error: PARENT_LINK_ERROR }
     }
 
-    const { data: _, error: insertStudentDataError } =
+    const { error: insertStudentDataError } =
         await supabase.from("user_student_pair").insert({
             user_id: userData.id,
             student_id: studentData.id
         })
 
     if (insertStudentDataError) {
-        console.error(insertStudentDataError.message)
-        return { error: "Error linking student to account" }
+        return { error: PARENT_LINK_ERROR }
     }
 
     return {}

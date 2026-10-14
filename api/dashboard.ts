@@ -4,6 +4,7 @@ import { SimpleDashboardData } from "./service/dashboard";
 import { createServerLogger } from "@/utils/serverLogger";
 import { DashboardService } from "./service/dashboard";
 import { GlobalPoints } from "./core/types";
+import { isStaff, isStaffOfSchool } from "@/app/supaApi/server/staffAccess";
 
 /**
  * Fetches timeframe data either by ID or gets the active timeframe for a school
@@ -108,6 +109,12 @@ export async function getTopScrollingDashboard(
 
     logger.debug('Fetching top scrolling dashboard data', { schoolId, timeframeId });
     
+    // Staff-only (admin/teacher of this school). Service-role below bypasses RLS.
+    if (!(await isStaffOfSchool(schoolId))) {
+        logger.warn('Access denied: caller is not staff of school', { schoolId });
+        throw new Error('Not authorized');
+    }
+
     try {
         const supabase = await supabaseServiceClient();
         const dashboardService = new DashboardService(supabase);
@@ -125,46 +132,6 @@ export async function getTopScrollingDashboard(
     } catch (error) {
         const duration = Date.now() - startTime;
         logger.error('Failed to fetch top scrolling dashboard data', { 
-            schoolId, 
-            timeframeId, 
-            duration 
-        }, error as Error);
-        throw error;
-    }
-}
-
-export async function getGlobalDashboard(
-    schoolId: number,
-    timeframeId: number | null
-): Promise<GlobalPoints | null> {
-    const startTime = Date.now();
-    const logger = createServerLogger({ 
-        component: 'DashboardAPI', 
-        action: 'getGlobalDashboard',
-        schoolId: schoolId.toString(),
-        timeframeId: timeframeId?.toString() || 'active'
-    });
-
-    logger.debug('Fetching global dashboard data', { schoolId, timeframeId });
-    
-    try {
-        const supabase = await supabaseServiceClient();
-        const dashboardService = new DashboardService(supabase);
-        const globalData = await dashboardService.getGlobalDashboard(schoolId, timeframeId);
-
-        const duration = Date.now() - startTime;
-        logger.info('Global dashboard data fetched successfully', { 
-            schoolId, 
-            timeframeId, 
-            duration,
-            studentCount: globalData?.students.length || 0,
-            pointGroupCount: globalData?.pointGroups.length || 0
-        });
-
-        return globalData;
-    } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error('Failed to fetch global dashboard data', { 
             schoolId, 
             timeframeId, 
             duration 
@@ -329,6 +296,11 @@ export async function invalidateSchoolCache(schoolId: number): Promise<void> {
         schoolId: schoolId.toString()
     });
 
+    if (!(await isStaffOfSchool(schoolId))) {
+        logger.warn('Access denied: caller is not staff of school', { schoolId });
+        throw new Error('Not authorized');
+    }
+
     try {
         const supabase = await supabaseServiceClient();
         const dashboardService = new DashboardService(supabase);
@@ -349,6 +321,11 @@ export async function getCacheStats() {
         component: 'DashboardAPI', 
         action: 'getCacheStats'
     });
+
+    if (!(await isStaff())) {
+        logger.warn('Access denied: caller is not staff');
+        throw new Error('Not authorized');
+    }
 
     try {
         const supabase = await supabaseServiceClient();

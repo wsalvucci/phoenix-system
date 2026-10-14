@@ -1263,7 +1263,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                                   studentId: sp.student.id,
                                   input: taEdits[pointEvent.id]?.[sp.student.id] ?? sp.pointData.input,
                                   value: sp.pointData.value,
-                                  notes: sp.pointData.notes,
+                                  notes: "",
                                 }))
                                 const ok = await import("@/app/supaApi/server/teacher/teacherServerActions").then(m => m.updateStudentPointsByAssistant(parseInt(groupId), pointEvent.id, updates as any))
                                 if (ok) fetchScorebookData()
@@ -1339,7 +1339,8 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                       const percent = (typeof (studentPoint?.pointData.value) === 'number' && pointEvent.maxInput !== 0)
                         ? percentNum.toFixed(1) + '%'
                         : ''
-                      const bgClass = getCellBgClass(percentNum);
+                      // Colour-coding a score is a teacher view; an assistant only enters values.
+                      const bgClass = isTeacher ? getCellBgClass(percentNum) : '';
                       return (
                         <td 
                           key={pointEvent.id} 

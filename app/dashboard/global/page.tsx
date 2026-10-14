@@ -11,6 +11,7 @@ import { buildSlides, formatPoints, type DisplaySlide } from '../featured/screen
 import ScrollingLeaderboard from '../featured/screens/ScrollingLeaderboard';
 import '../featured/featured.css';
 import './global.css';
+import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 const spectrum = [{ color: '#e4bb53', percent: 0 }, { color: '#8c75cf', percent: 50 }, { color: '#47bdb2', percent: 100 }];
 const metal = (color: string): CSSProperties => ({ backgroundImage: metalStyle(color), textShadow: metalTextShadow });
@@ -38,8 +39,9 @@ export default function GlobalDashboard() {
   const [notice, setNotice] = useState('');
   const reduced = !!useReducedMotion();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ['global-display', timeframe], queryFn: async () => {
-    const data = await globalDashGetGlobalStats(12, timeframe);
+  const { schoolId } = useDashboardSchool();
+  const query = useQuery({ queryKey: ['global-display', schoolId, timeframe], enabled: schoolId !== null, queryFn: async () => {
+    const data = await globalDashGetGlobalStats(schoolId as number, timeframe);
     if (!data) throw new Error('No dashboard data available');
     return data;
   }, refetchInterval: 60_000 });

@@ -1,30 +1,26 @@
 "use client";
 import { getTopScrollingDashboard } from "@/api/dashboard";
 
-// Force static generation to reduce serverless functions
-export const dynamic = 'force-static';
-import { numberToOrdinal, rankToColor } from "@/app/dataClasses";
+import { numberToOrdinal } from "@/app/dataClasses";
+import { displayRankTier } from "@/lib/rankTier";
 import { LoadingState } from "@/components/LoadingLayout";
 import { percentileToRating, Timeframe } from "@/types/domain";
-import { SimpleDashboardData } from "@/api/service/dashboard";
+import type { SimpleDashboardData } from "@/api/service/dashboard";
 import { useQuery } from "@tanstack/react-query";
 import Color from "color";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 export default function TopCards() {
     const [selectedTimeframeId, setSelectedTimeframeId] = useState<number | null>(null);
     
+    const { schoolId } = useDashboardSchool();
     const { data, isLoading, error } = useQuery({
-        queryKey: ["topCards", selectedTimeframeId],
-        queryFn: () => getTopScrollingDashboard(12, selectedTimeframeId)
+        queryKey: ["topCards", schoolId, selectedTimeframeId],
+        enabled: schoolId !== null,
+        queryFn: () => getTopScrollingDashboard(schoolId as number, selectedTimeframeId)
     })
-
-    console.log("=== TOPCARDS DASHBOARD DEBUG ===");
-    console.log("Timeframes count:", data?.timeframes?.length);
-    console.log("Timeframes:", data?.timeframes);
-    console.log("Active timeframes:", data?.timeframes?.filter(tf => tf.active));
-    console.log("=================================");
 
     const pinnedItemRef = useRef<HTMLDivElement>(null);
     const [pinnedItemHeight, setPinnedItemHeight] = useState(0);
@@ -139,10 +135,10 @@ export default function TopCards() {
                 <div className="relative h-full" style={{ width: "45%"}}>
                     {/* Left side content */}
                     <div className="grid grid-cols-3">
-                        <div className="h-full items-start" style={{
+                        <div className="h-full items-start" data-rank-tier={displayRankTier(student.rank)} style={{
                             fontSize: "2.5rem",
                             fontWeight: "bold",
-                            color: Color(rankToColor(student.rank)).lighten(0.5).toString()
+                            color: "hsl(var(--rank-foreground))"
                         }}>
                             {numberToOrdinal(student.rank)}
                         </div>

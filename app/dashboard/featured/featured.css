@@ -33,13 +33,13 @@
 .team-card-note{flex:none;line-height:1.2;padding-top:.3em}
 
 /* Shared rank palette: gold, silver, bronze, purple, teal, crimson, green. */
-.scrolling-leaderboard .leaderboard-row{border-left:.25em solid var(--rank-color);background:color-mix(in srgb,var(--rank-color) 9%,#111b2b)}
-.scrolling-leaderboard .row-rank{color:var(--rank-color);font-weight:800}
+.scrolling-leaderboard .leaderboard-row{border-left:.25em solid hsl(var(--rank));background:color-mix(in srgb,hsl(var(--rank)) 9%,#111b2b)}
+.scrolling-leaderboard .row-rank{color:hsl(var(--rank));font-weight:800}
 .scrolling-leaderboard .row-points{color:var(--ink)}
-.scrolling-leaderboard .row-meter{background:var(--rank-color)}
-.scrolling-leaderboard .pinned-leader{background:color-mix(in srgb,var(--rank-color) 18%,#111b2b);border-bottom-color:var(--rank-color)!important}
-.scrolling-leaderboard .pinned-label{color:var(--rank-color)}
-.category-student,.team-card-row{border-left:.2em solid var(--rank-color);padding-left:.5em}
-.category-student>span,.team-card-row>span{color:var(--rank-color);font-weight:800}
+.scrolling-leaderboard .row-meter{background:hsl(var(--rank))}
+.scrolling-leaderboard .pinned-leader{background:color-mix(in srgb,hsl(var(--rank)) 18%,#111b2b);border-bottom-color:hsl(var(--rank))!important}
+.scrolling-leaderboard .pinned-label{color:hsl(var(--rank))}
+.category-student,.team-card-row{border-left:.2em solid hsl(var(--rank));padding-left:.5em}
+.category-student>span,.team-card-row>span{color:hsl(var(--rank));font-weight:800}
 .team-card-row strong{color:var(--ink)}
-.grade-tile{border-top:.18em solid var(--rank-color)}
+.grade-tile{border-top:.18em solid hsl(var(--rank))}

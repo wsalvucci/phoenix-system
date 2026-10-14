@@ -1,0 +1,314 @@
+# Backend plan — 2026-10-14
+
+Owner: `backend`. Source of truth for the live schema: `docs/schema/baseline-2026-10-14/`.
+Disclosure rules: `docs/DATA_DISCLOSURE.md`. Nothing here has been applied to any database.
+Every migration was syntax-checked with libpg_query (`pglast`). **None has been run against a
+database**, local or remote, because this task ruled out all DB commands.
+
+## 0. Migration files and apply order
+
+| # | File | What | Risk |
+|---|---|---|---|
+| 0 | `20260912000000_reconcile_live_baseline.sql` | Live schema (32 tables, 44 functions, 9 policies, auth trigger) for fresh databases. **Backdated** so a fresh replay works. | No-op on production (guarded). Destructive only on an empty, 2024-only database. |
+| 1 | `20261014150000_lock_down_function_execute.sql` | **URGENT.** EXECUTE grants, `search_path`, `create_school_and_pair_admin` caller check, admin-function shadowing fix, `student_class_pair` policy. Self-checking. | Low. No data change. |
+| 2 | `20261014150100_actor_helpers.sql` | `is_admin_of_school`, `is_staff_of_school`, `can_view_student`. | Additive. |
+| 3 | `20261014150200_display_devices.sql` | Kiosk credential tables and RPCs. | Additive. |
+| 4 | `20261014150300_publication_cut_functions.sql` | `publication_cut*`, `display_cut`, `points_to_next_rank`, 3 indexes. | Additive. |
+| 5 | `20261014150400_withdraw_shares_on_score_change.sql` | Trigger that stops sharing a changed score, plus the notice table and RPC. | Additive. Changes runtime behaviour (D3). |
+| 6 | `20261014150500_link_codes_and_attempts.sql` | 50-bit generator as the new default, rate-limited redeem and preview, admin parent-link list, revoke and rotate. | Additive. Existing codes still work. |
+| 7 | `20261014150600_leader_letters.sql` | D13 snapshot and functions. | Additive. |
+| 8 | `20261014150700_regenerate_link_codes.sql` | **FLAGGED.** Overwrites every link code, then UNIQUE (school_id, upper(link_code)) and a format CHECK. | **Data loss: every outstanding code stops working.** Needs a reissue plan and the product owner's go-ahead. |
+
+**Safe first, in this order:** 1 alone (urgent). Then 0 (recorded only, see below). Then 2 → 7 together.
+8 is last, only after its prerequisites (§6.4) and the reissue plan.
+
+**How production should record file 0 (needs approval):** `supabase migration repair --status applied 20260912000000`
+(metadata only). Alternatively `supabase db push --include-all`, where the guard makes it a no-op. A plain
+`db push` will refuse it because it is older than the latest remote migration. If file 1 is applied first by
+any route, file 0 cannot undo it: file 0 never runs `CREATE OR REPLACE` on production.
+
+**After 2–7 apply:** regenerate `types/supabase.ts` from the database. Only then build the TS
+wrappers in §3–§7. They call RPCs that are not in today's generated types, so they were not written
+now (writing them against hand-edited types would break rule 5).
+
+## 1. Urgent security migration (file 1)
+
+### 1.1 RPC callers found (grep of this repo and every sibling repo, 2026-10-14)
+
+| Caller | Role | Functions |
+|---|---|---|
+| Web app server code (`teacherServerActions.ts`) | `service_role` | `duplicate_scorebook_events`, `edit_scorebook_point_event` |
+| **Phoenix Student Mobile** (Kotlin, anon key + student JWT) | `authenticated` | `get_active_timeframe`, `get_all_timeframes`, `get_available_leaderboard_scopes`, `get_category_breakdown`, `get_dashboard_totals`, `get_grade_leaderboard`, `get_led_group_member_points`, `get_my_groups`, `get_my_visibility_snapshot`, `get_point_group_leaderboard`, `get_point_history`, `get_ranking_group_leaderboard`, `get_school_leaderboard`, `get_student_group_leaderboard` |
+| Web browser bundle | none | No `.rpc(` in the browser. The browser client uses Realtime broadcast only. |
+| Nobody | — | `create_school_and_pair_admin`, every `*_as_admin`, `add_*`, `remove_*`, `create_group`, `update_student_data`, `get_school`, `get_own_*`, all helpers |
+
+No RPC is called with the bare anon role. The mobile app calls only after sign-in (`App.kt` gates on `AuthState.Authenticated`).
+
+### 1.2 What changes
+- `REVOKE ALL ... FROM public, anon, authenticated` on all 46 functions. Revoking from `public` is
+  what actually works. The mobile migrations revoked only `anon`, which is still a member of `PUBLIC`.
+- `authenticated` gets back exactly the 14 mobile functions. `service_role` gets all of them.
+- `search_path`: `public, pg_temp` on the live bodies, which use unqualified names, and `''` on the
+  rewritten ones.
+- `create_school_and_pair_admin`: the caller must be that admin (`auth.uid()`), plus no API grant.
+- `get_point_groups_as_admin`, `get_student_groups_as_admin` and `get_school`: parameter qualified as `fn.school_id`.
+- `student_class_pair` policy: row-scoped through the class AND the student, `WITH CHECK`, `TO authenticated`.
+- `handle_new_user`: no API role. `supabase_auth_admin` is granted it explicitly.
+- A self-check block aborts the migration if anon can execute anything, if any function lacks
+  `search_path`, or if `authenticated` can execute anything beyond the 14.
+
+### 1.3 Related fixes in the TypeScript tree (no DB needed)
+- `utils/supabase/server.ts` used the **service-role key** for the cookie client. Every request
+  without a session therefore ran as `service_role`. Live consequence:
+  `app/linkAccount/serverActions.ts#linkTeacher` was an **unauthenticated** teacher link-code oracle.
+  Now it uses the anon key. Requests with a session were already `authenticated` and are unchanged.
+- `supabaseServiceClient.ts` was a `"use server"` module, so its default export was a POST-able
+  server action. It is now a plain module with a browser guard. `topCards/page.tsx` now does an
+  `import type` from `api/service/dashboard`.
+- The build's client chunks were grepped: no service-role key and no service-client code.
+
+### 1.4 Open disclosure findings in the live mobile RPCs (grants kept; needs a ruling)
+These are live, and file 1 keeps them working, because revoking would break the mobile app:
+- `get_school_leaderboard` and `get_point_group_leaderboard`: top 10 with **no cut**, plus 2 named
+  neighbours above the caller (§9.3 / D2 DENY), plus `rank_change` (D10 DENY).
+- `get_grade_leaderboard`: top 10 per grade, no cut. A grade of 9 gets its complete ranking.
+- `get_led_group_member_points`: gives a leader every group mate's **totals and category points**.
+  It violates D13 L2 directly. **Recommend revoking it as soon as the mobile app can drop the screen.**
+- `get_student_group_leaderboard` and `get_ranking_group_leaderboard`: group averages and member
+  counts with no `MIN_COHORT_FOR_AGGREGATE` floor, plus `top_student_points`.
+- `get_point_history` and `get_category_breakdown` accept any timeframe id, including another
+  school's. They return only the caller's own points, so the impact is low.
+
+## 2. Baseline reconciliation (file 0, and `types/supabase.ts`)
+- The 2024 migrations describe a June 2024 schema. A fresh `db reset` failed at `20260912204234`.
+  File 0 sits before that one and recreates the live shape from the snapshot. It is generated by
+  script from `tables.sql` and `functions.sql`, with FKs ordered after the tables.
+- Guard: it runs only if `public.point_event` is absent, and it raises if any public table has a row.
+- `types/supabase.ts` is replaced by `docs/schema/baseline-2026-10-14/database.types.ts`, the
+  generator output. One consumer drifted: `teacherServerActions.ts` passed `null` where the
+  generated arg type is optional. It now passes `undefined`, which gives the same SQL default.
+  `tsc` is clean.
+
+## 3. Publication cut and points-to-next-rank (file 4)
+
+**Policy (§8.3):** `publication_cut_policy()` returns `(10, 0.33, 3, 10)`.
+`publication_cut(size) = max(0, min(10, floor(0.33·size), size−3))`. It must equal
+`computeCut()` in `dashboardFilters.ts` for every row of the §8.4 table: 0–3→0, 4→1, 6→1, 9→2,
+12→3, 30→9, 31→10, 600→10, null/negative→0. When `dashboardFilters.ts` is rewritten, add a test
+that pins these values on both sides.
+
+**`display_cut(p_school_id, p_timeframe_id, p_cohort_kind, p_cohort_id, p_actor_user_id?, p_display_device_id?)`
+→ `(display_rank, first_name, last_name, grade, total_points)`**
+- Cohorts: `overall`, `grade` (id = grade number), `point_group` (must be `ranked`), `student_group` (not archived, timeframe matches).
+- size = students in the cohort with total > 0. Shrink-only ties: a row is published iff
+  `rank + tied_band − 1 ≤ cut`. No count, no student id. Zero rows covers "not allowed", "too small" and "nothing".
+- The actor is re-checked: staff of the school, or a non-revoked display device of the school.
+
+**TypeScript contract** (new plain server module `app/supaApi/server/dashboard/displayCut.ts`,
+built after type regeneration; `Cohort` comes from the §8.2 `dashboardFilters.ts` types):
+```ts
+export type DisplayStudentRow = {
+  readonly key: string;        // opaque, per response: `${cohortKey}:${index}`. Never student.id.
+  readonly rank: number;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly grade: number;
+  readonly totalPoints: number;
+};
+/** DISPLAY tier. `viewer` comes from getDashboardViewer() (§4), never from the browser. */
+export async function getDisplayCut(viewer: DashboardViewer, schoolId: number,
+  timeframeId: number, cohort: Cohort): Promise<readonly DisplayStudentRow[]>;
+```
+Feeding actions (`featuredDashGetGlobalStats` and the others) then build their DISPLAY payload from
+these rows only. §7.1 rule: a student published in one cohort appears only in that cohort's list.
+
+**`points_to_next_rank(p_actor_user_id, p_student_id, p_timeframe_id)` → `(cohort_kind, cohort_id, points_to_next)`**
+Overall always. Grade, point group and student group only with ≥ 10 participants. Omitted at rank 1.
+Actor: the own account (`student."linkedUser"`) or a linked parent.
+```ts
+export type PointsToNextRank = {
+  overall: number | null;
+  grade: number | null;
+  pointGroups: { pointGroupId: number; pointsToNext: number }[];
+  studentGroups: { studentGroupId: number; pointsToNext: number }[];
+};
+export async function getPointsToNextRank(studentId: number, timeframeId: number): Promise<PointsToNextRank | null>;
+```
+It replaces `nearbyStudents`, `nearbyGradeStudents` and the per-group nearby lists (§9.3).
+
+**Indexes added with it:** `student_point(point_event_id)` (sp↔pe joins; the existing unique index
+leads with `student_id`), `point_event(point_group_id, date)` (point-group cohorts),
+`student(school_id, grade)` (every cohort).
+
+## 4. Display devices (file 3) — closes §7.4 #18 once wired
+
+**Flow:** the kiosk opens `/display` and shows an 8-character code (40 bits, 10-minute expiry).
+Staff, on their own signed-in device, enter it and tap "Pair". The kiosk polls and receives a
+256-bit token in an httpOnly cookie. Staff never type credentials on the kiosk. Alternative: a staff
+member signed in on the kiosk taps "Turn this screen into a display". The device is created and the
+staff session is signed out in the same response. Revoke: any admin of the school, or the pairer.
+
+**RPCs (service_role):** `display_pairing_start(secret_hash)`, `display_pairing_approve(actor, code, school, label)`
+→ `'approved'|'no_match'`, `display_pairing_claim(secret_hash, token_hash)`, `display_device_create(actor, school, label, token_hash)`,
+`display_device_resolve(token_hash)` → `(device_id, school_id, school_name, label, paired_by_name)`,
+`display_device_revoke(actor, device_id)`, `display_devices_for_school(actor, school)`.
+The database stores SHA-256 digests only.
+
+**TypeScript contract:**
+```ts
+// app/supaApi/server/display/displayAccess.ts — plain server module (NOT "use server")
+export type DisplayContext = { kind: 'display'; deviceId: string; schoolId: number;
+  schoolName: string; label: string; pairedByName: string | null };
+export type StaffViewer = { kind: 'staff'; userId: number; schoolIds: number[] };
+export type DashboardViewer = StaffViewer | DisplayContext;
+/** Reads cookie `__Host-phx_display` (httpOnly, Secure, SameSite=Strict, Path=/, Max-Age 400d). */
+export async function getDisplayContext(): Promise<DisplayContext | null>;
+/** Display cookie first, else staff session. Only app/dashboard/* may accept a DisplayContext. */
+export async function getDashboardViewer(): Promise<DashboardViewer | null>;
+
+// app/display/actions.ts — "use server"
+export async function startDisplayPairing(): Promise<{ userCode: string; expiresAt: string }>;
+export async function pollDisplayPairing(): Promise<{ status: 'pending' | 'paired' | 'expired' }>;
+export async function approveDisplayPairing(userCode: string, schoolId: number, label: string): Promise<{ ok: boolean }>;
+export async function convertThisBrowserToDisplay(schoolId: number, label: string): Promise<{ ok: boolean }>;
+export async function listDisplays(schoolId: number): Promise<{ deviceId: string; label: string;
+  pairedAt: string; pairedByName: string | null; lastSeenAt: string | null; revokedAt: string | null }[]>;
+export async function revokeDisplay(deviceId: string): Promise<{ ok: boolean }>;
+```
+Wiring: `app/dashboard/layout.tsx` and every feeding action switch from `isStaffOfSchool(schoolId)` to
+`getDashboardViewer()`. A display viewer's `schoolId` overrides `?school=`. `startDisplayPairing` is
+unauthenticated, so it is rate-limited by client key in TS (proposed: 20 per IP per hour).
+
+**`getDashboardSchools()` — implemented now** in `app/supaApi/server/dashboard/dashboardSchool.ts`:
+```ts
+export type DashboardSchool = { id: number; name: string };
+export async function getDashboardSchools(): Promise<DashboardSchool[]>; // own schools, sorted by name
+```
+Staff: their admin and teacher schools. Everyone else: `[]`. After §4 ships, a display returns its one school.
+
+## 5. Share withdrawal (file 5) — §10.3 violation 4
+The trigger `AFTER UPDATE OF point_value ON student_point WHEN (old IS DISTINCT FROM new)` deletes
+that score's `shared_point` rows and writes one `shared_point_withdrawal` notice. It covers every
+write path (edit RPC, bulk entry, CSV import, TA upsert). Upserts that rewrite the same value do
+nothing. Changes to `input_score` alone do nothing (recipients never see it).
+```ts
+/** Student's own account only. Returns unseen notices and marks them seen. */
+export async function takeShareWithdrawalNotices(): Promise<{ eventName: string | null;
+  eventDate: string | null; withdrawnAt: string }[]>;
+// UI copy (§10.3): "Your shared score for <eventName> changed, so it is no longer shared."
+```
+
+## 6. Link codes (files 6 and 8) — §10.4, §10.11, D11, D12
+
+### 6.1 Contract
+```ts
+export type LinkPurpose = 'student_claim' | 'parent_link' | 'teacher_claim';
+export type LinkResult = { status: 'linked' | 'no_match' | 'rate_limited' };
+/** Session user from getOwnUserData; client key = HMAC-SHA256(LINK_RATE_LIMIT_SECRET, client IP). */
+export async function redeemLinkCode(purpose: LinkPurpose, schoolId: number, code: string): Promise<LinkResult>;
+/** "Is this Maya R.?" Only for 10-character codes, so it cannot work before file 8. No id returned. */
+export async function previewLinkCode(purpose: 'student_claim' | 'parent_link', schoolId: number, code: string)
+  : Promise<{ status: 'match'; firstName: string; lastInitial: string } | { status: 'no_match' | 'rate_limited' }>;
+// Admin (admin of the student's school, re-checked in SQL):
+export async function listParentLinks(studentId: number): Promise<{ parentUserId: number; linkedAt: string;
+  parentName: string | null; parentEmail: string | null }[]>;
+export async function revokeParentLink(studentId: number, parentUserId: number): Promise<boolean>; // audited
+export async function rotateLinkCode(kind: 'student' | 'teacher', id: number): Promise<{ code: string } | null>;
+// Student's own screen (§10.11): "A parent account was linked on <date>".
+export async function getOwnParentLinkDates(): Promise<string[]>;
+```
+SQL: `redeem_link_code`, `preview_link_code`, `admin_list_parent_links`, `admin_revoke_parent_link`,
+`admin_rotate_link_code`, `own_parent_link_dates`. All service_role, and all take the actor `"user".id`.
+
+### 6.2 Properties
+- 10 Crockford base-32 characters = **50 bits** from `extensions.gen_random_bytes`. Input is
+  case-insensitive, and hyphens and spaces are ignored (I/L→1, O→0).
+- Uniform failure: wrong code, wrong school, already linked, existing parent pair → `no_match`.
+- Bucket (proposed): **5 failures per user per hour, 20 per client key per hour**, shared by preview
+  and redeem. Failures are logged without the code, and rows are purged after 24 hours. Serialized
+  per user with an advisory lock.
+
+### 6.3 Consumers to switch (owned by senior-developer, who is editing these now)
+`linkStudent.ts`, `linkTeacher.ts`, `app/linkAccount/serverActions.ts`, `parentApi.ts#linkStudentToParent` → `redeemLinkCode`.
+That also fixes §10.11's three distinguishable `linkStudentToParent` messages.
+
+### 6.4 Before file 8 may apply (FLAGGED)
+1. Replace the TS generators that bypass the default: `api/admin/teachers.ts:155` (`Math.random`,
+   6 characters) and `app/supaApi/client/admin/teachers/adminTeachersApi.ts:19` (`md5(Date.now())`,
+   7 hex). Omit `link_code` on insert, or call `admin_rotate_link_code`. File 8's format CHECK
+   rejects their output, so inserts would fail.
+2. Reissue plan: admins print or send the new codes from the admin screens, on a chosen date.
+3. Product-owner go-ahead. **Data lost: every unredeemed code in circulation.** Links that already
+   exist are kept.
+
+## 7. Leader letters (file 7) — D13, L1–L12
+- `refresh_leader_letters(school)`: at most one snapshot per school per UTC day (L9). Only the
+  current snapshot is kept (L7). Uses the school's active timeframe. Columns are the point groups
+  with an event in the timeframe (L5).
+- Cohort: students with a point-group total > 0. If there are fewer than 30, that point group has no
+  letters. `p` = share strictly lower. Bands: S ≥ .93, A ≥ .75, B ≥ .57, C ≥ .39, D ≥ .20, E.
+- `get_leader_group_letters(actor)`: own student account only, never a parent (L11). Direct members
+  minus the leader (L1). L8 per column: ≥ 6 members, cohort floor met, every member has a letter,
+  and D and E counts each 0 or ≥ 3, otherwise the whole column is null.
+- `get_own_led_letters(actor, student)`: groups with a leader, the leaders' first name and last
+  initial, and the student's own letters (L10). Never says whether a column is hidden.
+```ts
+export type LeaderLetter = 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
+export type LeaderGroupLetters = {
+  groupId: number; groupName: string;
+  pointGroups: { id: number; name: string; color: string }[];   // colour: column header only (L6)
+  members: { key: string; firstName: string; lastName: string;   // key opaque; sorted server-side
+             letters: { pointGroupId: number; letter: LeaderLetter | null }[] }[];
+};
+export async function getLeaderGroupLetters(): Promise<LeaderGroupLetters[]>; // groups with no members come from the names-only list
+export type OwnLedLetters = { groupId: number; groupName: string;
+  leaders: { firstName: string; lastInitial: string }[];
+  letters: { pointGroupId: number; letter: LeaderLetter | null }[] };
+export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters[]>; // student or linked parent
+```
+
+## 8. Index gaps (proposals only, not built)
+| Index | Serves |
+|---|---|
+| `UNIQUE "user"(supabase_id)` | every request: `getOwnUserData`, `get_user_data()`, `auth_current_student()`. Check for duplicates first. |
+| `point_event(student_group_id, date)` | scorebook loads, `duplicate_scorebook_events` source scan |
+| `student_group_pair(student_group_id)` | group member lists (PK leads with `student_id`) |
+| `teacher(linked_user)`, `student("linkedUser")` | `getCallerAccess`, own-student lookups, link RPCs |
+| `teacher(school_id)`, `student_group(school_id)`, `point_group(school_id)`, `school_timeframes(school_id)` | school-scoped admin lists and every RPC above |
+| `user_student_pair(student_id)` | `can_view_student`, admin parent-link list |
+| `student_group_leaders(student_id)`, `(group_id)` | leader lookups (no PK today) |
+| `shared_point(shared_group_id)` | "Shared with me" feed |
+
+## 9. Legacy cleanup (proposals only, each needs an explicit go-ahead)
+- DROP `create_school_and_pair_admin` (no caller, now unreachable).
+- DROP the unused `*_as_admin`, `add_*`, `remove_*`, `create_group`, `update_student_data`, `get_school` and `get_own_*` family (no caller in any repo).
+- Legacy tables (standing decision #4): `point_conversion_rule`, `point_conversion_rule_type`
+  (`point_template.conversion_rule_type` FK and `conversion_rule_value NOT NULL` must go first), `class`,
+  `student_class_pair` (0 rows), `teacher_class_pair`, `school_admins` (its `link_code` default is a
+  literal string), `student_group_type`. Each drop states what is lost, after a row-count check.
+- `student_point`: drop the duplicate `UNIQUE (id)`. Add PKs to `student_group_leaders` and
+  `teaching_assistant_point_event` after de-duplicating. Add FKs for `user.teacher_id` and `user.student_id`.
+- **Two link models coexist:** `student."linkedUser"` (web) and `user.student_id` (mobile
+  `auth_current_student`). Likewise `teacher.linked_user` and `user.teacher_id`
+  (`app/linkAccount/serverActions.ts`). Pick one and backfill. The new RPCs follow the web model.
+- The Realtime broadcast `student-points-channel` is public. Anyone with the anon key can send
+  `sync` and force every display to refetch. Make it private once display tokens exist.
+- `ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` would stop new functions
+  being born callable by anon. It is global to the role and can affect extensions, so it is
+  proposed, not done. Until then, every new function revokes explicitly (all files here do).
+
+## 10. Decisions needed from the product owner
+- **S-1** Approve the production operations: apply file 1, and record file 0 with `migration repair`.
+- **S-2** Mobile RPC findings (§1.4): keep, change, or revoke. `get_led_group_member_points` contradicts D13.
+- **D-1** Who may pair a display: any staff of the school (built), or admins only (§7.5 wording)?
+- **P-1** Point-group cohorts are limited to `point_group.ranked = true` (built that way).
+- **P-2** Cohort size counts only students with points > 0 (stricter, built that way).
+- **P-3** Totals: SQL sums stored `student_point.point_value` by `point_event.point_group_id`. The
+  current Node dashboard re-applies the legacy template rule on top of `point_value` and uses
+  `point_template.point_group_id`, so wiring §3 will change some dashboard numbers. Recommend SQL as the truth.
+- **L-1** Date and reissue plan for file 8 (BREAKING).
+- **L-2** Rate-limit numbers, and the new server secret `LINK_RATE_LIMIT_SECRET`.
+- **LL-1** (privacy-boundary) A member with no points in a category gets **E**. The alternative is
+  null, which singles them out. A category taught to only some groups makes E misleading.
+- **LL-2** The snapshot day boundary is UTC. A school timezone column would fix it.
+- Optional: a cap on parent links per student.

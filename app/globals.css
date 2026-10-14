@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -15,28 +15,67 @@
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215.4 16.3% 42%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72% 47%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --info: 199 89% 36%;
+    --info-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 88%;
+    --input: 214 16% 56%;
     --ring: 221.2 83.2% 53.3%;
+    --btn-background: 210 40% 93%;
+    --btn-background-hover: 210 40% 88%;
+    --shadow-1: 0 1px 2px 0 hsl(222 47% 11% / 0.06);
+    --shadow-2: 0 2px 8px -2px hsl(222 47% 11% / 0.10), 0 1px 2px 0 hsl(222 47% 11% / 0.06);
+    --shadow-3: 0 12px 28px -8px hsl(222 47% 11% / 0.18), 0 2px 6px 0 hsl(222 47% 11% / 0.08);
     --radius: 0.5rem;
     --off-white: 0 0% 96%;
     --off-black: 222.2 84% 8%;
+    --gilt: 43 68% 50%;
+    --gilt-foreground: 22 28% 12%;
+    --gilt-ink: 36 82% 26%;
+    --rule: 214 20% 80%;
+    --seal: 8 50% 26%;
+    --seal-foreground: 42 48% 97%;
+    --shadow-seal: inset 0 1px 2px 0 hsl(8 60% 8% / 0.45), 0 1px 2px 0 hsl(222 47% 11% / 0.20);
+    --rank-1: 51 100% 45%;
+    --rank-1-foreground: 22 28% 12%;
+    --rank-1-ink: 42 100% 24%;
+    --rank-2: 215 8% 56%;
+    --rank-2-foreground: 22 28% 12%;
+    --rank-2-ink: 215 10% 34%;
+    --rank-3: 27 60% 37%;
+    --rank-3-foreground: 42 48% 97%;
+    --rank-3-ink: 27 62% 31%;
+    --rank-4: 300 72% 21%;
+    --rank-4-foreground: 42 48% 97%;
+    --rank-4-ink: 300 72% 21%;
+    --rank-5: 180 100% 21%;
+    --rank-5-foreground: 42 48% 97%;
+    --rank-5-ink: 180 100% 21%;
+    --rank-top10: 349 80% 35%;
+    --rank-top10-foreground: 42 48% 97%;
+    --rank-top10-ink: 349 80% 35%;
+    --rank-top20: 116 58% 32%;
+    --rank-top20-foreground: 42 48% 97%;
+    --rank-top20-ink: 116 62% 26%;
   }
 
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222.2 47% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222.2 47% 10%;
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 222.2 84% 4.9%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -45,11 +84,189 @@
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --success: 142 69% 45%;
+    --success-foreground: 222.2 84% 4.9%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222.2 84% 4.9%;
+    --info: 199 89% 55%;
+    --info-foreground: 222.2 84% 4.9%;
+    --border: 217 22% 42%;
+    --input: 217 22% 42%;
+    --ring: 217.2 91.2% 68%;
+    --btn-background: 217.2 32.6% 17.5%;
+    --btn-background-hover: 217.2 32.6% 23%;
+    --shadow-1: 0 1px 2px 0 hsl(0 0% 0% / 0.40);
+    --shadow-2: 0 2px 8px -2px hsl(0 0% 0% / 0.50), 0 1px 2px 0 hsl(0 0% 0% / 0.40);
+    --shadow-3: 0 12px 28px -8px hsl(0 0% 0% / 0.65), 0 2px 6px 0 hsl(0 0% 0% / 0.45);
     --off-white: 222.2 84% 96%;
     --off-black: 0 0% 8%;
+    --gilt: 43 62% 58%;
+    --gilt-foreground: 24 22% 8%;
+    --gilt-ink: 43 70% 66%;
+    --rule: 217 20% 26%;
+    --seal: 8 46% 34%;
+    --seal-foreground: 42 48% 96%;
+    --shadow-seal: inset 0 1px 2px 0 hsl(8 60% 5% / 0.60), 0 1px 2px 0 hsl(0 0% 0% / 0.45);
+    --rank-1: 50 100% 55%;
+    --rank-1-foreground: 24 22% 8%;
+    --rank-1-ink: 50 100% 55%;
+    --rank-2: 215 8% 65%;
+    --rank-2-foreground: 24 22% 8%;
+    --rank-2-ink: 215 10% 72%;
+    --rank-3: 27 55% 50%;
+    --rank-3-foreground: 24 22% 8%;
+    --rank-3-ink: 27 62% 58%;
+    --rank-4: 300 45% 36%;
+    --rank-4-foreground: 40 32% 95%;
+    --rank-4-ink: 300 55% 74%;
+    --rank-5: 180 70% 28%;
+    --rank-5-foreground: 40 32% 95%;
+    --rank-5-ink: 180 60% 52%;
+    --rank-top10: 349 72% 42%;
+    --rank-top10-foreground: 40 32% 95%;
+    --rank-top10-ink: 350 90% 72%;
+    --rank-top20: 116 50% 30%;
+    --rank-top20-foreground: 40 32% 95%;
+    --rank-top20-ink: 116 55% 56%;
+  }
+
+  /* Student surface: re-points the semantic tokens ("prize-day parlour").
+     Rank-tier tokens are deliberately not redefined here. */
+  .theme-victorian {
+    --background: 40 38% 95%;
+    --foreground: 22 28% 12%;
+    --card: 42 48% 98%;
+    --card-foreground: 22 28% 12%;
+    --popover: 42 48% 98%;
+    --popover-foreground: 22 28% 12%;
+    --primary: 215 55% 24%;
+    --primary-foreground: 42 48% 97%;
+    --secondary: 38 30% 90%;
+    --secondary-foreground: 22 28% 14%;
+    --muted: 38 26% 91%;
+    --muted-foreground: 25 15% 34%;
+    --accent: 38 34% 88%;
+    --accent-foreground: 22 28% 12%;
+    --destructive: 0 68% 38%;
+    --destructive-foreground: 42 48% 97%;
+    --success: 150 48% 23%;
+    --success-foreground: 42 48% 97%;
+    --warning: 36 90% 40%;
+    --warning-foreground: 22 28% 12%;
+    --info: 215 50% 30%;
+    --info-foreground: 42 48% 97%;
+    --border: 30 16% 50%;
+    --input: 30 16% 50%;
+    --ring: 215 60% 34%;
+    --rule: 36 28% 78%;
+    --gilt: 43 68% 50%;
+    --gilt-foreground: 22 28% 12%;
+    --gilt-ink: 36 82% 26%;
+    --seal: 8 50% 26%;
+    --btn-background: 38 30% 90%;
+    --btn-background-hover: 38 34% 85%;
+    --shadow-1: 0 1px 2px 0 hsl(22 30% 10% / 0.08);
+    --shadow-2: 0 2px 8px -2px hsl(22 30% 10% / 0.14), 0 1px 2px 0 hsl(22 30% 10% / 0.08);
+    --shadow-3: 0 12px 28px -8px hsl(22 30% 10% / 0.22), 0 2px 6px 0 hsl(22 30% 10% / 0.10);
+    --radius: 0.375rem;
+    --off-white: 40 38% 95%;
+    --off-black: 24 22% 8%;
+  }
+
+  .dark .theme-victorian {
+    --background: 24 22% 8%;
+    --foreground: 40 32% 92%;
+    --card: 24 20% 12%;
+    --card-foreground: 40 32% 92%;
+    --popover: 24 20% 12%;
+    --popover-foreground: 40 32% 92%;
+    --primary: 215 48% 36%;
+    --primary-foreground: 42 48% 96%;
+    --secondary: 24 16% 17%;
+    --secondary-foreground: 40 32% 92%;
+    --muted: 24 14% 16%;
+    --muted-foreground: 36 16% 70%;
+    --accent: 24 18% 20%;
+    --accent-foreground: 40 32% 92%;
+    --destructive: 0 72% 64%;
+    --destructive-foreground: 24 22% 8%;
+    --success: 150 42% 52%;
+    --success-foreground: 24 22% 8%;
+    --warning: 38 85% 58%;
+    --warning-foreground: 24 22% 8%;
+    --info: 212 55% 68%;
+    --info-foreground: 24 22% 8%;
+    --border: 30 12% 48%;
+    --input: 30 12% 48%;
+    --ring: 43 72% 62%;
+    --rule: 28 14% 24%;
+    --gilt: 43 62% 58%;
+    --gilt-foreground: 24 22% 8%;
+    --gilt-ink: 43 70% 66%;
+    --seal: 8 46% 34%;
+    --btn-background: 24 16% 17%;
+    --btn-background-hover: 24 18% 22%;
+    --shadow-1: 0 1px 2px 0 hsl(0 0% 0% / 0.40);
+    --shadow-2: 0 2px 8px -2px hsl(0 0% 0% / 0.50), 0 1px 2px 0 hsl(0 0% 0% / 0.40);
+    --shadow-3: 0 12px 28px -8px hsl(0 0% 0% / 0.65), 0 2px 6px 0 hsl(0 0% 0% / 0.45);
+    --off-white: 40 32% 92%;
+    --off-black: 24 22% 8%;
+  }
+
+  /* Rank tier. Components set data-rank-tier={rankTier(rank, cohortSize)} and use
+     bg-rank / text-rank-foreground / text-rank-ink / border-rank. The neutral tier
+     is the default and is resolved per element so it follows whichever scope it sits in. */
+  :root,
+  .theme-victorian,
+  [data-rank-tier="none"] {
+    --rank-none: var(--secondary);
+    --rank-none-foreground: var(--foreground);
+    --rank-none-ink: var(--foreground);
+    --rank: var(--secondary);
+    --rank-foreground: var(--foreground);
+    --rank-ink: var(--foreground);
+  }
+
+  [data-rank-tier="1"] {
+    --rank: var(--rank-1);
+    --rank-foreground: var(--rank-1-foreground);
+    --rank-ink: var(--rank-1-ink);
+  }
+
+  [data-rank-tier="2"] {
+    --rank: var(--rank-2);
+    --rank-foreground: var(--rank-2-foreground);
+    --rank-ink: var(--rank-2-ink);
+  }
+
+  [data-rank-tier="3"] {
+    --rank: var(--rank-3);
+    --rank-foreground: var(--rank-3-foreground);
+    --rank-ink: var(--rank-3-ink);
+  }
+
+  [data-rank-tier="4"] {
+    --rank: var(--rank-4);
+    --rank-foreground: var(--rank-4-foreground);
+    --rank-ink: var(--rank-4-ink);
+  }
+
+  [data-rank-tier="5"] {
+    --rank: var(--rank-5);
+    --rank-foreground: var(--rank-5-foreground);
+    --rank-ink: var(--rank-5-ink);
+  }
+
+  [data-rank-tier="top10"] {
+    --rank: var(--rank-top10);
+    --rank-foreground: var(--rank-top10-foreground);
+    --rank-ink: var(--rank-top10-ink);
+  }
+
+  [data-rank-tier="top20"] {
+    --rank: var(--rank-top20);
+    --rank-foreground: var(--rank-top20-foreground);
+    --rank-ink: var(--rank-top20-ink);
   }
 }
 
@@ -59,21 +276,21 @@
   }
 
   body {
-    @apply min-h-screen bg-slate-50 text-slate-950 antialiased dark:bg-slate-950 dark:text-slate-50;
+    @apply min-h-screen bg-background text-foreground antialiased;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 }
 
 @layer components {
   .app-page {
-    @apply min-h-screen w-full bg-slate-50 dark:bg-slate-950;
+    @apply min-h-screen w-full bg-background;
   }
 
   .app-header {
-    @apply border-b border-slate-200 bg-white/95 dark:border-slate-800 dark:bg-slate-900/95;
+    @apply border-b border-border bg-card/95;
   }
 
   .page-container {
@@ -81,23 +298,23 @@
   }
 
   .surface {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-1;
   }
 
   .field {
-    @apply h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-primary dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+    @apply h-10 rounded-lg border border-input bg-card px-3 text-sm text-foreground shadow-1 transition placeholder:text-muted-foreground hover:border-foreground/50 focus:border-ring;
   }
 
   .button-primary {
-    @apply inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-1 transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50;
   }
 
   .button-secondary {
-    @apply inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+    @apply inline-flex h-10 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-foreground shadow-1 transition hover:bg-accent;
   }
 
   .button-ghost {
-    @apply inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white;
+    @apply inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-accent-foreground;
   }
 
   .eyebrow {
@@ -105,11 +322,11 @@
   }
 
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl dark:text-white;
+    @apply text-2xl font-bold tracking-tight text-foreground sm:text-3xl;
   }
 
   .page-description {
-    @apply mt-1 text-sm text-slate-600 dark:text-slate-400;
+    @apply mt-1 text-sm text-muted-foreground;
   }
 }
 
@@ -125,5 +342,22 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

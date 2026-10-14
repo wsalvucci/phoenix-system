@@ -113,7 +113,7 @@ export default function SharedPointsTab() {
                         <div className="space-y-2 sm:space-y-3">
                             {event.sharedPoints.map((point) => (
                                 <div 
-                                    key={point.studentPointId}
+                                    key={point.key}
                                     className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
                                 >
                                     <div className="flex-1 min-w-0 overflow-hidden">

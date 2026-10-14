@@ -1,0 +1,168 @@
+/* Student surface components ("prize-day parlour"). Tokens only: no hex, no !important,
+ no element selectors. Colours come from the .theme-victorian scope in app/globals.css.
+ Spec: docs/design/VICTORIAN_REMAKE_PLAN.md (sections 2-3, Concept review, Rank colour system). */
+
+/* Double-rule frame: 1px --border outside, 1px --rule inset 4px. Identity card only. */
+.vic-frame {
+  @apply relative rounded-lg border border-border bg-card text-card-foreground shadow-1;
+}
+.vic-frame::after {
+  content: "";
+  @apply pointer-events-none absolute rounded-sm border border-rule;
+  inset: 4px;
+}
+
+/* Plate: resting card, 1px --rule edge, optional 3px top rule. */
+.vic-plate {
+  @apply rounded-lg border border-rule bg-card p-4 text-card-foreground shadow-1 sm:p-6;
+}
+.vic-plate[data-rank-tier]:not([data-rank-tier="none"]) {
+  border-top: 3px solid hsl(var(--rank-ink));
+}
+
+/* Small-caps tracked label, 12px floor. */
+.vic-label {
+  @apply text-xs font-semibold uppercase text-muted-foreground;
+  letter-spacing: 0.14em;
+}
+
+/* Lining tabular figures for every large number. */
+.vic-numeral {
+  @apply font-display font-semibold;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.15;
+}
+
+/* Hairline rule with a centred gilt diamond (between sections, and above the balance). */
+.vic-divider {
+  @apply relative h-2 w-full;
+  background:
+    linear-gradient(
+      to right,
+      hsl(var(--rule)) 0 calc(50% - 10px),
+      transparent calc(50% - 10px) calc(50% + 10px),
+      hsl(var(--rule)) calc(50% + 10px) 100%
+    )
+    center / 100% 1px no-repeat;
+}
+.vic-divider::after {
+  content: "";
+  @apply absolute left-1/2 top-1/2 bg-gilt;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+/* Plain gilt rule (balance block); the shimmer travels along the lower one only. */
+.vic-gilt-rule {
+  @apply relative h-px w-full overflow-hidden bg-gilt;
+}
+.vic-gilt-rule[data-shimmer="true"]::after {
+  content: "";
+  @apply absolute inset-y-0 left-0 w-1/3;
+  background: linear-gradient(to right, transparent, hsl(var(--card)), transparent);
+  transform: translateX(-100%);
+  animation: vic-shimmer 700ms ease-out 1 both;
+}
+
+/* Wax seal: decorative disc, always aria-hidden. Sizes 40 / 56 (40 at 320). */
+.vic-seal {
+  @apply inline-flex shrink-0 items-center justify-center rounded-full bg-seal text-seal-foreground shadow-seal;
+  width: 40px;
+  height: 40px;
+}
+.vic-seal[data-size="lg"] {
+  width: 56px;
+  height: 56px;
+}
+@media (max-width: 359px) {
+  .vic-seal[data-size="lg"] {
+    width: 40px;
+    height: 40px;
+  }
+}
+.vic-seal[data-stamp="true"] {
+  animation: vic-stamp 220ms ease-out 1 both;
+}
+
+/* Rank badge: one circle for every rank, same size and weight; only ring and fill change.
+   data-rank-tier supplies --rank*; data-rank-style: filled (1-5), ringed (6-20), plain (none). */
+.vic-rank {
+  @apply inline-flex shrink-0 items-center justify-center rounded-full font-display font-semibold;
+  width: 28px;
+  height: 28px;
+  font-size: 0.875rem;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+}
+.vic-rank[data-size="lg"] {
+  width: 40px;
+  height: 40px;
+  font-size: 1.25rem;
+}
+.vic-rank[data-rank-style="filled"] {
+  @apply bg-rank text-rank-foreground;
+  box-shadow: 0 0 0 1px hsl(var(--rank-ink));
+}
+.vic-rank[data-rank-style="ringed"] {
+  @apply bg-card text-rank-ink;
+  box-shadow: 0 0 0 2px hsl(var(--rank-ink));
+}
+.vic-rank[data-rank-style="plain"] {
+  @apply bg-card text-foreground;
+  box-shadow: 0 0 0 1px hsl(var(--border));
+}
+
+/* Grade badge: ruled, ink on --secondary. Never hue-coded. */
+.vic-grade {
+  @apply inline-flex items-center justify-center rounded-md border border-rule bg-secondary px-2 text-sm font-semibold text-secondary-foreground;
+  min-width: 28px;
+  height: 28px;
+}
+
+/* Entrance: fade + 8px rise, 200ms. */
+.vic-enter {
+  animation: vic-enter 200ms ease-out both;
+}
+
+@keyframes vic-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vic-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.25) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vic-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+/* Decorative motion has a static end state; the global rule in globals.css already
+   shortens durations, this also removes the shimmer highlight outright. */
+@media (prefers-reduced-motion: reduce) {
+  .vic-gilt-rule[data-shimmer="true"]::after {
+    display: none;
+  }
+  .vic-enter,
+  .vic-seal[data-stamp="true"] {
+    animation: none;
+  }
+}

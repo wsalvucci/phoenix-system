@@ -10,6 +10,14 @@ module.exports = {
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -30,6 +38,18 @@ module.exports = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -37,8 +57,33 @@ module.exports = {
           background: "hsl(var(--btn-background))",
           "background-hover": "hsl(var(--btn-background-hover))",
         },
+        gilt: {
+          DEFAULT: "hsl(var(--gilt) / <alpha-value>)",
+          foreground: "hsl(var(--gilt-foreground) / <alpha-value>)",
+          ink: "hsl(var(--gilt-ink) / <alpha-value>)",
+        },
+        rule: "hsl(var(--rule) / <alpha-value>)",
+        seal: {
+          DEFAULT: "hsl(var(--seal) / <alpha-value>)",
+          foreground: "hsl(var(--seal-foreground) / <alpha-value>)",
+        },
+        rank: {
+          DEFAULT: "hsl(var(--rank) / <alpha-value>)",
+          foreground: "hsl(var(--rank-foreground) / <alpha-value>)",
+          ink: "hsl(var(--rank-ink) / <alpha-value>)",
+        },
         "off-white": "hsl(var(--off-white))",
         "off-black": "hsl(var(--off-black))",
+      },
+      boxShadow: {
+        1: "var(--shadow-1)",
+        2: "var(--shadow-2)",
+        3: "var(--shadow-3)",
+        seal: "var(--shadow-seal)",
+      },
+      fontFamily: {
+        // --font-display is set by next/font in the student layout (Phase 2); Georgia until then.
+        display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

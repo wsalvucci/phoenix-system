@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { rankToColor } from "@/types/domain";
+import { rankTier } from "@/lib/rankTier";
 import "./victorian-theme.css";
 import SharePointModal from "./SharePointModal";
 import { checkPointsSharedStatus } from "@/api/student";
@@ -117,11 +117,11 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
                             </div>
                             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                                 <div className="text-right">
-                                    <div className="font-bold victorian-stat-number text-sm sm:text-base" style={{ color: rankToColor(event.rank) }}>
+                                    <div className="font-bold victorian-stat-number text-sm sm:text-base">
                                         +{event.points} pts
                                     </div>
                                     <div className="victorian-subtitle text-xs sm:text-sm">
-                                        {numberToOrdinal(event.rank)} of {event.outOf}
+                                        <span className="text-rank-ink" data-rank-tier={rankTier(event.rank, event.outOf)}>{numberToOrdinal(event.rank)}</span> of {event.outOf}
                                     </div>
                                     <div className="text-xs text-gray-600 hidden sm:block">
                                         {event.pointGroup.name}

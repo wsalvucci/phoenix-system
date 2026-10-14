@@ -1,9 +1,8 @@
 import AuthButton from "../components/AuthButton";
 import { createClient } from "@/utils/supabase/server";
 import InstallPrompt from "./components/InstallPrompt";
-import StudentChip from "@/components/home/StudentChip";
-import AdminChip from "@/components/home/AdminChip";
-import TeacherChip from "@/components/home/TeacherChip";
+import Link from "next/link";
+import HomeRoles from "@/components/home/HomeRoles";
 
 export default async function Index() {
   const canInitSupabaseClient = () => {
@@ -19,7 +18,7 @@ export default async function Index() {
 
   const isSupabaseConnected = canInitSupabaseClient();
 
-  // Needed so StudentChip can offer the account-link prompt to signed-in
+  // Signed-in users get their role destinations; signed-out visitors get sign-in.
   // users who have no student linked yet, but not to signed-out visitors.
   let isSignedIn = false;
   if (isSupabaseConnected) {
@@ -53,17 +52,20 @@ export default async function Index() {
             </p>
           </section>
 
-          <section className="surface p-5 sm:p-6" aria-labelledby="destinations-heading">
-            <div className="mb-5">
-              <h2 id="destinations-heading" className="text-xl font-semibold">Where would you like to go?</h2>
-              <p className="page-description">Your available dashboards appear below.</p>
-            </div>
-            <div className="flex flex-col gap-3">
-              <StudentChip isSignedIn={isSignedIn} />
-              <TeacherChip />
-              <AdminChip />
-            </div>
-          </section>
+          {isSignedIn ? (
+            <section className="surface p-5 sm:p-6" aria-labelledby="destinations-heading">
+              <h2 id="destinations-heading" className="mb-5 text-xl font-semibold">Where would you like to go?</h2>
+              <HomeRoles />
+            </section>
+          ) : (
+            <section className="surface p-5 sm:p-6" aria-labelledby="welcome-heading">
+              <h2 id="welcome-heading" className="text-xl font-semibold">Have you used Phoenix before?</h2>
+              <div className="mt-5 flex flex-col gap-3">
+                <Link href="/login" className="button-primary min-h-[44px]">Sign in</Link>
+                <Link href="/login" className="inline-flex min-h-[44px] items-center justify-center text-sm underline">Create an account</Link>
+              </div>
+            </section>
+          )}
         </div>
       </main>
     </div>

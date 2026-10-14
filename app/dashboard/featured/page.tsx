@@ -4,13 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import { featuredDashGetGlobalStats } from '@/app/supaApi/universal/universalApi';
 import AnimatedFeatured from './screens/AnimatedFeatured';
 import './featured.css';
+import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 export default function FeaturedDashboard() {
   const [timeframe, setTimeframe] = useState<number | null>(null);
+  const { schoolId } = useDashboardSchool();
   const query = useQuery({
-    queryKey: ['featured', timeframe],
+    queryKey: ['featured', schoolId, timeframe],
+    enabled: schoolId !== null,
     queryFn: async () => {
-      const data = await featuredDashGetGlobalStats(12, timeframe);
+      const data = await featuredDashGetGlobalStats(schoolId as number, timeframe);
       if (!data) throw new Error('No dashboard data returned');
       return data;
     },

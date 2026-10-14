@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.2 (db9da0b)"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "12.2.2"
   }
   public: {
     Tables: {
@@ -559,6 +534,86 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scorebook_event_copy_operation: {
+        Row: {
+          adjusted_dates: Json
+          created_at: string
+          created_event_ids: number[]
+          destination_timeframe_id: number | null
+          excluded_event_ids: number[]
+          id: number
+          outside_destination_count: number
+          request_id: string
+          shift_amount: number
+          shift_unit: string
+          source_event_ids: number[]
+          source_timeframe_id: number
+          student_group_id: number
+          teacher_id: number
+        }
+        Insert: {
+          adjusted_dates?: Json
+          created_at?: string
+          created_event_ids: number[]
+          destination_timeframe_id?: number | null
+          excluded_event_ids?: number[]
+          id?: number
+          outside_destination_count?: number
+          request_id: string
+          shift_amount: number
+          shift_unit: string
+          source_event_ids: number[]
+          source_timeframe_id: number
+          student_group_id: number
+          teacher_id: number
+        }
+        Update: {
+          adjusted_dates?: Json
+          created_at?: string
+          created_event_ids?: number[]
+          destination_timeframe_id?: number | null
+          excluded_event_ids?: number[]
+          id?: number
+          outside_destination_count?: number
+          request_id?: string
+          shift_amount?: number
+          shift_unit?: string
+          source_event_ids?: number[]
+          source_timeframe_id?: number
+          student_group_id?: number
+          teacher_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scorebook_event_copy_operation_destination_timeframe_id_fkey"
+            columns: ["destination_timeframe_id"]
+            isOneToOne: false
+            referencedRelation: "school_timeframes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scorebook_event_copy_operation_source_timeframe_id_fkey"
+            columns: ["source_timeframe_id"]
+            isOneToOne: false
+            referencedRelation: "school_timeframes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scorebook_event_copy_operation_student_group_id_fkey"
+            columns: ["student_group_id"]
+            isOneToOne: false
+            referencedRelation: "student_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scorebook_event_copy_operation_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher"
             referencedColumns: ["id"]
           },
         ]
@@ -1217,6 +1272,14 @@ export type Database = {
         Args: { provided_student_group_id: number; provided_teacher_id: number }
         Returns: undefined
       }
+      auth_current_student: {
+        Args: never
+        Returns: {
+          grade: number
+          school_id: number
+          student_id: number
+        }[]
+      }
       check_admin_access_to_school: {
         Args: { provided_school_id: number }
         Returns: undefined
@@ -1243,7 +1306,7 @@ export type Database = {
       }
       duplicate_scorebook_events: {
         Args: {
-          provided_destination_timeframe_id?: number | null
+          provided_destination_timeframe_id?: number
           provided_excluded_event_ids?: number[]
           provided_expected_source_event_ids: number[]
           provided_request_id?: string
@@ -1267,6 +1330,106 @@ export type Database = {
           provided_student_points: Json
         }
         Returns: undefined
+      }
+      get_active_timeframe: {
+        Args: never
+        Returns: {
+          active: boolean
+          ends_at: string
+          id: number
+          name: string
+          school_id: number
+          starts_at: string
+        }[]
+      }
+      get_all_timeframes: {
+        Args: never
+        Returns: {
+          active: boolean
+          ends_at: string
+          id: number
+          name: string
+          starts_at: string
+        }[]
+      }
+      get_available_leaderboard_scopes: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          scope_id: number
+          scope_name: string
+          scope_type: string
+        }[]
+      }
+      get_category_breakdown: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          color: string
+          point_group_id: number
+          point_group_name: string
+          total_points: number
+        }[]
+      }
+      get_dashboard_totals: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          first_name: string
+          last_name: string
+          school_name: string
+          school_rank: number
+          student_id: number
+          total_points: number
+          total_students: number
+        }[]
+      }
+      get_grade_leaderboard: {
+        Args: { p_grade: number; p_timeframe_id: number }
+        Returns: {
+          first_name: string
+          is_current_student: boolean
+          last_name: string
+          rank: number
+          student_id: number
+          total_points: number
+        }[]
+      }
+      get_led_group_member_points: {
+        Args: { p_group_id: number; p_timeframe_id: number }
+        Returns: {
+          category_breakdown: Json
+          first_name: string
+          last_name: string
+          student_id: number
+          total_points: number
+        }[]
+      }
+      get_my_groups: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          group_id: number
+          group_name: string
+          is_leader: boolean
+          member_count: number
+          points_per_student: number
+          ranking_group_id: number
+          ranking_group_name: string
+        }[]
+      }
+      get_my_visibility_snapshot: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          category_ranks: Json
+          change_window_days: number
+          grade: number
+          grade_rank: number
+          leaderboard_top_overall: number
+          leaderboard_top_per_category: number
+          leaderboard_top_per_grade: number
+          led_group_ids: number[]
+          overall_rank: number
+          rank_lookahead: number
+          student_id: number
+          timeframe_id: number
+        }[]
       }
       get_own_admin_data: {
         Args: never
@@ -1299,6 +1462,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_point_group_leaderboard: {
+        Args: { p_point_group_id: number; p_timeframe_id: number }
+        Returns: {
+          first_name: string
+          is_current_student: boolean
+          last_name: string
+          points_change: number
+          rank: number
+          rank_change: number
+          student_id: number
+          total_points: number
+        }[]
+      }
       get_point_groups_as_admin: {
         Args: { school_id: number }
         Returns: {
@@ -1317,6 +1493,32 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_point_history: {
+        Args: { p_page: number; p_page_size: number; p_timeframe_id: number }
+        Returns: {
+          event_date: string
+          event_name: string
+          event_participant_count: number
+          event_rank: number
+          id: number
+          point_group_color: string
+          point_group_name: string
+          point_value: number
+        }[]
+      }
+      get_ranking_group_leaderboard: {
+        Args: { p_ranking_group_id: number; p_timeframe_id: number }
+        Returns: {
+          avg_student_points: number
+          group_id: number
+          group_name: string
+          group_points: number
+          is_current_student_group: boolean
+          rank: number
+          top_student_points: number
+          total_score: number
+        }[]
+      }
       get_school: {
         Args: { school_id: number }
         Returns: {
@@ -1330,6 +1532,19 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_school_leaderboard: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          first_name: string
+          is_current_student: boolean
+          last_name: string
+          points_change: number
+          rank: number
+          rank_change: number
+          student_id: number
+          total_points: number
+        }[]
       }
       get_school_student_as_admin: {
         Args: { provided_school_id: number; provided_student_id: number }
@@ -1420,6 +1635,17 @@ export type Database = {
           teachers: Database["public"]["Tables"]["teacher"]["Row"][]
         }[]
       }
+      get_student_group_leaderboard: {
+        Args: { p_group_id: number; p_timeframe_id: number }
+        Returns: {
+          avg_points: number
+          group_id: number
+          group_name: string
+          is_leader: boolean
+          is_member: boolean
+          member_count: number
+        }[]
+      }
       get_student_group_students_as_admin: {
         Args: { provided_school_id: number; provided_student_group_id: number }
         Returns: {
@@ -1492,6 +1718,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      timeframe_bounds: {
+        Args: { p_timeframe_id: number }
+        Returns: {
+          ends_at: string
+          id: number
+          starts_at: string
+        }[]
+      }
       update_student_data: {
         Args: {
           provided_student_birthdate: string
@@ -1502,6 +1736,20 @@ export type Database = {
           provided_student_last_name: string
         }
         Returns: undefined
+      }
+      visibility_change_cutoff: {
+        Args: { p_days: number; p_ends_at: string; p_starts_at: string }
+        Returns: string
+      }
+      visibility_config: {
+        Args: never
+        Returns: {
+          change_window_days: number
+          leaderboard_top_overall: number
+          leaderboard_top_per_category: number
+          leaderboard_top_per_grade: number
+          rank_lookahead: number
+        }[]
       }
     }
     Enums: {
@@ -1521,12 +1769,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1550,11 +1798,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1575,11 +1823,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1600,11 +1848,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1617,11 +1865,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1631,9 +1879,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

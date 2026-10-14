@@ -25,6 +25,7 @@ Run these in order. Do not stop at the first failure — collect everything, bec
 4. **Tests.** `npm run test:run` (vitest). Note any test file touched by the diff and confirm it actually covers the new behavior rather than just existing.
 5. **Build.** `npm run build`. This catches App Router mistakes that `tsc` misses: client/server boundary violations, `use client` omissions, bad metadata exports, server-only imports pulled into client components.
 6. **Review the diff** against the checklist below.
+7. **Release check.** Read `docs/RELEASING.md`. Compare `## [Unreleased]` in `CHANGELOG.md` against the branch diff, and state the release level the branch requires (major / minor / patch). A user-visible change with no entry is NON-BLOCKING. A breaking change (access removed or narrowed, surface removed, coordinated deploy/data step) without a **BREAKING:** entry is BLOCKING. A diff that edits `package.json` `version` or contains tag operations outside `npm run release` is BLOCKING.
 
 Record the exact command and the exact failing output for anything that fails. Never paraphrase an error message.
 
@@ -49,6 +50,7 @@ VERDICT: PASS | PASS WITH NOTES | FAIL
 
 Branch: <name>  (<n> commits, <n> files changed)
 Checks:  tsc ✓/✗ · lint ✓/✗ · tests ✓/✗ (n passed/n failed) · build ✓/✗
+Release: <major|minor|patch> — changelog <complete | missing entries: …>
 
 BLOCKING
 1. <file:line> — <what is wrong> — <why it breaks / what it leaks> — <the fix>
