@@ -6,6 +6,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 ## [Unreleased]
 
 ### Added
+- When a student's points have gone up since they last looked, the total on their page counts up and the gold rule beneath it shimmers once. Reduced-motion settings skip it.
 - Students see friendly messages when there are no recent points, no categories, no groups to share with, or nothing shared with them yet.
 - Teachers and admins can open the hallway displays from a new "Open hallway display" link on the teacher home and the school admin page.
 - The display menu (`/dashboard`) now names your school, lets staff with several schools switch between them, and carries the school into every display. If you ask for a school you cannot open, it says so and shows your own.

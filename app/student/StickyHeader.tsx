@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Student } from "@/types/domain";
 import { rankTier } from "@/lib/rankTier";
 import { isRanked, NOT_RANKED_YET, numberToOrdinal } from "@/lib/rankText";
+import AwardBalance from "./AwardBalance";
 import { Flourish, Frame, RankBadge, WaxSeal } from "./ui";
 
 interface StickyHeaderProps {
@@ -43,13 +44,7 @@ export default function StickyHeader({ student, totalPoints, gradeRank, gradeOut
 
                 <div className="mt-6 text-center">
                     <div className="vic-divider" aria-hidden="true" />
-                    <div className="py-4">
-                        <p className="vic-label">Your points</p>
-                        <p className="text-sm text-muted-foreground">{timeframe.name}</p>
-                        <p className="vic-numeral vic-balance mt-1">{totalPoints.toLocaleString()}</p>
-                        <p className="vic-label mt-1">Points</p>
-                    </div>
-                    <div className="vic-gilt-rule" aria-hidden="true" />
+                    <AwardBalance studentId={student.id} timeframeId={timeframe.id} timeframeName={timeframe.name} totalPoints={totalPoints} />
                     <p className="flex flex-wrap items-center justify-center gap-2 px-2 pb-6 pt-4 text-sm font-semibold text-foreground">
                         {ranked ? (
                             <>
