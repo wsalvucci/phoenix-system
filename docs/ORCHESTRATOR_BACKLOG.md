@@ -21,6 +21,8 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - After: senior-developer for `lib/rankTier.ts` + call-site migration + TS wrappers for new RPCs (after types regen from applied DB); ux-optimizer markup; designer Phases 2–4; qa.
 
 ## UX follow-ups (from priority 1–2 build)
+- Wax-seal stamp on points award needs the seal moved out of a server component (designer wired count-up + shimmer only).
+- Human eyes: award animation light/dark, Victorian screens at 320/390/1024, 40px seal, Fraunces numerals.
 - `linkStudentToParent` returns no student id → parent lands on `/parent`, not the child page; one-child auto-redirect not built.
 - `/login?next=` return path from dashboard layout not wired; login sign-in/create-account mode split not built.
 - `getDashboardSchools()` has no `fellBack` flag (page derives it).
