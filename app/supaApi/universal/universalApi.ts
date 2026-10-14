@@ -3,8 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
-import { getDashboardFilters, DashboardFilterConfig } from "./dashboardFilters";
-import { isStudentPublished } from "./publicationCut";
 import { getCallerAccess, isStaffOfSchool } from "../server/staffAccess";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
@@ -225,7 +223,7 @@ async function loadAllTimeframePointEvents(
     const supabase = await supabaseServiceClient();
 
     const { data: pointEvents, error: pointEventsError } = await supabase.from("point_event")
-        .select("*, student_group(id, name, school_id, ranking_group (id)), point_template (point_group_id, point_conversion_rule_type (*), conversion_rule_value), student_point (student_id, point_value)")
+        .select("*, student_group!inner(id, name, school_id, ranking_group (id)), student_point (student_id, point_value)")
         .eq("student_group.school_id", schoolId)
         .gte("date", timeframe.startDate)
         .lte("date", timeframe.endDate);
@@ -243,10 +241,6 @@ async function loadAllTimeframePointEvents(
         template: {
             id: pointEvent.template_id,
             pointGroupId: pointEvent.point_group_id ?? -1, // Use point_group_id directly from point_event
-            conversionRule: {
-                name: pointEvent.point_template?.point_conversion_rule_type?.name ?? "",
-                value: pointEvent.point_template?.conversion_rule_value ?? 0
-            }
         },
         studentGroup: {
             id: pointEvent.student_group?.id ?? -1,
@@ -525,67 +519,6 @@ export async function getRankingGroupPoints(
 }
 
 
-enum PointConversionRuleType {
-    ADD = 'add',
-    SUBTRACT = 'subtract',
-    MULTIPLY = 'multiply',
-    DIVIDE = 'divide',
-    FORMULA = 'formula',
-    DIRECT = 'direct'
-}
-
-function calculatePoints(
-    ruleName: string,
-    input: number,
-    ruleValue: number,
-) : number {
-    const convertPointUsingRuleType = (
-            ruleType: PointConversionRuleType,
-            value: number,
-            input: number,
-    ): number => {
-            switch (ruleType) {
-                    case PointConversionRuleType.ADD:
-                            return Number(input) + Number(value);
-                    case PointConversionRuleType.SUBTRACT:
-                            return Number(input) - Number(value);
-                    case PointConversionRuleType.MULTIPLY:
-                            return Number(input) * Number(value);
-                    case PointConversionRuleType.DIVIDE:
-                            return Number(input) / Number(value);
-                    case PointConversionRuleType.FORMULA:
-                            return input;
-                    case PointConversionRuleType.DIRECT:
-                            return input;
-            }
-    }
-
-    const stringToRuleType = (ruleType: string): PointConversionRuleType => {
-            switch (ruleType.toLowerCase()) {
-                    case 'add':
-                            return PointConversionRuleType.ADD;
-                    case 'subtract':
-                            return PointConversionRuleType.SUBTRACT;
-                    case 'multiply':
-                            return PointConversionRuleType.MULTIPLY;
-                    case 'divide':
-                            return PointConversionRuleType.DIVIDE;
-                    case 'formula':
-                            return PointConversionRuleType.FORMULA;
-                    case 'direct':
-                            return PointConversionRuleType.DIRECT;
-                    default:
-                            return PointConversionRuleType.DIRECT;
-            }
-    }
-
-    return convertPointUsingRuleType(
-        stringToRuleType(ruleName),
-        ruleValue,
-        input
-    )
-}
-
 export async function adminGetGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,
@@ -594,43 +527,16 @@ export async function adminGetGlobalPointStats(
     if (adminData === null) return null;
     if (adminData.schools.find((school) => school === schoolId) === undefined) return null;
 
-    const filters = getDashboardFilters('ADMIN');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+    return await getGlobalPointStats(schoolId, timeframeId);
 }
 
-export async function featuredDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('FEATURED');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function mobileDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('MOBILE');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function globalDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    const filters = getDashboardFilters('GLOBAL');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
+/**
+ * ADMIN tier only (adminGetGlobalPointStats, checked against admin_school_pair). Every student of
+ * the school, uncut. Never feed a DISPLAY surface from this: dashboards use getDisplayBoards (D20).
+ */
 async function getGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,
-    numStudentsOverall: number | null,
-    numStudentsPerPointGroup: number | null,
-    ratioStudentsPerGrade: number | null,
 ) : Promise<GlobalPoints | null> {
 
     // --- START: Artificial Delay for Local Testing ---
@@ -693,11 +599,8 @@ async function getGlobalPointStats(
                 const isLastMonth = DateTime.fromISO(eventDateISO) <= DateTime.now().minus({ months: 1 });
 
                 pointEvent.studentPoints.forEach((studentPoint) => {
-                    const pointsEarned = calculatePoints(
-                        pointEvent.template.conversionRule.name,
-                        studentPoint.input,
-                        pointEvent.template.conversionRule.value
-                    );
+                    // P-3: the stored point_value is the score. No conversion is re-applied here.
+                    const pointsEarned = studentPoint.input;
 
                     let existingStudent = studentPointsMap.get(studentPoint.studentId);
 
@@ -800,7 +703,6 @@ async function getGlobalPointStats(
         studentsByGrade.get(student.grade)?.push(student);
     });
 
-    const gradeSizes = new Map(Array.from(studentsByGrade.entries()).map(([grade, list]) => [grade, list.length]));
 
     // Group students by point group for ranking
     const studentsByPointGroup = new Map<number, CompiledStudentPoints[]>();
@@ -991,11 +893,7 @@ async function getGlobalPointStats(
         // Calculate points for each student in the event
         const studentsWithPoints = event.studentPoints.map(sp => ({
             id: sp.studentId,
-            points: calculatePoints(
-                event.template.conversionRule.name,
-                sp.input,
-                event.template.conversionRule.value
-            )
+            points: sp.input
         }));
 
         // Sort students within this event by points
@@ -1077,24 +975,6 @@ async function getGlobalPointStats(
                 monthToMonthChange: student.totalPoints - lastMonthPts,
                 studentGroups: student.studentGroups
             }
-        }).filter((student) => {
-            // This is a privacy filter so that people who are not admins
-            // can't see the full list of students beyond the best
-            if (
-                numStudentsOverall === null ||
-                ratioStudentsPerGrade === null ||
-                numStudentsPerPointGroup === null
-            ) return true;
-            // Fails closed: rank 0 (absent from a rank map) or an unknown grade size never publishes.
-            return isStudentPublished(
-                student,
-                gradeSizes,
-                {
-                    overall: numStudentsOverall,
-                    perPointGroup: numStudentsPerPointGroup,
-                    gradeRatio: ratioStudentsPerGrade,
-                },
-            );
         }),
         pointGroups: pointGroups ?? [],
         // Use the recalculated and sorted top-level student group data
@@ -1138,12 +1018,7 @@ async function getGlobalPointStats(
         pointEvents: processedPointEventsData?.map((event) => ({
             id: event.id,
             name: event.name,
-            // Recalculate maxPoints (could also be pre-calculated if needed)
-            maxPoints: calculatePoints(
-                event.template.conversionRule.name,
-                event.maxInput,
-                event.template.conversionRule.value
-            ),
+            maxPoints: event.maxInput,
             date: event.date,
             studentGroupId: event.studentGroup.id,
             pointGroup: event.template.pointGroupId,

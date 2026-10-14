@@ -357,9 +357,15 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
 - **Web follow-up (senior-developer, not backend SQL):** the §10.12 per-event floor applies to the web
   `pointEventRankings[].outOf` too (`app/student/RecentEventsWithRankings.tsx:124`, `app/student/page.tsx:204`):
   hide rank and "of N" for events with fewer than 4 participants.
-- **P-3** Totals: SQL sums stored `student_point.point_value` by `point_event.point_group_id`. The
-  current Node dashboard re-applies the legacy template rule on top of `point_value` and uses
-  `point_template.point_group_id`, so wiring §3 will change some dashboard numbers. Recommend SQL as the truth.
+- ~~P-3~~ **RULED 2026-10-14 (product owner): stored totals everywhere.** A score is the stored
+  `student_point.point_value`. Walls, own view and mobile all sum it, grouped by
+  `point_event.point_group_id` (the SQL definition). The legacy template rule
+  (`point_template.conversion_rule_type` / `conversion_rule_value`, the `point_conversion_rule*`
+  tables, `PointConversionRuleType`, `convertPointUsingRuleType`) is removed from all application
+  code: re-applying it on top of `point_value` was the double-conversion bug. The only conversion in
+  the system is the per-event formula `point_event.conversion_formula` (`lib/pointConversionFormula.ts`),
+  applied once at score entry when a teacher has set one. The legacy columns and tables stay in the
+  schema (no destructive DDL here); dropping them is §9 and needs its own go-ahead.
 - **L-1** Date and reissue plan for file 8 (BREAKING).
 - **L-2** Rate-limit numbers, and the new server secret `LINK_RATE_LIMIT_SECRET`.
 - ~~LL-1~~ RULED D15 (E, plus L8(c)); ~~LL-2~~ RULED D16 (UTC whole days; timezone before non-US schools). Built in file 7.
@@ -387,8 +393,7 @@ modules are imported by server components only; `"use server"` files are the one
 share-withdrawn notice, Groups You Lead letters (names-only fallback), L10 member notice; parent child
 page → points to move up and the L10 notice (no leader letters, L11).
 **Built, not wired:** `previewLinkCode` (needs a UX step; refuses non-10-character codes without
-spending an attempt), the admin parent-link screen, `getOwnParentLinkDates`, the `/display` kiosk page
-and every `app/dashboard/*` feeding action (blocked on P-3, because SQL totals differ from the Node path).
+spending an attempt), the admin parent-link screen, `getOwnParentLinkDates`, the `/display` kiosk page.
 
 ### 11.1 `LINK_RATE_LIMIT_SECRET` (new server secret, required)
 - **What:** the HMAC-SHA256 key for the rate-limit client key: `client_key = HMAC(secret, client IP)`, hex.
@@ -405,3 +410,31 @@ and every `app/dashboard/*` feeding action (blocked on P-3, because SQL totals d
   `"unknown"` bucket.
 - Display pairing has no database bucket: `startDisplayPairing` (20 per client key per hour) and
   `approveDisplayPairing` (10 per staff account per hour) use an in-memory, per-instance limiter.
+
+### 11.2 D20: dashboards on `display_cut` (wired 2026-10-14, after P-3)
+```ts
+// app/supaApi/server/dashboard/displayBoards.ts — "use server"
+export async function getDisplayBoards(requestedSchoolId: number | null, timeframeId: number | null)
+  : Promise<DisplayBoards | null>;
+// app/supaApi/universal/displayTypes.ts — types only
+type DisplayBoards = { timeframes; timeframeId: number | null; overall: DisplayBoard;
+  grades: DisplayBoard[]; pointGroups: DisplayBoard[]; upcomingEvents: DisplayEvent[] };
+type DisplayBoard = { key; title; color: string | null; rows: DisplayStudentRow[] };
+type DisplayStudentRow = { key; rank; firstName; lastName; grade; totalPoints };
+type DisplayEvent = { key; name; date; maxPoints; pointGroupId: number | null };
+```
+- **Who:** `getDashboardViewer()`: a staff session (admin or teacher of the school) or a live display
+  device (its bound school only). `requestedSchoolId` only selects among a staff caller's own schools.
+- **Scope:** one `display_cut` call per cohort (overall, each grade the school has, each `ranked` point
+  group). Empty cohorts are dropped. SQL re-checks the actor. No ids, sizes, per-event scores or trends.
+- **Service role, why:** a display device has no Postgres identity, and a top-k cut is not a row policy.
+  The metadata reads (timeframes, grades, ranked point groups, upcoming event metadata) run only after
+  the viewer is authorized for that school, and are filtered to it.
+- **Consumers:** `/dashboard/featured`, `/dashboard/global`, `/dashboard/mobile`, `/dashboard/topCards`.
+  "Moving up" and the team panels are off (DATA_DISCLOSURE §11.6) until floored SQL versions exist.
+- **Deleted:** `dashboardFilters.ts`, `publicationCut.ts`, `featured/mobile/globalDashGetGlobalStats`,
+  `api/dashboard.ts` and `api/service/dashboard.ts` (`getTopScrollingDashboard`, `getGlobalDashboard`,
+  and three unauthenticated, live "use server" exports: `getTopStudents`, `getNearbyRanking`,
+  `getStudentPointsWithRanking`). `getGlobalPointStats` now has one caller, `adminGetGlobalPointStats`.
+- **Still to do:** `/display` routes and pairing UI; `app/dashboard/layout.tsx` still requires a staff
+  session, so a paired device cannot reach these pages yet.

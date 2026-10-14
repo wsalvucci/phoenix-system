@@ -6,19 +6,11 @@
 // display_cut then re-checks the actor (is_staff_of_school, or display_device_live).
 // Why service_role: a display device has no Postgres identity, and "the top k of a set you may not
 // read row by row" is not expressible as a row policy.
-import type { Cohort } from "@/app/supaApi/universal/dashboardFilters";
+import type { Cohort, DisplayStudentRow } from "@/app/supaApi/universal/displayTypes";
 import type { DashboardViewer } from "../display/displayAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
 
-export type DisplayStudentRow = {
-    /** Opaque, per response: `${cohortKey}:${index}`. Never student.id. */
-    readonly key: string;
-    readonly rank: number;
-    readonly firstName: string;
-    readonly lastName: string;
-    readonly grade: number;
-    readonly totalPoints: number;
-};
+export type { Cohort, DisplayStudentRow };
 
 export function cohortKey(cohort: Cohort): string {
     switch (cohort.kind) {

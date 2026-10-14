@@ -24,6 +24,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 ### Changed
+- **BREAKING:** The hallway displays (featured, global, phone view and top cards) now show only the top of each list: overall, each grade and each ranked category, cut by the same rule as the mobile app (at most 10 per list, never a student with no points, and tied students shown together or not at all). Points are the stored scores, so some totals change. Student counts, "vs. last month" rank changes, the "Moving up" panel, the team standings panels and the per-student category colours are gone.
 - **BREAKING:** Ranks on the student page and the parent child page now count only students with points this timeframe, and tied students share the better rank, the same as the mobile app. A student with no points shows "Not ranked yet" instead of a last-place rank. Categories show a rank only for ranked categories, and an assignment with fewer than 4 students shows no rank. "Points to move up" for the whole school needs at least 10 ranked students.
 - Opening a display link while signed out now takes you to sign-in and then straight back to that display. A wrong password says so plainly and keeps your place; the email box now suggests saved emails and shows the right phone keyboard.
 - The older `/dashboard/feature` address keeps its school when it forwards to the featured display.
@@ -62,6 +63,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
 
 ### Security
+- Removed three unused dashboard server endpoints that returned any school's student points, rankings and nearby students without checking who was asking.
+- Hallway display data no longer carries student ids, every student's score on every assignment, or last-month figures; the list cut is applied in the database only, with no adjustable settings.
 - A student's birthdate and gender are no longer sent to the browser on the home screen or the student pages; nothing there shows them.
 - Removed console logging of student and dashboard data from the teacher home and the admin school layout.
 - Dashboards no longer show a student who is missing from a point group's ranking, and small grades now hide at least three students and round their share down.
@@ -84,6 +87,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - New teacher accounts, and teacher codes reissued when an admin unlinks a teacher, now get a 10-character code from a secure generator instead of a short guessable one.
 
 ### Fixed
+- Point totals on the admin school and student pages now use the score each student was given. An old template rule is no longer applied a second time on top, so totals for assignments made from such a template may change.
 - The Recent points list on the student page no longer re-checks sharing status over and over.
 
 ## [1.0.0] - 2026-09-12
