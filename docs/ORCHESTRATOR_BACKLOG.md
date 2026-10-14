@@ -3,6 +3,7 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
+- **Drop legacy `point_conversion_rule*` tables + template columns** (BACKEND_PLAN §9) — destructive; code no longer uses them after P-3/D20. Needs owner approval + a backup first.
 - ~~P-3~~ ANSWERED 2026-10-14: stored totals everywhere; legacy conversion rule removed; only per-event direct formulas (rarely used). Backend doing D20.
 - DONE 2026-10-14: `LINK_RATE_LIMIT_SECRET` set by owner in Vercel and `.env.local` (local verified 64 chars, gitignored).
 - **L-2** rate-limit numbers (5 fails/user/hr, 20/IP) — approve or change.
