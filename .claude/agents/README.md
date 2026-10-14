@@ -48,6 +48,10 @@ Treat "there are a lot of archaic systems in the database" as a standing warning
 
 SemVer with annotated `vX.Y.Z` tags on `master` and a root `CHANGELOG.md`; rules in `docs/RELEASING.md`. Implementers add `## [Unreleased]` entries with their change (marking access/surface removals **BREAKING:**) and state the release level in their report. `qa` checks the changelog and names the required bump. Only the main session cuts releases (`npm run release`); nobody pushes tags without the product owner's go-ahead.
 
+## Branches and commits
+
+Commit liberally. Each implementing run works on its own branch (`agent/<role>-<topic>`, usually in its own worktree) cut from the current integration branch, and commits its work in small logical commits with the session's attribution lines. The main session merges those branches back into the integration branch (currently `agent-remediation`). Nobody pushes, force-pushes, or touches `master` without the product owner's go-ahead.
+
 ## Model aliases
 
 `opus` / `sonnet` / `haiku` resolve to the latest model in each tier, so these files do not need editing when a new version ships.
