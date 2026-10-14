@@ -3,6 +3,9 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
+- **QA early check FAIL (2 blocking):** (a) 230700 — now moved to `supabase/held/`; generators being fixed by backend. (b) `package.json` `"version": "1.0.0"` set by hand as the release baseline — owner to accept explicitly. Report: scratchpad/qa-report-1.md.
+- **Smoke test needed:** `utils/supabase/server.ts` now uses the anon key, so server actions enforce RLS; needs a per-role click-through (admin/teacher/student/parent) on a real session.
+- **Baseline migration `20260912000000` has guarded `drop table ... cascade`** (no-op on prod, already recorded) — owner sign-off per QA destructive-DDL rule.
 1. DONE 2026-10-14: `20261014223115` (lock-down) and `20261014223157` (leader points) applied to live via MCP; verified anon 0/46, authenticated 14/46. Repo files renamed to match recorded versions; remaining files moved to `20261014230xxx`.
 1a. Owner approved applying 230100–230650 (incl. mobile 230650, accepting mobile error screens). Pending: method (MCP transcription of ~100KB vs owner pastes into SQL editor / CLI `db push`).
 - Web follow-up (senior-dev): 4-participant rule on event "of N" (`RecentEventsWithRankings.tsx:124`, `page.tsx:204`) — after ux branch merges.
