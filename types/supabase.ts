@@ -91,6 +91,297 @@ export type Database = {
           },
         ]
       }
+      display_device: {
+        Row: {
+          id: string
+          label: string
+          last_seen_at: string | null
+          paired_at: string
+          paired_by_user_id: number | null
+          reconfirmed_at: string | null
+          revoked_at: string | null
+          revoked_by_user_id: number | null
+          school_id: number
+          token_hash: string
+        }
+        Insert: {
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          paired_at?: string
+          paired_by_user_id?: number | null
+          reconfirmed_at?: string | null
+          revoked_at?: string | null
+          revoked_by_user_id?: number | null
+          school_id: number
+          token_hash: string
+        }
+        Update: {
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          paired_at?: string
+          paired_by_user_id?: number | null
+          reconfirmed_at?: string | null
+          revoked_at?: string | null
+          revoked_by_user_id?: number | null
+          school_id?: number
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "display_device_paired_by_user_id_fkey"
+            columns: ["paired_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "display_device_revoked_by_user_id_fkey"
+            columns: ["revoked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "display_device_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      display_pairing_request: {
+        Row: {
+          approved_at: string | null
+          approved_by_user_id: number | null
+          approved_label: string | null
+          approved_school_id: number | null
+          claimed_at: string | null
+          created_at: string
+          device_id: string | null
+          device_secret_hash: string
+          expires_at: string
+          id: string
+          user_code: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by_user_id?: number | null
+          approved_label?: string | null
+          approved_school_id?: number | null
+          claimed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          device_secret_hash: string
+          expires_at?: string
+          id?: string
+          user_code: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by_user_id?: number | null
+          approved_label?: string | null
+          approved_school_id?: number | null
+          claimed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          device_secret_hash?: string
+          expires_at?: string
+          id?: string
+          user_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "display_pairing_request_approved_by_user_id_fkey"
+            columns: ["approved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "display_pairing_request_approved_school_id_fkey"
+            columns: ["approved_school_id"]
+            isOneToOne: false
+            referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "display_pairing_request_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "display_device"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leader_letter: {
+        Row: {
+          letter: string
+          participated: boolean
+          point_group_id: number
+          school_id: number
+          student_id: number
+        }
+        Insert: {
+          letter: string
+          participated: boolean
+          point_group_id: number
+          school_id: number
+          student_id: number
+        }
+        Update: {
+          letter?: string
+          participated?: boolean
+          point_group_id?: number
+          school_id?: number
+          student_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leader_letter_point_group_id_fkey"
+            columns: ["point_group_id"]
+            isOneToOne: false
+            referencedRelation: "point_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leader_letter_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "leader_letter_run"
+            referencedColumns: ["school_id"]
+          },
+          {
+            foreignKeyName: "leader_letter_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leader_letter_run: {
+        Row: {
+          point_group_ids: number[]
+          school_id: number
+          snapshot_date: string
+          taken_at: string
+          timeframe_id: number
+        }
+        Insert: {
+          point_group_ids?: number[]
+          school_id: number
+          snapshot_date: string
+          taken_at?: string
+          timeframe_id: number
+        }
+        Update: {
+          point_group_ids?: number[]
+          school_id?: number
+          snapshot_date?: string
+          taken_at?: string
+          timeframe_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leader_letter_run_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "school"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leader_letter_run_timeframe_id_fkey"
+            columns: ["timeframe_id"]
+            isOneToOne: false
+            referencedRelation: "school_timeframes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      link_attempt: {
+        Row: {
+          attempted_at: string
+          client_key: string | null
+          id: number
+          purpose: string
+          user_id: number | null
+        }
+        Insert: {
+          attempted_at?: string
+          client_key?: string | null
+          id?: number
+          purpose: string
+          user_id?: number | null
+        }
+        Update: {
+          attempted_at?: string
+          client_key?: string | null
+          id?: number
+          purpose?: string
+          user_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_attempt_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parent_link_revocation: {
+        Row: {
+          id: number
+          linked_at: string | null
+          parent_user_id: number | null
+          revoked_at: string
+          revoked_by_user_id: number | null
+          student_id: number
+        }
+        Insert: {
+          id?: number
+          linked_at?: string | null
+          parent_user_id?: number | null
+          revoked_at?: string
+          revoked_by_user_id?: number | null
+          student_id: number
+        }
+        Update: {
+          id?: number
+          linked_at?: string | null
+          parent_user_id?: number | null
+          revoked_at?: string
+          revoked_by_user_id?: number | null
+          student_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_link_revocation_parent_user_id_fkey"
+            columns: ["parent_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_link_revocation_revoked_by_user_id_fkey"
+            columns: ["revoked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_link_revocation_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       point_conversion_rule: {
         Row: {
           conversion_rule_type_id: number
@@ -650,6 +941,45 @@ export type Database = {
           },
           {
             foreignKeyName: "shared_point_student_point_id_fkey"
+            columns: ["student_point_id"]
+            isOneToOne: false
+            referencedRelation: "student_point"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_point_withdrawal: {
+        Row: {
+          id: number
+          seen_at: string | null
+          student_id: number
+          student_point_id: number
+          withdrawn_at: string
+        }
+        Insert: {
+          id?: number
+          seen_at?: string | null
+          student_id: number
+          student_point_id: number
+          withdrawn_at?: string
+        }
+        Update: {
+          id?: number
+          seen_at?: string | null
+          student_id?: number
+          student_point_id?: number
+          withdrawn_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_point_withdrawal_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_point_withdrawal_student_point_id_fkey"
             columns: ["student_point_id"]
             isOneToOne: false
             referencedRelation: "student_point"
@@ -1272,6 +1602,27 @@ export type Database = {
         Args: { provided_student_group_id: number; provided_teacher_id: number }
         Returns: undefined
       }
+      admin_list_parent_links: {
+        Args: { p_actor_user_id: number; p_student_id: number }
+        Returns: {
+          linked_at: string
+          parent_email: string
+          parent_name: string
+          parent_user_id: number
+        }[]
+      }
+      admin_revoke_parent_link: {
+        Args: {
+          p_actor_user_id: number
+          p_parent_user_id: number
+          p_student_id: number
+        }
+        Returns: boolean
+      }
+      admin_rotate_link_code: {
+        Args: { p_actor_user_id: number; p_id: number; p_kind: string }
+        Returns: string
+      }
       auth_current_student: {
         Args: never
         Returns: {
@@ -1279,6 +1630,10 @@ export type Database = {
           school_id: number
           student_id: number
         }[]
+      }
+      can_view_student: {
+        Args: { p_student_id: number; p_user_id: number }
+        Returns: boolean
       }
       check_admin_access_to_school: {
         Args: { provided_school_id: number }
@@ -1303,6 +1658,90 @@ export type Database = {
       create_school_and_pair_admin: {
         Args: { admin_id: number; school_name: string }
         Returns: undefined
+      }
+      display_cut: {
+        Args: {
+          p_actor_user_id?: number
+          p_cohort_id: number
+          p_cohort_kind: string
+          p_display_device_id?: string
+          p_school_id: number
+          p_timeframe_id: number
+        }
+        Returns: {
+          display_rank: number
+          first_name: string
+          grade: number
+          last_name: string
+          total_points: number
+        }[]
+      }
+      display_device_create: {
+        Args: {
+          p_actor_user_id: number
+          p_label: string
+          p_school_id: number
+          p_token_hash: string
+        }
+        Returns: string
+      }
+      display_device_live: {
+        Args: { p_device_id: string; p_school_id: number }
+        Returns: boolean
+      }
+      display_device_reconfirm: {
+        Args: { p_actor_user_id: number; p_device_id: string }
+        Returns: boolean
+      }
+      display_device_resolve: {
+        Args: { p_token_hash: string }
+        Returns: {
+          device_id: string
+          label: string
+          paired_by_name: string
+          school_id: number
+          school_name: string
+        }[]
+      }
+      display_device_revoke: {
+        Args: { p_actor_user_id: number; p_device_id: string }
+        Returns: boolean
+      }
+      display_devices_for_school: {
+        Args: { p_actor_user_id: number; p_school_id: number }
+        Returns: {
+          device_id: string
+          label: string
+          last_seen_at: string
+          paired_at: string
+          paired_by_name: string
+          pairer_active: boolean
+          revoked_at: string
+        }[]
+      }
+      display_pairing_approve: {
+        Args: {
+          p_actor_user_id: number
+          p_label: string
+          p_school_id: number
+          p_user_code: string
+        }
+        Returns: string
+      }
+      display_pairing_claim: {
+        Args: { p_device_secret_hash: string; p_token_hash: string }
+        Returns: {
+          device_id: string
+          school_id: number
+        }[]
+      }
+      display_pairing_start: {
+        Args: { p_device_secret_hash: string }
+        Returns: {
+          expires_at: string
+          request_id: string
+          user_code: string
+        }[]
       }
       duplicate_scorebook_events: {
         Args: {
@@ -1331,6 +1770,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      generate_link_code: { Args: never; Returns: string }
       get_active_timeframe: {
         Args: never
         Returns: {
@@ -1392,6 +1832,20 @@ export type Database = {
           total_points: number
         }[]
       }
+      get_leader_group_letters: {
+        Args: { p_actor_user_id: number }
+        Returns: {
+          group_id: number
+          group_name: string
+          letter: string
+          member_first_name: string
+          member_last_name: string
+          member_ordinal: number
+          point_group_color: string
+          point_group_id: number
+          point_group_name: string
+        }[]
+      }
       get_led_group_member_points: {
         Args: { p_group_id: number; p_timeframe_id: number }
         Returns: {
@@ -1443,6 +1897,15 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_own_led_letters: {
+        Args: { p_actor_user_id: number; p_student_id: number }
+        Returns: {
+          group_id: number
+          group_name: string
+          leaders: Json
+          letters: Json
+        }[]
       }
       get_own_teacher_data: {
         Args: never
@@ -1706,6 +2169,109 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      is_admin_of_school: {
+        Args: { p_school_id: number; p_user_id: number }
+        Returns: boolean
+      }
+      is_staff_of_school: {
+        Args: { p_school_id: number; p_user_id: number }
+        Returns: boolean
+      }
+      letter_for_share_below: { Args: { p: number }; Returns: string }
+      link_attempt_blocked: {
+        Args: { p_client_key: string; p_user_id: number }
+        Returns: boolean
+      }
+      mobile_cohort_board: {
+        Args: {
+          p_cohort_id: number
+          p_cutoff: string
+          p_ends: string
+          p_kind: string
+          p_school_id: number
+          p_starts: string
+          p_viewer_student_id: number
+        }
+        Returns: {
+          first_name: string
+          is_current_student: boolean
+          last_name: string
+          points_change: number
+          rank: number
+          rank_change: number
+          student_id: number
+          total_points: number
+        }[]
+      }
+      mobile_own_rank: {
+        Args: {
+          p_cohort_id: number
+          p_ends: string
+          p_kind: string
+          p_school_id: number
+          p_starts: string
+          p_student_id: number
+        }
+        Returns: {
+          cohort_size: number
+          own_rank: number
+        }[]
+      }
+      normalize_link_code: { Args: { p_code: string }; Returns: string }
+      own_parent_link_dates: {
+        Args: { p_actor_user_id: number }
+        Returns: {
+          linked_on: string
+        }[]
+      }
+      points_to_next_rank: {
+        Args: {
+          p_actor_user_id: number
+          p_student_id: number
+          p_timeframe_id: number
+        }
+        Returns: {
+          cohort_id: number
+          cohort_kind: string
+          points_to_next: number
+        }[]
+      }
+      preview_link_code: {
+        Args: {
+          p_actor_user_id: number
+          p_client_key: string
+          p_code: string
+          p_purpose: string
+          p_school_id: number
+        }
+        Returns: {
+          first_name: string
+          last_initial: string
+          status: string
+        }[]
+      }
+      publication_cut: { Args: { p_size: number }; Returns: number }
+      publication_cut_policy: {
+        Args: never
+        Returns: {
+          k_hidden: number
+          min_cohort_for_aggregate: number
+          n_absolute: number
+          p_ratio: number
+        }[]
+      }
+      random_crockford: { Args: { p_length: number }; Returns: string }
+      redeem_link_code: {
+        Args: {
+          p_actor_user_id: number
+          p_client_key: string
+          p_code: string
+          p_purpose: string
+          p_school_id: number
+        }
+        Returns: string
+      }
+      refresh_leader_letters: { Args: { p_school_id: number }; Returns: number }
       remove_student_from_student_group: {
         Args: { provided_student_group_id: number; provided_student_id: number }
         Returns: undefined
@@ -1717,6 +2283,14 @@ export type Database = {
           provided_teacher_id: number
         }
         Returns: undefined
+      }
+      take_share_withdrawal_notices: {
+        Args: { p_actor_user_id: number }
+        Returns: {
+          event_date: string
+          event_name: string
+          withdrawn_at: string
+        }[]
       }
       timeframe_bounds: {
         Args: { p_timeframe_id: number }
