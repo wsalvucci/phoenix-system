@@ -19,7 +19,7 @@ export default function StudentTabs({ dashboardContent }: StudentTabsProps) {
                 {activeTab === "shared" && <SharedPointsTab />}
             </div>
 
-            <nav aria-label="Student dashboard" className="student-console-nav" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <nav aria-label="Student pages" className="student-console-nav" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <div className="mx-auto flex w-full max-w-lg gap-2 px-3 pt-2">
                     <button
                         onClick={() => setActiveTab("dashboard")}
@@ -30,7 +30,7 @@ export default function StudentTabs({ dashboardContent }: StudentTabsProps) {
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700"
                         }`}
                     >
-                        Dashboard
+                        My points
                     </button>
                     <button
                         onClick={() => setActiveTab("shared")}
@@ -41,7 +41,7 @@ export default function StudentTabs({ dashboardContent }: StudentTabsProps) {
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 active:bg-slate-100 dark:active:bg-slate-700"
                         }`}
                     >
-                        Shared points
+                        Shared with me
                     </button>
                 </div>
             </nav>

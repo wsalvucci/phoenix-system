@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { getStudentDataWithContext, getStudentDashboardData, getStudentMonthlyTrends, getStudentTeachingAssistantGroups, getStudentLeaderGroups } from "@/api/student";
-import { StudentMonthlyTrends } from "@/types/domain";
+import { getStudentDataWithContext, getStudentDashboardData, getStudentTeachingAssistantGroups, getStudentLeaderGroups } from "@/api/student";
 import { rankTier } from "@/lib/rankTier";
+import { isRanked, NOT_RANKED_YET, numberToOrdinal, standingText } from "@/lib/rankText";
+import { GradeBadge, LedgerRow, Plate, RankBadge, SectionTitle } from "./ui";
 import dynamic from "next/dynamic";
 import "./victorian-theme.css";
 import StickyHeader from "./StickyHeader";
@@ -11,16 +12,16 @@ const StudentTabs = dynamic(() => import('./StudentTabs'), { ssr: false });
 
 
 
-const RecentEventsWithRankings = dynamic(() => import("./RecentEventsWithRankings"), { ssr: false });
-
-// Helper function to convert number to ordinal
-function numberToOrdinal(num: number): string {
-    const suffixes = ['th', 'st', 'nd', 'rd'];
-    const v = num % 100;
-    return num + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-}
-
-
+const RecentEventsWithRankings = dynamic(() => import("./RecentEventsWithRankings"), {
+    ssr: false,
+    loading: () => (
+        <div role="status" aria-label="Loading recent points" className="min-h-[22rem] space-y-3">
+            <div className="h-8 w-40 animate-pulse rounded bg-slate-800/60" />
+            {[0, 1, 2, 3, 4].map(i => <div key={i} className="h-14 animate-pulse rounded bg-slate-800/40" />)}
+            <span className="sr-only">Loading recent points…</span>
+        </div>
+    ),
+});
 
 export default async function StudentDashboard() {
     const studentData = await getStudentDataWithContext();
@@ -30,16 +31,16 @@ export default async function StudentDashboard() {
             <div className="victorian-bg min-h-screen flex items-center justify-center p-4">
                 <div className="victorian-content max-w-md w-full p-8 text-center space-y-6 victorian-fade-in">
                                         <div className="space-y-4">
-                        <h1 className="victorian-title text-3xl">Student Data Not Found</h1>
+                        <h1 className="victorian-title text-3xl">Connect your student account</h1>
                         <p className="victorian-subtitle">
-                            Please link your student account to view your academic achievements.
+                            Enter the code from your school to see your points.
                         </p>
                     </div>
                     <Link 
                         href="/linkAccount/student"
                         className="victorian-button inline-flex items-center justify-center px-6 py-3 rounded-lg w-full"
                     >
-                        Link Student Account
+                        Connect my account
                 </Link>
                 </div>
             </div>
@@ -47,7 +48,6 @@ export default async function StudentDashboard() {
     }
 
     const dashboardData = await getStudentDashboardData();
-    const monthlyTrends: StudentMonthlyTrends | null = await getStudentMonthlyTrends();
     const taGroups = await getStudentTeachingAssistantGroups();
     const leaderGroups = await getStudentLeaderGroups();
 
@@ -55,183 +55,134 @@ export default async function StudentDashboard() {
         return (
             <div className="victorian-bg min-h-screen flex items-center justify-center p-4">
                 <div className="victorian-content max-w-md w-full p-8 text-center victorian-fade-in">
-                    <h1 className="victorian-title text-3xl mb-4">Unable to Load Dashboard</h1>
+                    <h1 className="victorian-title text-3xl mb-4">We could not load your points</h1>
                     <p className="victorian-subtitle">
-                        There was an error loading your academic achievements.
+                        Something went wrong on our side. Reload the page to try again.
                     </p>
+                    {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a full reload is the point */}
+                    <a href="/student" className="victorian-button mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-6 py-3">Reload</a>
                 </div>
             </div>
         );
     }
 
     const { student, totalPoints, totalRank, totalOutOf, gradeRank, gradeOutOf, pointGroupRankings, pointEventRankings } = dashboardData;
+    const hasRoles = taGroups.length > 0 || (leaderGroups?.groups.length ?? 0) > 0;
 
     return (
-        <div className="student-console victorian-scrollbar w-full max-w-full"
-        >
-            
-                {/* Victorian Header */}
-                            <StickyHeader 
+        <div className="student-console victorian-scrollbar w-full max-w-full">
+            {/* 1. Identity and balance */}
+            <StickyHeader
                 student={student}
                 totalPoints={totalPoints}
-                monthlyTrends={monthlyTrends}
+                gradeRank={gradeRank}
+                gradeOutOf={gradeOutOf}
                 timeframe={dashboardData.timeframe}
             />
             <div className="student-workspace">
                 <StudentTabs
                     dashboardContent={
-                        <div className="w-full max-w-full">
-                            <div className="victorian-section victorian-fade-in">
-                        <div className="student-overview-label"><span>01 / PERFORMANCE OVERVIEW</span><span>YOUR CURRENT STANDING</span></div>
-                        <div className="victorian-grid">
+                        <div className="w-full max-w-full space-y-8">
+                            {/* 2. Recent points */}
+                            <section className="victorian-fade-in">
+                                <RecentEventsWithRankings pointEventRankings={pointEventRankings ?? []} initialCount={5} />
+                            </section>
 
-                            {/* Overall Ranking */}
-                            <div className="victorian-content victorian-delay-1">
-                                <div className="flex justify-between items-center gap-3 mb-4">
-                                    <h3 className="victorian-title text-xl">Overall Ranking</h3>
-                                    <div className="victorian-stat-number text-2xl text-right text-rank-ink" data-rank-tier={rankTier(totalRank, totalOutOf)}>
-                                        <span>#{totalRank}</span>
-                                        <span className="victorian-subtitle text-sm ml-2">
-                                            of {totalOutOf} students
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* 3. By category */}
+                            <section className="victorian-fade-in">
+                                <SectionTitle>By category</SectionTitle>
+                                {pointGroupRankings.length > 0 ? (
+                                    <>
+                                        <PointDistribution categories={pointGroupRankings.map(r => ({ name: r.pointGroupName, points: r.points }))} />
+                                        <div>
+                                            {pointGroupRankings.map(ranking => (
+                                                <LedgerRow
+                                                    key={ranking.pointGroupId}
+                                                    title={ranking.pointGroupName}
+                                                    detail={standingText(ranking.rank, ranking.outOf)}
+                                                    amount={<GradeBadge grade={ranking.letterGrade.letter} />}
+                                                />
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p className="py-4 text-base text-muted-foreground">
+                                        Your points will be split by category here once you earn some.
+                                    </p>
+                                )}
+                            </section>
 
-                            {/* Grade Ranking */}
-                            <div className="victorian-content victorian-delay-2">
-                                <div className="flex justify-between items-center gap-3 mb-4">
-                                    <h3 className="victorian-title text-xl">Grade {student.grade} Ranking</h3>
-                                    <div className="victorian-stat-number text-2xl text-right text-rank-ink" data-rank-tier={rankTier(gradeRank, gradeOutOf)}>
-                                        <span className="text-lg">#{gradeRank}</span>
-                                        <span className="victorian-subtitle text-sm ml-2">
-                                            of {gradeOutOf} students
-                                        </span>
-                                    </div>
+                            {/* 4. Where you stand */}
+                            <section className="victorian-fade-in">
+                                <SectionTitle>Where you stand</SectionTitle>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <StandingPlate label="Whole school" rank={totalRank} outOf={totalOutOf} unit="students" />
+                                    <StandingPlate label={`Grade ${student.grade}`} rank={gradeRank} outOf={gradeOutOf} unit={`students in Grade ${student.grade}`} />
                                 </div>
-                            </div>
+                            </section>
 
-                            {/* Quick Actions */}
-                            {taGroups.length > 0 && (
-                            <div className="victorian-content victorian-delay-3">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <h3 className="victorian-title text-xl">Quick Actions</h3>
-                                </div>
-                                <div className="space-y-3">
-                                  <div className="pt-2">
-                                    <div className="victorian-subtitle font-medium text-sm mb-2">Teaching Assistant Scorebooks</div>
-                                    <div className="space-y-2">
-                                      {taGroups.map((g) => (
-                                        <Link
-                                          key={g.group.id}
-                                          href={`/student/scorebook/${g.group.id}`}
-                                          className="victorian-button-secondary inline-flex items-center justify-between w-full px-4 py-3 rounded-lg"
-                                        >
-                                          <span>{g.group.name}</span>
-                                          <span className="text-xs text-gray-500">{g.fullAccess ? 'All events' : 'Limited events'}</span>
-                                        </Link>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                            </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Student Leader Groups */}
-                    {leaderGroups && leaderGroups.groups.length > 0 && (
-                        <div className="victorian-section victorian-fade-in victorian-delay-4">
-                            <div className="victorian-content">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <h3 className="victorian-title text-xl">Groups You Lead</h3>
-                                </div>
-                                <p className="victorian-subtitle mb-4 text-sm">
-                                    Students in the groups you lead
-                                </p>
-                                <div className="space-y-6">
-                                    {leaderGroups.groups.map((group, groupIndex) => (
-                                        <div 
-                                            key={group.id}
-                                            className="victorian-content victorian-slide-in"
-                                            style={{ animationDelay: `${0.5 + groupIndex * 0.1}s` }}
-                                        >
-                                            <h4 className="victorian-title text-lg mb-4">{group.name}</h4>
-                                            <ul className="space-y-2">
-                                                {group.students.map((member) => (
-                                                    <li
-                                                        key={member.id}
-                                                        className="victorian-list-item p-3 rounded-lg border border-slate-200 dark:border-slate-600 font-medium text-slate-900 dark:text-slate-100 truncate"
+                            {/* 5. Roles (only when the student has one) */}
+                            {hasRoles && (
+                                <section className="victorian-fade-in space-y-6">
+                                    {taGroups.length > 0 && (
+                                        <div>
+                                            <SectionTitle as="h3">Scorebooks you help with</SectionTitle>
+                                            <div className="mt-3 space-y-2">
+                                                {taGroups.map((g) => (
+                                                    <Link
+                                                        key={g.group.id}
+                                                        href={`/student/scorebook/${g.group.id}`}
+                                                        className="victorian-button-secondary inline-flex min-h-11 w-full items-center justify-between rounded-lg px-4 py-3"
                                                     >
-                                                        {member.firstName} {member.lastName}
-                                                    </li>
+                                                        <span>{g.group.name}</span>
+                                                        <span className="text-xs">{g.fullAccess ? 'All events' : 'Some events'}</span>
+                                                    </Link>
                                                 ))}
-                                            </ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Point Group Rankings */}
-                    {pointGroupRankings.length > 0 && (
-                        <div className="victorian-section victorian-section-alt victorian-fade-in victorian-delay-6">
-                            <div className="victorian-content">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <h3 className="victorian-title text-xl">Point Group Rankings</h3>
-                                </div>
-                                <p className="victorian-subtitle mb-4 text-sm">
-                                    Your performance in different academic categories
-                                </p>
-                                <PointDistribution categories={pointGroupRankings.map(r => ({ name: r.pointGroupName, points: r.points }))} />
-                                <div className="victorian-grid-compact">
-                                    {pointGroupRankings.map((ranking, index) => (
-                                        <div 
-                                            key={ranking.pointGroupId}
-                                            className="victorian-content victorian-slide-in"
-                                            style={{ animationDelay: `${0.5 + index * 0.1}s` }}
-                                        >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="font-medium flex items-center gap-2 text-sm">
-                                                    <span 
-                                                        className="w-3 h-3 rounded-full inline-block" 
-                                                        style={{ backgroundColor: ranking.pointGroupColor }} 
-                                                    />
-                                                    {ranking.pointGroupName}
-                                                </div>
-                                                <div className="victorian-subtitle text-md">
-                                                    <span className="text-rank-ink" data-rank-tier={rankTier(ranking.rank, ranking.outOf)}>{numberToOrdinal(ranking.rank)}</span> of {ranking.outOf}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="student-grade text-2xl font-bold">
-                                                    {ranking.letterGrade.letter}
-                                                </div>
-                                                <div className="victorian-stat-number text-lg">
-                                                    {ranking.points.toLocaleString()} pts
-                                                </div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Combined Recent Events with Rankings */}
-                    {(pointEventRankings && pointEventRankings.length > 0) && (
-                        <div className="victorian-section victorian-fade-in victorian-delay-6">
-                            <RecentEventsWithRankings 
-                                pointEventRankings={pointEventRankings} 
-                                initialCount={5}
-                            />
-                        </div>
-                    )}
+                                    )}
+                                    {/* Names only: letter grades stay off until DATA_DISCLOSURE D13 conditions L1-L12 are met. */}
+                                    {leaderGroups && leaderGroups.groups.length > 0 && (
+                                        <div>
+                                            <SectionTitle as="h3">Groups you lead</SectionTitle>
+                                            <div className="mt-3 space-y-4">
+                                                {leaderGroups.groups.map((group) => (
+                                                    <div key={group.id}>
+                                                        <h4 className="text-base font-semibold">{group.name}</h4>
+                                                        <ul className="mt-2">
+                                                            {group.students.map((member) => (
+                                                                <li key={member.id} className="min-h-11 truncate border-b border-rule py-3 last:border-b-0">
+                                                                    {member.firstName} {member.lastName}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
                         </div>
                     }
                 />
             </div>
         </div>
+    );
+}
+
+/** One rank in plain words: a disc and an ordinal when ranked, "Not ranked yet" otherwise (D19). */
+function StandingPlate({ label, rank, outOf, unit }: { label: string; rank: number; outOf: number; unit: string }) {
+    const ranked = isRanked(rank, outOf);
+    return (
+        <Plate tier={ranked ? rankTier(rank, outOf) : 'none'} className="flex min-h-11 items-center gap-3 p-4">
+            {ranked && <RankBadge rank={rank} tier={rankTier(rank, outOf)} size="lg" />}
+            <div className="min-w-0">
+                <p className="vic-label">{label}</p>
+                <p className="text-base font-semibold">
+                    {ranked ? `${numberToOrdinal(rank)} of ${outOf} ${unit}` : NOT_RANKED_YET}
+                </p>
+            </div>
+        </Plate>
     );
 }
