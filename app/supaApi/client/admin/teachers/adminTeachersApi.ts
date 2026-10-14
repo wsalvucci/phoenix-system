@@ -2,7 +2,7 @@ import { Teacher } from "@/app/dataClasses";
 import { teacherResponseToData, teacherToResponseData } from "@/app/supaApi/mappers/dataMappers";
 import getSchoolTeachers from "@/app/supaApi/server/admin/teachers/getSchoolTeachers";
 import updateTeacher from "@/app/supaApi/server/admin/teachers/updateTeacher";
-import { createHash } from "crypto";
+import { rotateLinkCode } from "@/app/supaApi/server/admin/parentLinks";
 
 export async function clientGetSchoolTeachers(schoolId: number): Promise<Teacher[] | null> {
     const teachers = await getSchoolTeachers(schoolId);
@@ -16,14 +16,11 @@ export async function clientUpdateTeacher(teacherId: number, property: string, v
     return updateTeacher(teacherId, property, value);
 }
 
-const generateLinkCode = (): string => {
-    const hash = createHash("md5").update(Date.now().toString()).digest("hex").slice(0, 7);
-    return hash;
-}
-
 export async function clientRevokeTeacher(teacherId: number): Promise<boolean> {
     const unlink = await updateTeacher(teacherId, "linked_user", null);
-    const changeCode = await updateTeacher(teacherId, "link_code", generateLinkCode());
+    // A fresh 50-bit code from admin_rotate_link_code (admin of the teacher's school, re-checked in SQL).
+    // The old md5(Date.now()) generator was ~28 bits, predictable, and fails 20261014230700's CHECK.
+    const changeCode = await rotateLinkCode("teacher", teacherId);
 
-    return unlink && changeCode;
+    return unlink && changeCode !== null;
 }

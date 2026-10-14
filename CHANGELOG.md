@@ -74,6 +74,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014223157`). The leader's group screen shows an error until the mobile app is updated.
 - **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014230650`). Needs a mobile app update released at the same time.
 - Hallway displays stop working if the staff member who paired them is no longer staff at that school, until an admin of the school re-confirms them (database side).
+- **BREAKING:** Connecting a student, parent or teacher account is now limited to 5 wrong codes per account and 20 per network each hour, after which the screen says "Too many tries". Two people can no longer claim the same teacher account at once. Deploy step: the server setting `LINK_RATE_LIMIT_SECRET` must be set first, or every connect attempt says "Linking is not available right now".
+- New teacher accounts, and teacher codes reissued when an admin unlinks a teacher, now get a 10-character code from a secure generator instead of a short guessable one.
 
 ### Fixed
 - The Recent points list on the student page no longer re-checks sharing status over and over.
