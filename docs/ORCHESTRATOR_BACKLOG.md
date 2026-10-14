@@ -3,7 +3,7 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
-- **P-3 (blocks D20 wall fix):** dashboards/own view/mobile show raw stored point totals (SQL) or converted totals? Must agree everywhere. Backend recommends stored. (asked 2026-10-14)
+- ~~P-3~~ ANSWERED 2026-10-14: stored totals everywhere; legacy conversion rule removed; only per-event direct formulas (rarely used). Backend doing D20.
 - **`LINK_RATE_LIMIT_SECRET`** must be set in Vercel (≥32 chars, server-only) BEFORE deploying this branch, or all linking says "unavailable".
 - **L-2** rate-limit numbers (5 fails/user/hr, 20/IP) — approve or change.
 - Not wired yet: D20 dashboards → `display_cut` (blocked on P-3), `/display` routes + pairing screen (needs UX), #25 admin parent-link UI, `previewLinkCode` confirm step. Follow-ups: G-b floor in SQL `points_to_next_rank`; `api/student.ts` loads every school student_point; `updateTeacher` takes arbitrary column name.
