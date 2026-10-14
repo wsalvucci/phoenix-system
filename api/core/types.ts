@@ -218,10 +218,6 @@ export type PointEventData = {
     template: {
         id: number,
         pointGroupId: number,
-        conversionRule: {
-            name: string,
-            value: number
-        }
     },
     studentGroup: {
         id: number,

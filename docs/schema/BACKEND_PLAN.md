@@ -357,9 +357,15 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
 - **Web follow-up (senior-developer, not backend SQL):** the §10.12 per-event floor applies to the web
   `pointEventRankings[].outOf` too (`app/student/RecentEventsWithRankings.tsx:124`, `app/student/page.tsx:204`):
   hide rank and "of N" for events with fewer than 4 participants.
-- **P-3** Totals: SQL sums stored `student_point.point_value` by `point_event.point_group_id`. The
-  current Node dashboard re-applies the legacy template rule on top of `point_value` and uses
-  `point_template.point_group_id`, so wiring §3 will change some dashboard numbers. Recommend SQL as the truth.
+- ~~P-3~~ **RULED 2026-10-14 (product owner): stored totals everywhere.** A score is the stored
+  `student_point.point_value`. Walls, own view and mobile all sum it, grouped by
+  `point_event.point_group_id` (the SQL definition). The legacy template rule
+  (`point_template.conversion_rule_type` / `conversion_rule_value`, the `point_conversion_rule*`
+  tables, `PointConversionRuleType`, `convertPointUsingRuleType`) is removed from all application
+  code: re-applying it on top of `point_value` was the double-conversion bug. The only conversion in
+  the system is the per-event formula `point_event.conversion_formula` (`lib/pointConversionFormula.ts`),
+  applied once at score entry when a teacher has set one. The legacy columns and tables stay in the
+  schema (no destructive DDL here); dropping them is §9 and needs its own go-ahead.
 - **L-1** Date and reissue plan for file 8 (BREAKING).
 - **L-2** Rate-limit numbers, and the new server secret `LINK_RATE_LIMIT_SECRET`.
 - ~~LL-1~~ RULED D15 (E, plus L8(c)); ~~LL-2~~ RULED D16 (UTC whole days; timezone before non-US schools). Built in file 7.

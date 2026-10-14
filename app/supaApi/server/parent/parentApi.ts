@@ -88,10 +88,6 @@ export type ParentStudentData = {
         id: number,
         name: string,
         date: string,
-        template: {
-            ruleType: string,
-            ruleValue: number
-        },
         pointGroup: {
             id: number,
             name: string,
@@ -141,7 +137,7 @@ export async function getStudentDataForParent(
 
     const { data: allStudentData, error: allStudentDataError } =
         await supabase.from("student")
-            .select("*, student_group (*), student_point (*, point_event (*, student_group (*), point_template (conversion_rule_value, point_group (*), point_conversion_rule_type (*))))")
+            .select("*, student_group (*), student_point (*, point_event (*, student_group (*), point_template (point_group (*))))")
             .eq("school_id", studentData.school_id)
 
     if (allStudentDataError) return null
@@ -197,10 +193,6 @@ export async function getStudentDataForParent(
                     id: studentPoint.point_event?.id ?? -1,
                     name: studentPoint.point_event?.name ?? "",
                     date: studentPoint.point_event?.date ?? "",
-                    template: {
-                        ruleType: studentPoint.point_event?.point_template?.point_conversion_rule_type?.name ?? "direct",
-                        ruleValue: studentPoint.point_event?.point_template?.conversion_rule_value ?? 0
-                    },
                     pointGroup: {
                         id: studentPoint.point_event?.point_template?.point_group?.id ?? -1,
                         name: studentPoint.point_event?.point_template?.point_group?.name ?? "",
@@ -240,10 +232,6 @@ export async function getStudentDataForParent(
                     id: number,
                     name: string,
                     date: string,
-                    template: {
-                        ruleType: string,
-                        ruleValue: number
-                    },
                     pointGroup: {
                         id: number,
                         name: string,

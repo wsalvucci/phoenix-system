@@ -84,6 +84,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - New teacher accounts, and teacher codes reissued when an admin unlinks a teacher, now get a 10-character code from a secure generator instead of a short guessable one.
 
 ### Fixed
+- Point totals on the admin school and student pages now use the score each student was given. An old template rule is no longer applied a second time on top, so totals for assignments made from such a template may change.
 - The Recent points list on the student page no longer re-checks sharing status over and over.
 
 ## [1.0.0] - 2026-09-12

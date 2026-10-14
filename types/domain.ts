@@ -329,8 +329,6 @@ export type PointTemplate = {
   id: number;
   name: string;
   pointGroup: { color: string };
-  conversionRule: string; // or a more specific type if you have one
-  conversionRuleValue: number;
 };
 
 export type ScorebookPointEvent = {
@@ -429,73 +427,6 @@ export type NewScorebookPointEvent = {
   }[]
 }
 
-export enum PointConversionRuleType {
-  ADD = 'add',
-  SUBTRACT = 'subtract',
-  MULTIPLY = 'multiply',
-  DIVIDE = 'divide',
-  FORMULA = 'formula',
-  DIRECT = 'direct'
-}
-
-export function stringToRuleType(ruleType: string): PointConversionRuleType {
-  switch (ruleType.toLowerCase()) {
-    case 'add':
-      return PointConversionRuleType.ADD;
-    case 'subtract':
-      return PointConversionRuleType.SUBTRACT;
-    case 'multiply':
-      return PointConversionRuleType.MULTIPLY;
-    case 'divide':
-      return PointConversionRuleType.DIVIDE;
-    case 'formula':
-      return PointConversionRuleType.FORMULA;
-    case 'direct':
-      return PointConversionRuleType.DIRECT;
-    default:
-      return PointConversionRuleType.DIRECT;
-  }
-}
-
-export function ruleTypeAndValueToFormula(ruleType: PointConversionRuleType, value: number, input: number, formula: string | null): string {
-  switch (ruleType) {
-    case PointConversionRuleType.ADD:
-      return `${input} + ${value}`;
-    case PointConversionRuleType.SUBTRACT:
-      return `${input} - ${value}`;
-    case PointConversionRuleType.MULTIPLY:
-      return `${input} * ${value}`;
-    case PointConversionRuleType.DIVIDE:
-      return `${input} / ${value}`;
-    case PointConversionRuleType.FORMULA:
-      if (!formula) return '';
-      return formula.replace('a', input.toString()).replace('b', value.toString());
-    case PointConversionRuleType.DIRECT:
-      return '';
-  }
-}
-
-export function convertPointUsingRuleType(
-  ruleType: PointConversionRuleType,
-  value: number,
-  input: number,
-): number {
-  switch (ruleType) {
-    case PointConversionRuleType.ADD:
-      return Number(input) + Number(value);
-    case PointConversionRuleType.SUBTRACT:
-      return Number(input) - Number(value);
-    case PointConversionRuleType.MULTIPLY:
-      return Number(input) * Number(value);
-    case PointConversionRuleType.DIVIDE:
-      return Number(input) / Number(value);
-    case PointConversionRuleType.FORMULA:
-      return input;
-    case PointConversionRuleType.DIRECT:
-      return input;
-  }
-}
-
 export type ClassConfigurationData = {
   templates: {
     id: number;
@@ -506,10 +437,6 @@ export type ClassConfigurationData = {
       name: string | null;
       color: string | null;
     } | null;
-    conversionRuleType: string | null;
-    conversionRuleValue: number | null;
-    conversionRuleTarget: number | null;
-    conversionRuleFormula: string | null;
   }[];
   pointGroups: {
     id: number;
@@ -521,10 +448,6 @@ export type ClassConfigurationData = {
     created_at: string;
   }[];
   templateTypes: {
-    id: number;
-    name: string;
-  }[];
-  conversionRuleTypes: {
     id: number;
     name: string;
   }[];

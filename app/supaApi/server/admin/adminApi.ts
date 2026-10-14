@@ -2,7 +2,7 @@
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
 import supabaseServiceClient from "../supabaseServiceClient";
-import { AdminDashboardData, AdminStudentDashboardData, convertPointUsingRuleType, SchoolTimeframe, stringToRuleType } from "@/app/dataClasses";
+import { AdminDashboardData, AdminStudentDashboardData, SchoolTimeframe } from "@/app/dataClasses";
 
 export async function bulkAddStudentsToSchool(
     students: {
@@ -166,7 +166,7 @@ export async function getAdminDashboardData(
 
     const { data: schoolData, error: schoolDataError } = await supabase
         .from("school")
-        .select("*, teacher (*), student_group (*, point_event (*, student_point (*), point_template(*, point_conversion_rule_type (*)))), student(*), point_group (*), ranking_group (*)")
+        .select("*, teacher (*), student_group (*, point_event (*, student_point (*), point_template(*))), student(*), point_group (*), ranking_group (*)")
         .gt("student_group.point_event.date", timeframeStart.toISODate())
         .lt("student_group.point_event.date", timeframeEnd.toISODate())
         .eq("id", schoolId)
@@ -196,7 +196,7 @@ export async function getAdminDashboardData(
                 totalPoints: schoolData.student_group.reduce((totalPoints, studentGroup) => {
                     return totalPoints + studentGroup.point_event.reduce((totalPoints, pointEvent) => {
                         return totalPoints + pointEvent.student_point.reduce((totalPoints, studentPoint) => {
-                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
+                            const pointValue = (studentPoint.point_value || 0)
                             if (studentPoint.student_id === student.id) {
                                 return totalPoints + pointValue
                             } else {
@@ -219,7 +219,7 @@ export async function getAdminDashboardData(
                         name: pointEvent.name || "",
                         date: pointEvent.date || "",
                         studentPoints: pointEvent.student_point.map((studentPoint) => {
-                            const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
+                            const pointValue = (studentPoint.point_value || 0)
                             return {
                                 studentId: studentPoint.student_id,
                                 value: pointValue,
@@ -297,7 +297,7 @@ export async function getAdminStudentDashboardData(
 
     const { data: pointData, error: pointDataError } = await supabase
         .from("student_group")
-        .select("*, point_event (*, student_point (*, student (*)), point_template (*, point_group (*), point_conversion_rule_type (*)))")
+        .select("*, point_event (*, student_point (*, student (*)), point_template (*, point_group (*)))")
         .eq("school_id", schoolId)
     // .gt("point_event.date", timeframeStart.toISODate())
     // .lt("point_event.date", timeframeEnd.toISODate())
@@ -311,7 +311,7 @@ export async function getAdminStudentDashboardData(
         studentGroup.point_event.forEach((pointEvent) => {
             pointEvent.student_point.forEach((studentPoint) => {
                 const curStudentData = formattedData.find((studentData) => studentData.studentId === studentPoint.student_id)
-                const pointValue = convertPointUsingRuleType(stringToRuleType(pointEvent.point_template?.point_conversion_rule_type?.name || ""), pointEvent.point_template?.conversion_rule_value || 0, studentPoint.point_value || 0)
+                const pointValue = (studentPoint.point_value || 0)
                 if (curStudentData) {
                     curStudentData.studentTotalPoints += pointValue
                     const curStudentGroupData = curStudentData.studentPointsByStudentGroup.find((studentGroupData) => studentGroupData.groupId === studentGroup.id)
@@ -353,11 +353,6 @@ export async function getAdminStudentDashboardData(
                         pointTemplate: {
                             id: pointEvent.point_template?.id || 0,
                             name: pointEvent.point_template?.name || "",
-                            conversionRuleType: {
-                                id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
-                                name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
-                            },
-                            conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0
                         },
                         maxInput: pointEvent.max_input || 0,
                         pointsEarned: {
@@ -412,11 +407,6 @@ export async function getAdminStudentDashboardData(
                                 pointTemplate: {
                                     id: pointEvent.point_template?.id || 0,
                                     name: pointEvent.point_template?.name || "",
-                                    conversionRuleType: {
-                                        id: pointEvent.point_template?.point_conversion_rule_type?.id || 0,
-                                        name: pointEvent.point_template?.point_conversion_rule_type?.name || ""
-                                    },
-                                    conversionRuleValue: pointEvent.point_template?.conversion_rule_value || 0
                                 },
                                 maxInput: pointEvent.max_input || 0,
                                 pointsEarned: {
@@ -476,11 +466,6 @@ export async function getAdminStudentDashboardData(
             pointTemplate: {
                 id: number,
                 name: string,
-                conversionRuleType: {
-                    id: number,
-                    name: string
-                },
-                conversionRuleValue: number
             },
             maxInput: number,
             pointsEarned: {

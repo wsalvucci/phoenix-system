@@ -1,5 +1,5 @@
 import { Admin, AdminSchoolPair, PhoenixUser, PointGroup, RankingGroup, School, Student, StudentGroup, Teacher } from "@/app/dataClasses";
-import { LinkedConversionRule, LinkedPointEvent, LinkedPointGroups, LinkedPointTemplate, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
+import { LinkedPointEvent, LinkedPointGroups, LinkedPointTemplate, LinkedRankingGroups, LinkedTeacher, StudentGroupWithRelations } from "./dataTypes";
 import { Database } from "@/types/supabase";
 
 export function adminResponseToData(

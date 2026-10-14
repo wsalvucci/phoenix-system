@@ -587,15 +587,10 @@ export async function getAdminStudentDataWithTimeframe(
           point_template!inner(
             id,
             name,
-            conversion_rule_value,
             point_group!inner(
               id,
               name,
               color
-            ),
-            point_conversion_rule_type!inner(
-              id,
-              name
             )
           ),
           student_group!inner(
@@ -877,11 +872,6 @@ export async function getAdminStudentDataWithTimeframe(
           pointTemplate: {
             id: record.point_event.point_template.id,
             name: record.point_event.point_template.name || '',
-            conversionRuleType: {
-              id: record.point_event.point_template.point_conversion_rule_type.id,
-              name: record.point_event.point_template.point_conversion_rule_type.name
-            },
-            conversionRuleValue: record.point_event.point_template.conversion_rule_value || 0
           },
           maxInput: record.point_event.max_input || 0,
           pointsEarned: {
