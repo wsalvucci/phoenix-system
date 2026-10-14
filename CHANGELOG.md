@@ -12,6 +12,12 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - The display menu (`/dashboard`) now names your school, lets staff with several schools switch between them, and carries the school into every display. If you ask for a school you cannot open, it says so and shows your own.
 - Parents and guardians now have a home entry: "Your children" with how many are connected, and a "Connect my child" button when none are.
 - A signed-in account with no role yet is asked "Who is using Phoenix?" (student, parent or guardian, teacher) instead of only being offered a student link.
+- Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin. Screens are not switched over yet.
+- Database support for dashboard leaderboards that show only the top of each cohort (overall, grade, category, team), never a count, and for a "points to the next rank" figure on student and parent pages.
+- A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side; the notice is not shown on screen yet).
+- Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
+- Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
+- "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 ### Changed
 - Opening a display link while signed out now takes you to sign-in and then straight back to that display. A wrong password says so plainly and keeps your place; the email box now suggests saved emails and shows the right phone keyboard.
@@ -67,14 +73,6 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** In the student mobile app, a group leader can no longer read group members' points or category totals (migration `20261014223157`). The leader's group screen shows an error until the mobile app is updated.
 - **BREAKING:** Mobile app leaderboards (school, grade, category) now show only the top of each list under the same rules as the hallway displays, never students with no points, and no names just above your own; other students' ids and weekly changes are no longer sent. Group averages need at least 10 members, the "top student" figure is gone, team rankings are limited to your own school and teams you belong to, and "Nth of N" on an event needs at least 4 participants (migration `20261014230650`). Needs a mobile app update released at the same time.
 - Hallway displays stop working if the staff member who paired them is no longer staff at that school, until an admin of the school re-confirms them (database side).
-
-### Added
-- Database support for hallway display devices: a screen is paired once from a staff member's own signed-in phone or laptop, shows one school's dashboards only, and can be revoked by an admin. Screens are not switched over yet.
-- Database support for dashboard leaderboards that show only the top of each cohort (overall, grade, category, team), never a count, and for a "points to the next rank" figure on student and parent pages.
-- A shared score is automatically stopped from being shared when a teacher changes it, and the student is told on their next visit (database side; the notice is not shown on screen yet).
-- Database support for longer, unguessable link codes, a limit on wrong link-code attempts, a parent-link list and revoke button for admins, and a "Your account was linked to a parent on <date>" note for students.
-- Database support for "Groups You Lead" category letters (S, A to E), from a once-a-day snapshot with small-group hiding.
-- "Groups You Lead" letters cover ranked categories only, count only whole days up to midnight UTC, and hide a category column unless more than half the group took part in it (database side).
 
 ### Fixed
 - The Recent points list on the student page no longer re-checks sharing status over and over.
