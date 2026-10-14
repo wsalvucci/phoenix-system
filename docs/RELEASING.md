@@ -4,7 +4,7 @@ Phoenix System uses **Semantic Versioning** (`MAJOR.MINOR.PATCH`), **annotated g
 named `vX.Y.Z` on `master`, and a **Keep a Changelog** file at `CHANGELOG.md`. The version
 in `package.json` always equals the latest tag on `master`.
 
-Baseline: `v1.0.0` is `master` at `8b390a9` (2026-09-12). Everything before it is
+Baseline: `v1.0.0` is `master` at `8b390a9` (2026-09-12). The one hand edit of `package.json` `version` to `1.0.0` (on `agent-remediation`) is the owner-approved baseline (2026-10-14); every later change goes through `npm run release`. Everything before it is
 summarized in the `1.0.0` changelog entry; history before the baseline is not tagged.
 
 ## What each number means here

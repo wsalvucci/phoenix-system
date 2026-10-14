@@ -7,7 +7,7 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - DONE 2026-10-14: `LINK_RATE_LIMIT_SECRET` set by owner in Vercel and `.env.local` (local verified 64 chars, gitignored).
 - **L-2** rate-limit numbers (5 fails/user/hr, 20/IP) — approve or change.
 - Not wired yet: D20 dashboards → `display_cut` (blocked on P-3), `/display` routes + pairing screen (needs UX), #25 admin parent-link UI, `previewLinkCode` confirm step. Follow-ups: G-b floor in SQL `points_to_next_rank`; `api/student.ts` loads every school student_point; `updateTeacher` takes arbitrary column name.
-- **QA early check FAIL (2 blocking):** (a) 230700 — now moved to `supabase/held/`; generators being fixed by backend. (b) `package.json` `"version": "1.0.0"` set by hand as the release baseline — owner to accept explicitly. Report: scratchpad/qa-report-1.md.
+- **QA early check FAIL (2 blocking):** (a) 230700 — now moved to `supabase/held/`; generators being fixed by backend. (b) `package.json` version baseline — ACCEPTED by owner 2026-10-14 (noted in RELEASING.md). Report: scratchpad/qa-report-1.md.
 - **Smoke test needed:** `utils/supabase/server.ts` now uses the anon key, so server actions enforce RLS; needs a per-role click-through (admin/teacher/student/parent) on a real session.
 - **Baseline migration `20260912000000` has guarded `drop table ... cascade`** (no-op on prod, already recorded) — owner sign-off per QA destructive-DDL rule.
 1. DONE 2026-10-14: `20261014223115` (lock-down) and `20261014223157` (leader points) applied to live via MCP; verified anon 0/46, authenticated 14/46. Repo files renamed to match recorded versions; remaining files moved to `20261014230xxx`.
