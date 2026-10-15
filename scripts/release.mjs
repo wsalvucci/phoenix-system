@@ -17,7 +17,7 @@ const fail = (msg) => {
 
 const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
 if (branch !== 'master' && !dryRun) fail(`must be on master (on ${branch})`);
-if (git('status', '--porcelain') && !dryRun) fail('working tree is not clean');
+if (git('status', '--porcelain', '--untracked-files=no') && !dryRun) fail('working tree is not clean');
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const current = pkg.version;
