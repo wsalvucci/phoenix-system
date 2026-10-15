@@ -1,0 +1,479 @@
+/* Honor Board: hallway walls, the podium wall and the phone board view.
+   DASHBOARD_REDESIGN_PLAN.md is the spec. Colors are tokens only; the warm surface values come from
+   the `.honor-board` scope in app/globals.css, the wall carries `.dark` itself or nothing for light.
+
+   Wall sizes are in design units: --u is 1/100 of the short design edge (10.8 px at 1920x1080 and at
+   1080x1920). Every wall size below is a multiple of --u, so 4K is exactly 2x and 720p is 2/3x. */
+
+.honor-board {
+  --hb-serif: var(--font-display), Georgia, "Times New Roman", serif;
+  --hb-stage: url("/display/stage-light.webp");
+  --hb-plate: url("/display/plate-leader-light.webp");
+  --hb-ring: 3px;
+  /* Swap point for the redone artwork (asset-04b): the divider is drawn through this one mask. */
+  --hb-divider-mask: url("/display/divider-double.svg") center / 100% 100% no-repeat;
+  --hb-seal-mask: url("/display/seal-ring.svg") center / 100% 100% no-repeat;
+  --hb-flame-mask: url("/display/seal-flame.svg") center / 100% 100% no-repeat;
+  --hb-corner-mask: url("/display/frame-corner.svg") center / 100% 100% no-repeat;
+  color: hsl(var(--foreground));
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.honor-board.dark {
+  --hb-stage: url("/display/stage-dark.webp");
+  --hb-plate: url("/display/plate-leader-dark.webp");
+  color-scheme: dark;
+}
+
+/* ---------- Ornament primitives (shared by wall and phone) ---------- */
+
+.hb-medallion {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--hb-medal, 72px);
+  aspect-ratio: 1;
+  color: hsl(var(--rank-foreground));
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  font-size: calc(var(--hb-medal, 72px) * 0.555);
+  line-height: 1;
+}
+.hb-medallion::before,
+.hb-medallion::after { content: ""; position: absolute; pointer-events: none; }
+/* Flat scalloped disc in the rank fill. */
+.hb-medallion::before {
+  inset: 0;
+  background: hsl(var(--rank));
+  -webkit-mask: var(--hb-seal-mask);
+  mask: var(--hb-seal-mask);
+}
+/* One ring in the rank ink, drawn in CSS so it keeps a true 3 px weight at any artwork. */
+.hb-medallion::after {
+  inset: 11%;
+  border-radius: 50%;
+  border: var(--hb-ring) solid hsl(var(--rank-ink));
+}
+.hb-medallion > span { position: relative; z-index: 1; }
+
+.hb-divider {
+  height: var(--hb-divider-h, 24px);
+  width: 100%;
+  color: hsl(var(--gilt));
+  background: currentColor;
+  -webkit-mask: var(--hb-divider-mask);
+  mask: var(--hb-divider-mask);
+}
+.hb-divider-wrap { position: relative; overflow: hidden; }
+/* Live-update feedback: one 600 ms gilt shimmer along the divider (transform only). */
+.hb-divider-wrap[data-pulse="1"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.85), transparent);
+  -webkit-mask: var(--hb-divider-mask);
+  mask: var(--hb-divider-mask);
+  -webkit-mask-size: 333% 100%;
+  mask-size: 333% 100%;
+  animation: hb-shimmer 600ms ease-out both;
+}
+
+.hb-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.1em 0.6em;
+  border-radius: calc(var(--radius) * 0.75);
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@keyframes hb-rise { from { opacity: 0; transform: translateY(var(--hb-rise, 10px)); } to { opacity: 1; transform: none; } }
+@keyframes hb-sweep { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
+@keyframes hb-shimmer { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
+
+.hb-in {
+  animation: hb-rise 180ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* ---------- Wall: stage, canvas, frame ---------- */
+
+.hb-wall {
+  --u: min(1vh, 0.5625vw);
+  --cw: 177.78;
+  --ch: 100;
+  --hb-medal: calc(var(--u) * 6.67);
+  --hb-divider-h: calc(var(--u) * 2.4);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: hsl(var(--background));
+  background-image: var(--hb-stage);
+  background-size: calc(var(--u) * 47.4);
+  font-size: calc(var(--u) * 2.59);
+}
+@media (orientation: portrait) {
+  .hb-wall { --u: min(1vw, 0.5625vh); --cw: 100; --ch: 177.78; }
+}
+.hb-wall *, .hb-wall *::before, .hb-wall *::after { box-sizing: border-box; }
+.hb-wall h1, .hb-wall h2, .hb-wall h3, .hb-wall p { margin: 0; }
+
+.hb-canvas {
+  position: relative;
+  width: calc(var(--u) * var(--cw));
+  height: calc(var(--u) * var(--ch));
+  padding: calc(var(--u) * 6) calc(var(--u) * 6.5) calc(var(--u) * 7);
+  display: flex;
+  flex-direction: column;
+}
+
+/* One gilt corner-bracket frame. The art is the top-left corner, mirrored to the others. */
+.hb-frame { position: absolute; inset: 0; pointer-events: none; transform: translate(var(--hb-dx, 0), var(--hb-dy, 0)); transition: transform 1s ease-out; }
+.hb-corner {
+  position: absolute;
+  width: calc(var(--u) * 12);
+  height: calc(var(--u) * 12);
+  background: hsl(var(--gilt));
+  -webkit-mask: var(--hb-corner-mask);
+  mask: var(--hb-corner-mask);
+}
+.hb-corner[data-c="tl"] { top: calc(var(--u) * 2.5); left: calc(var(--u) * 2.5); }
+.hb-corner[data-c="tr"] { top: calc(var(--u) * 2.5); right: calc(var(--u) * 2.5); transform: scaleX(-1); }
+.hb-corner[data-c="bl"] { bottom: calc(var(--u) * 2.5); left: calc(var(--u) * 2.5); transform: scaleY(-1); }
+.hb-corner[data-c="br"] { bottom: calc(var(--u) * 2.5); right: calc(var(--u) * 2.5); transform: scale(-1, -1); }
+.honor-board.dark .hb-frame { filter: none; }
+
+.hb-scenes { position: relative; flex: 1; min-height: 0; display: grid; }
+.hb-scene { grid-area: 1 / 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Progress: a 3 px gilt line filling across the dwell, between the bottom brackets. */
+.hb-progress {
+  position: absolute;
+  left: calc(var(--u) * 14.5);
+  right: calc(var(--u) * 14.5);
+  bottom: calc(var(--u) * 3.6);
+  height: 3px;
+  background: hsl(var(--rule));
+  overflow: hidden;
+}
+.hb-progress > i {
+  display: block;
+  height: 100%;
+  background: hsl(var(--gilt));
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 250ms linear;
+}
+
+/* ---------- Scene header ---------- */
+
+.hb-head { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: calc(var(--u) * 3); animation: hb-rise 300ms ease-out both; --hb-rise: calc(var(--u) * 1.5); }
+.hb-titleblock { min-width: 0; }
+.hb-title {
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  font-size: calc(var(--u) * 6.67);
+  line-height: 1.04;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hb-title[data-long="1"] { font-size: calc(var(--u) * 5.19); }
+.hb-sub {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.4);
+  margin-top: calc(var(--u) * 0.4);
+  font-weight: 600;
+  font-size: calc(var(--u) * 2.59);
+  line-height: 1.1;
+  color: hsl(var(--muted-foreground));
+}
+.hb-sub .hb-chip { font-size: calc(var(--u) * 2.59); }
+.hb-meta { flex: none; text-align: right; display: grid; gap: calc(var(--u) * 0.3); font-weight: 600; line-height: 1.1; padding-top: calc(var(--u) * 0.6); }
+.hb-meta-term { font-size: calc(var(--u) * 2.59); color: hsl(var(--muted-foreground)); }
+.hb-meta-clock { font-size: calc(var(--u) * 2.22); color: hsl(var(--foreground)); }
+.hb-meta-mark { font-size: calc(var(--u) * 2.22); color: hsl(var(--muted-foreground)); }
+.hb-headrule { margin-top: calc(var(--u) * 0.6); flex: none; }
+
+/* ---------- Board scene ---------- */
+
+.hb-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 36fr) minmax(0, 64fr);
+  gap: calc(var(--u) * 3);
+  align-content: center;
+  align-items: center;
+  padding-top: calc(var(--u) * 1.5);
+}
+.hb-body[data-layout="podium"] { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.hb-body[data-layout="podium"] .hb-podium { width: min(100%, calc(var(--u) * 92)); }
+.hb-body[data-layout="ledger"] { grid-template-columns: minmax(0, 1fr); }
+@media (orientation: portrait) {
+  .hb-body { grid-template-columns: minmax(0, 1fr); align-content: start; }
+}
+
+.hb-podium, .hb-ledger { display: flex; flex-direction: column; min-height: 0; justify-content: center; }
+.hb-podium { gap: calc(var(--u) * 2); }
+.hb-ledger { gap: calc(var(--u) * 1); }
+
+.hb-plate, .hb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: var(--radius);
+  border-bottom: 2px solid hsl(var(--rule));
+  overflow: hidden;
+}
+.hb-plate { flex: 0 1 auto; min-height: 0; height: calc(var(--u) * 21); padding: 0 calc(var(--u) * 3); gap: calc(var(--u) * 2.4); }
+.hb-plate[data-rank="1"] {
+  height: calc(var(--u) * 25);
+  border-bottom: 0;
+  border-top: 3px solid hsl(var(--gilt));
+  background-color: hsl(var(--card));
+  background-image: var(--hb-plate);
+  background-size: 100% 100%;
+  box-shadow: var(--shadow-2);
+}
+.honor-board.dark .hb-plate[data-rank="1"] { box-shadow: var(--shadow-2), inset 0 0 0 1px hsl(var(--gilt) / 0.45); }
+/* The one celebration: a gilt sweep along the leader plate's top edge at scene entrance. */
+.hb-plate[data-rank="1"]::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 26%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground)), transparent);
+  transform: translateX(-110%);
+  animation: hb-sweep 1.2s ease-out 0.5s both;
+}
+
+.hb-plate-body { flex: 1; min-width: 0; display: grid; gap: calc(var(--u) * 1); }
+.hb-plate-foot { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--u) * 2); min-width: 0; }
+.hb-name {
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  line-height: 1.08;
+  min-width: 0;
+}
+.hb-points {
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  color: hsl(var(--gilt-ink));
+  line-height: 1;
+  white-space: nowrap;
+  flex: none;
+  text-align: right;
+}
+.hb-plate .hb-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hb-plate[data-rank="1"] .hb-name { font-size: calc(var(--u) * 5.93); }
+.hb-plate[data-rank="1"] .hb-points { font-size: calc(var(--u) * 6.67); }
+.hb-plate[data-rank="2"] .hb-name, .hb-plate[data-rank="3"] .hb-name { font-size: calc(var(--u) * 4.81); }
+.hb-plate[data-rank="2"] .hb-points, .hb-plate[data-rank="3"] .hb-points { font-size: calc(var(--u) * 5.56); }
+.hb-plate .hb-chip { font-size: calc(var(--u) * 2.59); }
+
+.hb-row { height: calc(var(--u) * 9); padding: 0 calc(var(--u) * 2.4); gap: calc(var(--u) * 2.4); }
+.hb-row .hb-name { flex: 1; font-size: calc(var(--u) * 4.07); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hb-row .hb-points { font-size: calc(var(--u) * 4.44); min-width: calc(var(--u) * 12); }
+.hb-row .hb-chip { font-size: calc(var(--u) * 2.59); }
+@media (orientation: portrait) {
+  .hb-row { height: calc(var(--u) * 8); }
+  .hb-row .hb-chip { display: none; }
+}
+
+/* ---------- Spotlight, events, messages ---------- */
+
+.hb-center { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: calc(var(--u) * 2.4); }
+.hb-spot {
+  width: min(100%, calc(var(--u) * 120));
+  height: auto;
+  min-height: calc(var(--u) * 30);
+  padding: calc(var(--u) * 3.5) calc(var(--u) * 4);
+  border-radius: var(--radius);
+  background-color: hsl(var(--card));
+  background-image: var(--hb-plate);
+  background-size: 100% 100%;
+  border-top: 3px solid hsl(var(--gilt));
+  box-shadow: var(--shadow-2);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 3);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+.honor-board.dark .hb-spot { box-shadow: var(--shadow-2), inset 0 0 0 1px hsl(var(--gilt) / 0.45); }
+.hb-spot .hb-name { font-size: calc(var(--u) * 8.89); line-height: 1.04; }
+.hb-spot .hb-points { font-size: calc(var(--u) * 8.89); text-align: left; }
+.hb-spot-body { display: grid; gap: calc(var(--u) * 1.4); min-width: 0; }
+.hb-spot-line { display: flex; align-items: baseline; gap: calc(var(--u) * 2); flex-wrap: wrap; }
+.hb-spot-note { font-size: calc(var(--u) * 2.59); font-weight: 600; color: hsl(var(--muted-foreground)); }
+
+.hb-date {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 12);
+  font-family: var(--hb-serif);
+  font-weight: 600;
+  font-size: calc(var(--u) * 3.7);
+  color: hsl(var(--foreground));
+}
+.hb-events { display: flex; flex-direction: column; gap: calc(var(--u) * 1); width: min(100%, calc(var(--u) * 120)); }
+.hb-events .hb-row { height: calc(var(--u) * 12); }
+
+.hb-heading { font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 8.89); line-height: 1.05; color: hsl(var(--foreground)); max-width: calc(var(--u) * 120); }
+.hb-lede { font-size: calc(var(--u) * 3.7); line-height: 1.25; font-weight: 400; color: hsl(var(--muted-foreground)); max-width: calc(var(--u) * 100); }
+.hb-seal-static {
+  position: relative;
+  width: calc(var(--u) * 17);
+  aspect-ratio: 1;
+  background: hsl(var(--seal));
+  -webkit-mask: var(--hb-seal-mask);
+  mask: var(--hb-seal-mask);
+}
+.hb-seal-wrap { position: relative; width: calc(var(--u) * 17); aspect-ratio: 1; }
+.hb-seal-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  background: hsl(var(--seal-foreground));
+  -webkit-mask: var(--hb-flame-mask);
+  mask: var(--hb-flame-mask);
+}
+.hb-seal-wrap > .hb-seal-static { position: absolute; inset: 0; width: auto; }
+.hb-center .hb-divider-wrap { width: calc(var(--u) * 60); }
+
+.hb-btn {
+  min-height: 44px;
+  padding: 0 1.25em;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- Pairing wall ---------- */
+
+.hb-pair-plate {
+  position: relative;
+  padding: calc(var(--u) * 4) calc(var(--u) * 7);
+  background: hsl(var(--card));
+  border-radius: calc(var(--radius) * 2);
+  border: 2px solid hsl(var(--border));
+  border-top: 3px solid hsl(var(--gilt));
+  box-shadow: var(--shadow-2);
+}
+.honor-board.dark .hb-pair-plate { box-shadow: var(--shadow-2), inset 0 0 0 1px hsl(var(--gilt) / 0.45); }
+.hb-code { font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 14.8); line-height: 1; letter-spacing: 0.04em; color: hsl(var(--foreground)); white-space: nowrap; }
+.hb-host { font-size: calc(var(--u) * 3.7); font-weight: 600; color: hsl(var(--muted-foreground)); }
+.hb-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--u) * 1); text-align: left; font-size: calc(var(--u) * 3.33); line-height: 1.25; color: hsl(var(--foreground)); }
+.hb-steps b { font-weight: 600; }
+.hb-wordmark { position: absolute; top: calc(var(--u) * 6); left: calc(var(--u) * 6.5); font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 3.7); color: hsl(var(--foreground)); }
+.hb-paired { font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 8.89); color: hsl(var(--gilt-ink)); }
+.hb-note { font-size: calc(var(--u) * 2.59); font-weight: 600; color: hsl(var(--muted-foreground)); }
+
+/* ---------- Wall controls (staff, pointer only; hidden until hover or focus) ---------- */
+
+.hb-controls-wrap { position: absolute; right: calc(var(--u) * 1.5); bottom: calc(var(--u) * 1.5); z-index: 5; display: grid; justify-items: end; gap: 8px; }
+.hb-controls-toggle {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground));
+  display: grid; place-items: center; cursor: pointer;
+  opacity: 0; transition: opacity 200ms ease-out;
+}
+.hb-controls-wrap:hover .hb-controls-toggle,
+.hb-controls-toggle:focus-visible,
+.hb-controls-toggle[aria-expanded="true"] { opacity: 1; }
+.hb-controls {
+  width: min(320px, 90vw); display: grid; gap: 12px; padding: 16px;
+  border-radius: calc(var(--radius) * 2); border: 1px solid hsl(var(--border));
+  background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); box-shadow: var(--shadow-3);
+  font-size: 16px; font-weight: 400;
+}
+.hb-controls strong { font-weight: 600; }
+.hb-controls label { display: grid; gap: 4px; font-weight: 600; }
+.hb-controls select { min-height: 44px; border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); padding: 0 8px; font: inherit; font-weight: 400; }
+.hb-controls nav { display: flex; gap: 8px; }
+.hb-controls button, .hb-controls a { min-height: 44px; padding: 0 12px; border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; text-decoration: none; }
+
+/* ---------- Podium wall (top cards) ---------- */
+
+.hb-pod-card { flex-direction: column; align-items: flex-start; justify-content: center; }
+.hb-podwall { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2.4); padding-top: calc(var(--u) * 1.5); }
+.hb-podwall .hb-podium { width: min(100%, calc(var(--u) * 88)); }
+.hb-podwall .hb-ledger { width: min(100%, calc(var(--u) * 88)); }
+@media (orientation: landscape) {
+  .hb-podwall { flex-direction: row; align-items: center; gap: calc(var(--u) * 3); }
+  .hb-podwall .hb-podium { width: 36%; }
+  .hb-podwall .hb-ledger { width: 64%; }
+}
+
+/* ---------- Phone ---------- */
+
+.hb-phone {
+  --hb-medal: 36px;
+  --hb-ring: 2px;
+  --hb-divider-h: 16px;
+  min-height: 100dvh;
+  width: 100%;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: 17px;
+  line-height: 1.4;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.hb-phone *, .hb-phone *::before, .hb-phone *::after { box-sizing: border-box; }
+.hb-phone h1, .hb-phone h2, .hb-phone p { margin: 0; }
+.hb-phone-wrap { max-width: 32rem; margin: 0 auto; padding: 16px 16px 40px; display: grid; gap: 28px; }
+.hb-phone-head {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 56px; padding: 8px 16px;
+  background-color: hsl(var(--card));
+  background-image: url("/display/mobile-header-light.webp");
+  background-size: cover;
+  border-bottom: 1px solid hsl(var(--rule));
+}
+.honor-board.dark .hb-phone-head { background-image: url("/display/mobile-header-dark.webp"); }
+.hb-phone-head .hb-phone-brand { font-family: var(--hb-serif); font-weight: 600; font-size: 20px; }
+.hb-phone-title { font-family: var(--hb-serif); font-weight: 600; font-size: 24px; line-height: 1.2; text-align: center; }
+.hb-phone-section { display: grid; gap: 8px; }
+.hb-phone-section .hb-divider-wrap { margin: 4px auto 8px; width: min(220px, 70%); }
+.hb-phone-list { display: grid; gap: 6px; }
+.hb-phone .hb-row { height: auto; min-height: 64px; padding: 8px 12px; gap: 12px; }
+.hb-phone .hb-row .hb-name { font-size: 18px; white-space: normal; overflow: visible; }
+.hb-phone .hb-row .hb-points { font-size: 20px; min-width: 0; }
+.hb-phone-link {
+  display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
+  border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--card));
+  color: hsl(var(--foreground)); font-weight: 600; text-decoration: none;
+}
+.hb-phone-empty { text-align: center; color: hsl(var(--muted-foreground)); }
+
+/* Motion is feedback. The blanket reduced-motion rule in globals.css shortens every animation; the
+   decorative ones are removed outright. */
+@media (prefers-reduced-motion: reduce) {
+  .hb-in, .hb-head { animation: none; opacity: 1; transform: none; }
+  .hb-plate[data-rank="1"]::after, .hb-divider-wrap[data-pulse="1"]::after { display: none; }
+  .hb-frame { transition: none; }
+}

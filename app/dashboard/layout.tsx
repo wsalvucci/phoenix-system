@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getDashboardViewer, hasDisplayCookie } from "@/app/supaApi/server/display/displayAccess";
 import { safeNextPath } from "@/lib/safeRedirect";
+import { honorFont } from "@/components/display/fonts";
 
 // Every route under /dashboard requires a dashboard viewer: a live paired display device (for its
 // one school), or an authenticated staff (teacher/admin) user. getDashboardViewer() is the only
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
     const viewer = await getDashboardViewer();
-    if (viewer !== null) return <>{children}</>;
+    if (viewer !== null) return <div className={`${honorFont.variable} w-full`}>{children}</div>;
 
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
