@@ -8,6 +8,7 @@ import { getStudentDataWithContext } from "@/api/student";
 import { getTeacherDataWithContext } from "@/api/teacher";
 import { getAdminDataWithContext } from "@/api/admin";
 import { getStudentsOfParent } from "@/app/supaApi/server/parent/parentApi";
+import { getMyRoles } from "@/api/user";
 import MotionButton from "@/components/MotionButton";
 
 type Roles = {
@@ -30,13 +31,23 @@ export default function HomeRoles() {
     const load = useCallback(async () => {
         setFailed(false);
         setRoles(null);
+        let mine;
+        try {
+            mine = await getMyRoles();
+        } catch {
+            setFailed(true);
+            return;
+        }
+        // Only call the loaders for roles this user actually has.
+        const none = Promise.resolve(null);
         const [student, teacher, admin, kids] = await Promise.allSettled([
-            getStudentDataWithContext(),
-            getTeacherDataWithContext(),
-            getAdminDataWithContext(),
-            getStudentsOfParent(),
+            mine.student ? getStudentDataWithContext() : none,
+            mine.teacher ? getTeacherDataWithContext() : none,
+            mine.admin ? getAdminDataWithContext() : none,
+            mine.parent ? getStudentsOfParent() : none,
         ]);
-        if ([student, teacher, admin, kids].every((r) => r.status === "rejected")) {
+        const wanted = [mine.student, mine.teacher, mine.admin, mine.parent];
+        if (wanted.some(Boolean) && [student, teacher, admin, kids].every((r, i) => !wanted[i] || r.status === "rejected")) {
             setFailed(true);
             return;
         }
