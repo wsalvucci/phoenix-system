@@ -21,7 +21,7 @@ export function BoardScene({ slide, pulse = 0 }: { slide: DisplaySlide; pulse?: 
     <SceneLayout title={slide.title} subtitle={slide.subtitle} chipColor={slide.color} pulse={pulse}>
       <div className="hb-body" data-layout={layout}>
         {podium.length > 0 && (
-          <div className="hb-podium">
+          <div className="hb-podium" data-dense={podium.length > 3 ? "" : undefined}>
             {podium.map((r) => (
               <PodiumPlate key={r.key} rank={r.rank} name={r.name} detail={r.detail} points={formatPoints(r.points)} index={at(r.key)} />
             ))}

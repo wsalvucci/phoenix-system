@@ -50,7 +50,7 @@
 }
 /* One ring in the rank ink, drawn in CSS so it keeps a true 3 px weight at any artwork. */
 .hb-medallion::after {
-  inset: 11%;
+  inset: 8%;
   border-radius: 50%;
   border: var(--hb-ring) solid hsl(var(--rank-ink));
 }
@@ -214,6 +214,7 @@
   display: grid;
   grid-template-columns: minmax(0, 36fr) minmax(0, 64fr);
   gap: calc(var(--u) * 3);
+  grid-template-rows: minmax(0, 1fr);
   align-content: center;
   align-items: center;
   padding-top: calc(var(--u) * 1.5);
@@ -222,10 +223,10 @@
 .hb-body[data-layout="podium"] .hb-podium { width: min(100%, calc(var(--u) * 92)); }
 .hb-body[data-layout="ledger"] { grid-template-columns: minmax(0, 1fr); }
 @media (orientation: portrait) {
-  .hb-body { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .hb-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; align-content: start; align-items: start; }
 }
 
-.hb-podium, .hb-ledger { display: flex; flex-direction: column; min-height: 0; justify-content: center; }
+.hb-podium, .hb-ledger { display: flex; flex-direction: column; min-height: 0; max-height: 100%; justify-content: center; }
 .hb-podium { gap: calc(var(--u) * 2); }
 .hb-ledger { gap: calc(var(--u) * 1); }
 
@@ -295,16 +296,21 @@
 .hb-row .hb-chip { font-size: calc(var(--u) * 2.59); }
 @media (orientation: portrait) {
   .hb-row { height: calc(var(--u) * 8); }
-  .hb-row .hb-chip { display: none; }
 }
+
+/* A tie can put more than three plates on the podium: they share the height and keep one-line names. */
+.hb-podium[data-dense] { gap: calc(var(--u) * 1); }
+.hb-podium[data-dense] .hb-plate { height: auto; flex: 0 0 auto; padding-top: calc(var(--u) * 1.2); padding-bottom: calc(var(--u) * 1.2); }
+.hb-podium[data-dense] .hb-name { -webkit-line-clamp: 1; font-size: calc(var(--u) * 4.07); }
+.hb-podium[data-dense] .hb-points { font-size: calc(var(--u) * 4.44); }
 
 /* ---------- Spotlight, events, messages ---------- */
 
-.hb-center { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: calc(var(--u) * 2.4); }
+.hb-center { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-content: center; justify-items: center; text-align: center; gap: calc(var(--u) * 2.4); }
 .hb-spot {
-  width: min(100%, calc(var(--u) * 120));
+  width: min(100%, calc(var(--u) * 130));
   height: auto;
-  min-height: calc(var(--u) * 30);
+  min-height: calc(var(--u) * 34);
   padding: calc(var(--u) * 3.5) calc(var(--u) * 4);
   border-radius: var(--radius);
   background-color: hsl(var(--card));
@@ -386,6 +392,7 @@
 .honor-board.dark .hb-pair-plate { box-shadow: var(--shadow-2), inset 0 0 0 1px hsl(var(--gilt) / 0.45); }
 .hb-code { font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 14.8); line-height: 1; letter-spacing: 0.04em; color: hsl(var(--foreground)); white-space: nowrap; }
 .hb-host { font-size: calc(var(--u) * 3.7); font-weight: 600; color: hsl(var(--muted-foreground)); }
+@media (orientation: portrait) { .hb-code { font-size: calc(var(--u) * 10.5); } .hb-heading { font-size: calc(var(--u) * 7); } }
 .hb-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--u) * 1); text-align: left; font-size: calc(var(--u) * 3.33); line-height: 1.25; color: hsl(var(--foreground)); }
 .hb-steps b { font-weight: 600; }
 .hb-wordmark { position: absolute; top: calc(var(--u) * 6); left: calc(var(--u) * 6.5); font-family: var(--hb-serif); font-weight: 600; font-size: calc(var(--u) * 3.7); color: hsl(var(--foreground)); }
@@ -415,18 +422,6 @@
 .hb-controls select { min-height: 44px; border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); padding: 0 8px; font: inherit; font-weight: 400; }
 .hb-controls nav { display: flex; gap: 8px; }
 .hb-controls button, .hb-controls a { min-height: 44px; padding: 0 12px; border-radius: var(--radius); border: 1px solid hsl(var(--input)); background: hsl(var(--card)); color: hsl(var(--foreground)); font: inherit; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; text-decoration: none; }
-
-/* ---------- Podium wall (top cards) ---------- */
-
-.hb-pod-card { flex-direction: column; align-items: flex-start; justify-content: center; }
-.hb-podwall { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 2.4); padding-top: calc(var(--u) * 1.5); }
-.hb-podwall .hb-podium { width: min(100%, calc(var(--u) * 88)); }
-.hb-podwall .hb-ledger { width: min(100%, calc(var(--u) * 88)); }
-@media (orientation: landscape) {
-  .hb-podwall { flex-direction: row; align-items: center; gap: calc(var(--u) * 3); }
-  .hb-podwall .hb-podium { width: 36%; }
-  .hb-podwall .hb-ledger { width: 64%; }
-}
 
 /* ---------- Phone ---------- */
 
