@@ -93,7 +93,7 @@ School 1 has 40 students in grades 6 to 9, and school 2 has 5. Point totals in t
 
 | File | Covers |
 |---|---|
-| `01_grants` | anon executes nothing; authenticated executes exactly the 13 student-facing RPCs; server-only tables have no grants; RLS on every table; `search_path` pinned |
+| `01_grants` | anon executes nothing; authenticated executes exactly the 13 student-facing RPCs; server-only tables have no grants; anon and authenticated hold no table write or sequence privilege, now or on new tables (D25); the policy set is pinned; RLS on every table; `search_path` pinned |
 | `02_publication_cut` | `publication_cut` against the table in `DATA_DISCLOSURE.md` section 8.4; `display_cut` shape (no id, no count), ties shrink, zero and negative never published, per-cohort cuts, every refusal looks like "no rows", synthetic cohorts of 0 to 120 |
 | `03_points_to_next_rank` | gaps only, floors (grade, group and point group appear at 10 participants), who may ask |
 | `04_link_codes` | `redeem_link_code` uniform failure, 5 per user per hour, 20 per client key, 24 hour purge, normalisation; `preview_link_code` |
@@ -105,8 +105,10 @@ Tests that need exact cohort sizes build a throwaway school inside the transacti
 
 **Role-level API checks** (`tests/rls/rls.test.ts`) sign in with the anon key exactly as the app's cookie client
 does and assert what each role can call and read through PostgREST: anon and every authenticated role are refused
-the server-only RPCs and tables, cannot write scores or change other users' rows, never read the other school's
-rows, and the student RPCs return no other student's id and no counts.
+the server-only RPCs and tables, cannot write scores or change other users' rows (refused by the grant, `42501`),
+never read the other school's rows, and the student RPCs return no other student's id and no counts. The
+"deny-all backstop" block asserts that every role reads zero rows from every table through the cookie client
+(D25 in `docs/schema/BACKEND_PLAN.md` section 12): if that starts failing, someone added a policy or a grant.
 
 ## End-to-end tests
 
@@ -139,15 +141,14 @@ drop that route from `tests/e2e/dashboards.spec.ts` and `forbidden.spec.ts` and 
 These are real behaviors the suite found. They are recorded as expected-failure markers, so they do not fail the
 run, and they will tell you when they are fixed.
 
-1. **RLS leaves signed-in users with no readable rows (backend).** Only 9 policies exist, none lets a teacher, student
-   or parent read `user`, `student_point`, `point_event`, `student_group`, `school` and most other tables, and the
-   admin policies on `student` and others subquery tables that have no policy of their own, so they match nothing.
-   Anything that reads through the anon-key cookie client therefore gets zero rows today. Every screen the e2e suite opens still works,
-   because those paths authorize the caller and then read with the service client. Expected-failure markers in
-   `tests/rls/rls.test.ts` ("KNOWN GAPS") show the intended behavior. Any new code that reads through the cookie
-   client will return empty data until policies exist.
-2. **anon holds INSERT/UPDATE/DELETE grants on `student_point`, `point_event`, `user`, `student` (backend).** Supabase
-   default privileges; RLS is the only guard. pgTAP TODO in `01_grants`.
+1. ~~RLS leaves signed-in users with no readable rows~~ **Ruled by design (backend D25, `docs/schema/BACKEND_PLAN.md`
+   section 12).** The app reads and writes only through the server-only service client after a TypeScript
+   authorization check; RLS is a deny-all backstop and the cookie client is for `auth.*` and Realtime broadcast only.
+   `tests/rls/rls.test.ts` now asserts zero rows per role per table instead of `it.fails` markers. Do not write code
+   that reads a table through the cookie client.
+2. ~~anon holds INSERT/UPDATE/DELETE grants~~ **Fixed locally by migration `20261014230655`** (no table write or
+   sequence privilege for anon or authenticated). It is **not yet applied to production**: it waits for the product
+   owner's go-ahead (BACKEND_PLAN S-3). `01_grants` asserts it.
 3. **Home page raises server errors for every role the user does not have (frontend).** `HomeRoles` calls the admin,
    teacher, student and parent loaders with `Promise.allSettled`, and the ones that do not apply throw, so each home
    visit logs two or more 500s from server actions. The e2e home check tolerates this.
