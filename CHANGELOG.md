@@ -26,6 +26,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Staff signed in on the screen itself can instead choose "Turn this browser into a display"; they are signed out of that browser in the same step and stay signed in on their other devices.
 - Admins have a new Displays page under each school to see every paired screen, remove one, or keep on a screen that was paused because the person who paired it is no longer staff there. Teachers see and can remove the screens they paired. The display menu has a "Pair a new display" tile.
 - Admins see the parent accounts linked to each student on the student's page and can remove any of them. Students see "A parent account was linked on <date>" on their own page.
+- For QA and operators: a repeatable test suite (`npm run test:all`) that starts a local database with fictional data (an admin, two teachers, 40 students, a parent, a group leader, a teaching assistant), checks database permissions and the leaderboard cut, and signs in as each role in a browser to confirm what each can and cannot open. It runs in GitHub Actions and never touches the live project. Guide: `docs/TESTING.md`.
 
 ### Changed
 - A paired hallway screen now opens the rotating highlights directly instead of stopping at the display menu. Staff still see the menu at `/dashboard`.
@@ -98,6 +99,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 ### Fixed
 - Point totals on the admin school and student pages now use the score each student was given. An old template rule is no longer applied a second time on top, so totals for assignments made from such a template may change.
 - The Recent points list on the student page no longer re-checks sharing status over and over.
+- Building a fresh local database from the migration files no longer stops at the first file on current Supabase images. On the live database the added lines do nothing.
 
 ## [1.0.0] - 2026-09-12
 

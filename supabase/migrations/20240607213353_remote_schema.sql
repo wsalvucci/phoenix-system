@@ -10,6 +10,11 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- Local stack images no longer pre-create these schemas; on production they exist, so this is a no-op.
+CREATE SCHEMA IF NOT EXISTS "pgsodium";
+CREATE SCHEMA IF NOT EXISTS "graphql";
+CREATE SCHEMA IF NOT EXISTS "vault";
+
 CREATE EXTENSION IF NOT EXISTS "pgsodium" WITH SCHEMA "pgsodium";
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
