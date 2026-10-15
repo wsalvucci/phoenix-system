@@ -6,9 +6,14 @@ export class UserContextResolver {
   private authClient: SupabaseClient;
   private dbClient: SupabaseClient;
 
-  constructor(authClient: SupabaseClient, dbClient?: SupabaseClient) {
+  /**
+   * @param authClient the cookie client; used for `auth.getUser()` only.
+   * @param dbClient the server-only service client. Required: under D21 (BACKEND_PLAN section 12) RLS is
+   *   deny-all, so reading through the cookie client would return no rows.
+   */
+  constructor(authClient: SupabaseClient, dbClient: SupabaseClient) {
     this.authClient = authClient;
-    this.dbClient = dbClient || authClient;
+    this.dbClient = dbClient;
   }
 
   /**

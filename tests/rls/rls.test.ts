@@ -77,7 +77,7 @@ describe("anon (no session)", () => {
 
     it("cannot write a score", async () => {
         const { error } = await anonClient().from("student_point").insert({ student_id: 1, point_event_id: 1, point_value: 999 });
-        expect(error).not.toBeNull();
+        expect(error?.code).toBe("42501");
     });
 });
 
@@ -102,18 +102,20 @@ describe.each(SIGNED_IN_ROLES)("authenticated as %s", (role) => {
     });
 
     it("cannot write a score for anyone", async () => {
-        const { data } = await client
+        const { data, error } = await client
             .from("student_point")
             .insert({ student_id: 7, point_event_id: 1, point_value: 999 })
             .select();
         expect(data ?? []).toHaveLength(0);
+        expect(error?.code).toBe("42501");
         const { data: after } = await serviceClient().from("student_point").select("id").eq("point_value", 999);
         expect(after ?? []).toHaveLength(0);
     });
 
     it("cannot change another user's data", async () => {
-        const { data } = await client.from("student").update({ first_name: "Hacked" }).eq("id", 1).select();
+        const { data, error } = await client.from("student").update({ first_name: "Hacked" }).eq("id", 1).select();
         expect(data ?? []).toHaveLength(0);
+        expect(error?.code).toBe("42501");
         const { data: row } = await serviceClient().from("student").select("first_name").eq("id", 1).single();
         expect(row?.first_name).toBe("Ada");
     });
@@ -171,26 +173,31 @@ describe("student RPCs and what they disclose", () => {
     });
 });
 
-describe("KNOWN GAPS (backend): the cookie client under RLS", () => {
-    // Today almost no table has an `authenticated` SELECT policy, so signed-in staff reading through the
-    // anon-key cookie client get zero rows. These tests describe the intended behavior and are expected
-    // to FAIL until policies exist (`it.fails` turns green when the gap is closed, which then fails the
-    // run so the marker gets removed). See docs/TESTING.md, "Known findings".
-    it.fails("an admin can read the students of their own school", async () => {
-        const admin = await signedIn("admin");
-        const { data } = await admin.from("student").select("id").eq("school_id", 1);
-        expect((data ?? []).length).toBe(40);
+// D21 (docs/schema/BACKEND_PLAN.md section 12): the app reads and writes through the server-only service
+// client after a TypeScript authorization check. RLS is a deny-all backstop: no API role reads a row of any
+// table, and no API role holds a write grant (migration 20261014230655). A green test here that starts
+// failing means someone added a policy or a grant: that is an architecture change, not a fix.
+describe.each(SIGNED_IN_ROLES)("deny-all backstop as %s", (role) => {
+    let client: SupabaseClient;
+    beforeAll(async () => {
+        client = await signedIn(role);
     });
 
-    it.fails("a teacher can read the pairs of their own groups and their students", async () => {
-        const teacher = await signedIn("teacher1");
-        const { data } = await teacher.from("student_group_pair").select("student_id").eq("student_group_id", 1);
-        expect((data ?? []).length).toBe(20);
+    it.each(READABLE_TABLES)("reads no rows from %s through the cookie client", async (table) => {
+        const { data, error } = await client.from(table).select("*").limit(5);
+        expect(error).toBeNull();
+        expect(data ?? []).toHaveLength(0);
     });
 
-    it.fails("a user can read their own user row", async () => {
-        const student = await signedIn("student");
-        const { data } = await student.from("user").select("id");
-        expect((data ?? []).length).toBe(1);
+    it.each(["student_point", "point_event", "user", "student"])("is refused a write to %s by the grant", async (table) => {
+        const { error } = await client.from(table).delete().eq("id", -1);
+        expect(error?.code).toBe("42501");
+    });
+});
+
+describe("deny-all backstop as anon", () => {
+    it.each(["student_point", "point_event", "user", "student"])("is refused a write to %s by the grant", async (table) => {
+        const { error } = await anonClient().from(table).delete().eq("id", -1);
+        expect(error?.code).toBe("42501");
     });
 });
