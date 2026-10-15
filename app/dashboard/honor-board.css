@@ -10,8 +10,12 @@
   --hb-stage: url("/display/stage-light.webp");
   --hb-plate: url("/display/plate-leader-light.webp");
   --hb-ring: 3px;
-  /* Swap point for the redone artwork (asset-04b): the divider is drawn through this one mask. */
-  --hb-divider-mask: url("/display/divider-double.svg") center / 100% 100% no-repeat;
+  /* Divider artwork (asset-04b) is three slices, 48x24 caps and a 64x24 repeating middle. Caps are
+     2x the divider height wide; the middle repeats on x only inside the padding between them. */
+  --hb-divider-mask-l: url("/display/divider-left.svg") left center / auto 100% no-repeat border-box border-box;
+  --hb-divider-mask-r: url("/display/divider-right.svg") right center / auto 100% no-repeat border-box border-box;
+  --hb-divider-mask-m: url("/display/divider-mid.svg") left center / auto 100% repeat-x content-box content-box;
+  --hb-divider-mask: var(--hb-divider-mask-l), var(--hb-divider-mask-r), var(--hb-divider-mask-m);
   --hb-seal-mask: url("/display/seal-ring.svg") center / 100% 100% no-repeat;
   --hb-flame-mask: url("/display/seal-flame.svg") center / 100% 100% no-repeat;
   --hb-corner-mask: url("/display/frame-corner.svg") center / 100% 100% no-repeat;
@@ -60,22 +64,25 @@
   height: var(--hb-divider-h, 24px);
   width: 100%;
   color: hsl(var(--gilt));
+  box-sizing: border-box;
+  padding-inline: calc(var(--hb-divider-h, 24px) * 2);
   background: currentColor;
   -webkit-mask: var(--hb-divider-mask);
   mask: var(--hb-divider-mask);
 }
 .hb-divider-wrap { position: relative; overflow: hidden; }
-/* Live-update feedback: one 600 ms gilt shimmer along the divider (transform only). */
+/* Live-update feedback: one 600 ms gilt shimmer along the divider (background-position, masked to the divider). */
 .hb-divider-wrap[data-pulse="1"]::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 30%;
-  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.85), transparent);
+  inset: 0;
+  box-sizing: border-box;
+  padding-inline: calc(var(--hb-divider-h, 24px) * 2);
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.85), transparent) no-repeat;
+  background-size: 30% 100%;
+  background-position: -43% 0;
   -webkit-mask: var(--hb-divider-mask);
   mask: var(--hb-divider-mask);
-  -webkit-mask-size: 333% 100%;
-  mask-size: 333% 100%;
   animation: hb-shimmer 600ms ease-out both;
 }
 
@@ -94,7 +101,7 @@
 
 @keyframes hb-rise { from { opacity: 0; transform: translateY(var(--hb-rise, 10px)); } to { opacity: 1; transform: none; } }
 @keyframes hb-sweep { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
-@keyframes hb-shimmer { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
+@keyframes hb-shimmer { from { background-position: -43% 0; } to { background-position: 143% 0; } }
 
 .hb-in {
   animation: hb-rise 180ms ease-out both;
