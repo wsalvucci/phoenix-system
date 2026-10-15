@@ -1,10 +1,9 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
-import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, StudentPointsData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
+import { AdminData, CompiledStudentPoints, GlobalPoints, PointEventData, PointGroupData, RankingGroupData, RankingGroupPointEventData, StudentData, StudentGroupData, SupabaseUserData, TimeframeData, UserData } from "./utils/types";
 import supabaseServiceClient from "../server/supabaseServiceClient";
 import { DateTime } from "luxon";
-import { getOwnStudentData } from "@/api/student";
-import { getDashboardFilters, DashboardFilterConfig } from "./dashboardFilters";
+import { getCallerAccess, isStaffOfSchool } from "../server/staffAccess";
 
 export async function getSupabaseUser() : Promise<SupabaseUserData | null> {
     const supabase = createClient();
@@ -73,33 +72,24 @@ export async function getAdminData() : Promise<AdminData | null> {
     }
 }
 
-export async function getSchoolTimeframes(
+async function loadSchoolTimeframes(
     schoolId: number
 ): Promise<TimeframeData[] | null> {
     const supabase = await supabaseServiceClient();
-    console.log("getSchoolTimeframes - supabase client:", supabase);
 
-    console.log("=== DATABASE QUERY DEBUG ===");
-    console.log("Querying school_timeframes for school_id:", schoolId);
     
     const { data: timeframes, error: timeframesError } = await supabase.from("school_timeframes")
         .select("*")
         .eq("school_id", schoolId);
 
-    console.log("Raw query result - timeframes:", timeframes);
-    console.log("Raw query result - error:", timeframesError);
-    console.log("Number of timeframes returned:", timeframes?.length);
     
     // Test query for specific timeframe ID 7
-    console.log("=== TESTING SPECIFIC TIMEFRAME ID 7 ===");
     const { data: specificTimeframe, error: specificError } = await supabase
         .from("school_timeframes")
         .select("*")
         .eq("school_id", schoolId)
         .eq("id", 7);
     
-    console.log("Specific timeframe ID 7 query result:", specificTimeframe);
-    console.log("Specific timeframe ID 7 error:", specificError);
 
     if (timeframes === null) {
         console.error(timeframesError);
@@ -121,7 +111,6 @@ export async function getSchoolTimeframes(
         const isAlreadyIncluded = mappedTimeframes.some(tf => tf.id === activeTimeframe.id);
         
         if (!isAlreadyIncluded) {
-            console.log("🔧 WORKAROUND: Adding missing active timeframe to results");
             mappedTimeframes.push({
                 id: activeTimeframe.id,
                 name: activeTimeframe.name,
@@ -133,25 +122,16 @@ export async function getSchoolTimeframes(
     }
 
     // Debug logging for timeframes
-    console.log("=== SCHOOL TIMEFRAMES DEBUG ===");
-    console.log("Raw timeframes from DB:", timeframes);
-    console.log("Mapped timeframes:", mappedTimeframes);
-    console.log("Active timeframes:", mappedTimeframes.filter(tf => tf.isActive));
-    console.log("=================================");
 
     return mappedTimeframes;
 }
 
-export async function getSelectedOrActiveTimeframe(
+async function loadSelectedOrActiveTimeframe(
     schoolId: number,
     timeframeId: number | null,
 ): Promise<TimeframeData | null> {
-    console.log("=== getSelectedOrActiveTimeframe DEBUG ===");
-    console.log("schoolId:", schoolId);
-    console.log("timeframeId:", timeframeId);
     
     const supabase = await supabaseServiceClient();
-    console.log("getSelectedOrActiveTimeframe - supabase client:", supabase);
 
     const getTimeframeData = async (query: any) => {
         const { data: timeframeData, error: timeframeDataError } = await query.single();
@@ -194,7 +174,6 @@ export async function getSelectedOrActiveTimeframe(
         if (activeTimeframes && activeTimeframes.length > 0) {
             // If multiple active timeframes, use the first one (lowest ID)
             const activeTimeframe = activeTimeframes[0];
-            console.log("Found active timeframe:", activeTimeframe);
             return {
                 id: activeTimeframe.id,
                 name: activeTimeframe.name,
@@ -203,7 +182,6 @@ export async function getSelectedOrActiveTimeframe(
                 isActive: activeTimeframe.active
             };
         } else {
-            console.log("No active timeframes found, trying recent timeframes");
             // If no active timeframe, get the most recent one
             const { data: recentTimeframes, error: recentError } = await supabase
                 .from("school_timeframes")
@@ -219,7 +197,6 @@ export async function getSelectedOrActiveTimeframe(
 
             if (recentTimeframes && recentTimeframes.length > 0) {
                 const recentTimeframe = recentTimeframes[0];
-                console.log("Found recent timeframe:", recentTimeframe);
                 return {
                     id: recentTimeframe.id,
                     name: recentTimeframe.name,
@@ -230,24 +207,23 @@ export async function getSelectedOrActiveTimeframe(
             }
         }
 
-        console.log("No timeframes found, returning null");
         return null;
     }
 }
 
-export async function getAllTimeframePointEvents(
+async function loadAllTimeframePointEvents(
     schoolId: number,
     timeframeId: number | null,
 ) : Promise<PointEventData[] | null> {
 
-    const timeframe = await getSelectedOrActiveTimeframe(schoolId, timeframeId);
+    const timeframe = await loadSelectedOrActiveTimeframe(schoolId, timeframeId);
 
     if (timeframe === null) return null;
 
     const supabase = await supabaseServiceClient();
 
     const { data: pointEvents, error: pointEventsError } = await supabase.from("point_event")
-        .select("*, student_group(id, name, school_id, ranking_group (id)), point_template (point_group_id, point_conversion_rule_type (*), conversion_rule_value), student_point (student_id, point_value)")
+        .select("*, student_group!inner(id, name, school_id, ranking_group (id)), student_point (student_id, point_value)")
         .eq("student_group.school_id", schoolId)
         .gte("date", timeframe.startDate)
         .lte("date", timeframe.endDate);
@@ -265,10 +241,6 @@ export async function getAllTimeframePointEvents(
         template: {
             id: pointEvent.template_id,
             pointGroupId: pointEvent.point_group_id ?? -1, // Use point_group_id directly from point_event
-            conversionRule: {
-                name: pointEvent.point_template?.point_conversion_rule_type?.name ?? "",
-                value: pointEvent.point_template?.conversion_rule_value ?? 0
-            }
         },
         studentGroup: {
             id: pointEvent.student_group?.id ?? -1,
@@ -282,7 +254,7 @@ export async function getAllTimeframePointEvents(
     }));
 }
 
-export async function getSchoolStudents(
+async function loadSchoolStudents(
     schoolId: number,
 ): Promise<StudentData[] | null> {
     const supabase = await supabaseServiceClient();
@@ -305,7 +277,7 @@ export async function getSchoolStudents(
     }));
 }
 
-export async function getStudent(
+async function loadStudent(
     studentId: number,
 ): Promise<StudentData | null> {
     const supabase = await supabaseServiceClient();
@@ -329,7 +301,7 @@ export async function getStudent(
     };
 }
 
-export async function getSchoolPointGroups(
+async function loadSchoolPointGroups(
     schoolId: number,
 ): Promise<PointGroupData[] | null> {
     const supabase = await supabaseServiceClient();
@@ -350,7 +322,7 @@ export async function getSchoolPointGroups(
     }));
 }
 
-export async function getSchoolStudentGroups(
+async function loadSchoolStudentGroups(
     schoolId: number
 ): Promise<StudentGroupData[] | null> {
     const supabase = await supabaseServiceClient();
@@ -372,7 +344,7 @@ export async function getSchoolStudentGroups(
     }));
 }
 
-export async function getSchoolRankingGroups(
+async function loadSchoolRankingGroups(
     schoolId: number
 ): Promise<RankingGroupData[] | null> {
     const supabase = await supabaseServiceClient();
@@ -395,7 +367,7 @@ export async function getSchoolRankingGroups(
     }));
 }
 
-export async function getRankingGroupPoints(
+async function loadRankingGroupPoints(
     schoolId: number,
     timeframeId: number | null = null,
 ): Promise<RankingGroupPointEventData[] | null> {
@@ -465,68 +437,87 @@ export async function getRankingGroupPoints(
     return filteredEvents;
 }
 
-enum PointConversionRuleType {
-    ADD = 'add',
-    SUBTRACT = 'subtract',
-    MULTIPLY = 'multiply',
-    DIVIDE = 'divide',
-    FORMULA = 'formula',
-    DIRECT = 'direct'
+// ---------------------------------------------------------------------------
+// Authorized entry points.
+// Every export of a "use server" file is a POST-able endpoint, and the loaders
+// above run on the service-role client (no RLS). The loaders are therefore
+// module-private; these wrappers are the only way in, and each one checks the
+// session caller against the requested school and fails closed (null).
+// ---------------------------------------------------------------------------
+
+export async function getSchoolTimeframes(schoolId: number): Promise<TimeframeData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSchoolTimeframes(schoolId);
 }
 
-function calculatePoints(
-    ruleName: string,
-    input: number,
-    ruleValue: number,
-) : number {
-    const convertPointUsingRuleType = (
-            ruleType: PointConversionRuleType,
-            value: number,
-            input: number,
-            formula: string | null = null
-    ): number => {
-            switch (ruleType) {
-                    case PointConversionRuleType.ADD:
-                            return Number(input) + Number(value);
-                    case PointConversionRuleType.SUBTRACT:
-                            return Number(input) - Number(value);
-                    case PointConversionRuleType.MULTIPLY:
-                            return Number(input) * Number(value);
-                    case PointConversionRuleType.DIVIDE:
-                            return Number(input) / Number(value);
-                    case PointConversionRuleType.FORMULA:
-                            if (!formula) return input;
-                            return eval(formula);
-                    case PointConversionRuleType.DIRECT:
-                            return input;
-            }
-    }
-
-    const stringToRuleType = (ruleType: string): PointConversionRuleType => {
-            switch (ruleType.toLowerCase()) {
-                    case 'add':
-                            return PointConversionRuleType.ADD;
-                    case 'subtract':
-                            return PointConversionRuleType.SUBTRACT;
-                    case 'multiply':
-                            return PointConversionRuleType.MULTIPLY;
-                    case 'divide':
-                            return PointConversionRuleType.DIVIDE;
-                    case 'formula':
-                            return PointConversionRuleType.FORMULA;
-                    case 'direct':
-                            return PointConversionRuleType.DIRECT;
-                    default:
-                            return PointConversionRuleType.DIRECT;
-            }
-    }
-
-    return convertPointUsingRuleType(
-        stringToRuleType(ruleName),
-        ruleValue,
-        input
-    )
+export async function getSelectedOrActiveTimeframe(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<TimeframeData | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSelectedOrActiveTimeframe(schoolId, timeframeId);
 }
+
+export async function getAllTimeframePointEvents(
+    schoolId: number,
+    timeframeId: number | null,
+): Promise<PointEventData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadAllTimeframePointEvents(schoolId, timeframeId);
+}
+
+export async function getSchoolStudents(schoolId: number): Promise<StudentData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSchoolStudents(schoolId);
+}
+
+/**
+ * Staff of the student's school may read any student there. Anyone else may read
+ * only their own student record or a child linked to them via user_student_pair.
+ */
+export async function getStudent(studentId: number): Promise<StudentData | null> {
+    if (!Number.isInteger(studentId)) return null;
+    const access = await getCallerAccess();
+    if (access === null) return null;
+
+    const student = await loadStudent(studentId);
+    if (student === null) return null;
+
+    if (access.staffSchoolIds.includes(student.schoolId)) return student;
+    if (access.studentId === studentId) return student;
+
+    const supabase = await supabaseServiceClient();
+    const { data: pairing } = await supabase.from("user_student_pair")
+        .select("student_id")
+        .eq("student_id", studentId)
+        .eq("user_id", access.userId)
+        .maybeSingle();
+    return pairing ? student : null;
+}
+
+export async function getSchoolPointGroups(schoolId: number): Promise<PointGroupData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSchoolPointGroups(schoolId);
+}
+
+export async function getSchoolStudentGroups(schoolId: number): Promise<StudentGroupData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSchoolStudentGroups(schoolId);
+}
+
+export async function getSchoolRankingGroups(schoolId: number): Promise<RankingGroupData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadSchoolRankingGroups(schoolId);
+}
+
+export async function getRankingGroupPoints(
+    schoolId: number,
+    timeframeId: number | null = null,
+): Promise<RankingGroupPointEventData[] | null> {
+    if (!(await isStaffOfSchool(schoolId))) return null;
+    return loadRankingGroupPoints(schoolId, timeframeId);
+}
+
 
 export async function adminGetGlobalPointStats(
     schoolId: number,
@@ -536,56 +527,16 @@ export async function adminGetGlobalPointStats(
     if (adminData === null) return null;
     if (adminData.schools.find((school) => school === schoolId) === undefined) return null;
 
-    const filters = getDashboardFilters('ADMIN');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
+    return await getGlobalPointStats(schoolId, timeframeId);
 }
 
-export async function featuredDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    const filters = getDashboardFilters('FEATURED');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function mobileDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    const filters = getDashboardFilters('MOBILE');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function studentDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    const filters = getDashboardFilters('STUDENT');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function teacherDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    const filters = getDashboardFilters('TEACHER');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
-export async function globalDashGetGlobalStats(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<GlobalPoints | null> {
-    const filters = getDashboardFilters('GLOBAL');
-    return await getGlobalPointStats(schoolId, timeframeId, filters.numStudentsOverall, filters.numStudentsPerPointGroup, filters.ratioStudentsPerGrade);
-}
-
+/**
+ * ADMIN tier only (adminGetGlobalPointStats, checked against admin_school_pair). Every student of
+ * the school, uncut. Never feed a DISPLAY surface from this: dashboards use getDisplayBoards (D20).
+ */
 async function getGlobalPointStats(
     schoolId: number,
     timeframeId: number | null,
-    numStudentsOverall: number | null,
-    numStudentsPerPointGroup: number | null,
-    ratioStudentsPerGrade: number | null,
 ) : Promise<GlobalPoints | null> {
 
     // --- START: Artificial Delay for Local Testing ---
@@ -607,14 +558,14 @@ async function getGlobalPointStats(
         schoolTimeframes,
         selectedTimeframe,
     ] = await Promise.all([
-        getAllTimeframePointEvents(schoolId, timeframeId),
-        getSchoolStudents(schoolId),
-        getSchoolPointGroups(schoolId),
-        getRankingGroupPoints(schoolId, timeframeId), // Get ranking group points from selected timeframe
-        getSchoolStudentGroups(schoolId),
-        getSchoolRankingGroups(schoolId),
-        getSchoolTimeframes(schoolId),
-        getSelectedOrActiveTimeframe(schoolId, timeframeId)
+        loadAllTimeframePointEvents(schoolId, timeframeId),
+        loadSchoolStudents(schoolId),
+        loadSchoolPointGroups(schoolId),
+        loadRankingGroupPoints(schoolId, timeframeId), // Get ranking group points from selected timeframe
+        loadSchoolStudentGroups(schoolId),
+        loadSchoolRankingGroups(schoolId),
+        loadSchoolTimeframes(schoolId),
+        loadSelectedOrActiveTimeframe(schoolId, timeframeId)
     ]);
 
     // --- Pre-process rankingGroupPoints for efficient lookup --- 
@@ -648,11 +599,8 @@ async function getGlobalPointStats(
                 const isLastMonth = DateTime.fromISO(eventDateISO) <= DateTime.now().minus({ months: 1 });
 
                 pointEvent.studentPoints.forEach((studentPoint) => {
-                    const pointsEarned = calculatePoints(
-                        pointEvent.template.conversionRule.name,
-                        studentPoint.input,
-                        pointEvent.template.conversionRule.value
-                    );
+                    // P-3: the stored point_value is the score. No conversion is re-applied here.
+                    const pointsEarned = studentPoint.input;
 
                     let existingStudent = studentPointsMap.get(studentPoint.studentId);
 
@@ -754,6 +702,7 @@ async function getGlobalPointStats(
         }
         studentsByGrade.get(student.grade)?.push(student);
     });
+
 
     // Group students by point group for ranking
     const studentsByPointGroup = new Map<number, CompiledStudentPoints[]>();
@@ -944,11 +893,7 @@ async function getGlobalPointStats(
         // Calculate points for each student in the event
         const studentsWithPoints = event.studentPoints.map(sp => ({
             id: sp.studentId,
-            points: calculatePoints(
-                event.template.conversionRule.name,
-                sp.input,
-                event.template.conversionRule.value
-            )
+            points: sp.input
         }));
 
         // Sort students within this event by points
@@ -978,21 +923,21 @@ async function getGlobalPointStats(
     });
 
     if (selectedTimeframe === null) {
-        console.log("❌ selectedTimeframe is null, returning null from getGlobalPointStats");
         return null;
     }
 
     // --- Final Mapping Logic (Using Rank Maps & Pre-calculated Group/Event Data) --- 
     // Debug logging for timeframes
-    console.log("=== TIMEFRAME DEBUG ===");
-    console.log("School timeframes:", schoolTimeframes);
-    console.log("Selected timeframe:", selectedTimeframe);
-    console.log("Timeframes being returned:", schoolTimeframes ?? []);
-    console.log("======================");
 
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,
+        categoryStudentCounts: {
+            grades: Object.fromEntries(Array.from(studentsByGrade.entries()).map(([grade, students]) => [grade, students.length])),
+            pointGroups: Object.fromEntries((pointGroups ?? []).map(group => [group.id,
+                allStudentsRanked.filter(student => student.pointGroups.some(points => points.id === group.id && points.points > 0)).length
+            ])),
+        },
         timeframes: schoolTimeframes ?? [],
         grades: allStudentGrades,
         students: allStudentsRanked.map((student) => { // Iterate over the original sorted array
@@ -1030,25 +975,6 @@ async function getGlobalPointStats(
                 monthToMonthChange: student.totalPoints - lastMonthPts,
                 studentGroups: student.studentGroups
             }
-        }).filter((student) => {
-            // This is a privacy filter so that people who are not admins
-            // can't see the full list of students beyond the best
-            if (
-                numStudentsOverall === null ||
-                ratioStudentsPerGrade === null ||
-                numStudentsPerPointGroup === null
-            ) return true;
-            // Use the studentsByGrade map for grade count - UPDATED
-            const gradeStudentCount = studentsByGrade.get(student.grade)?.length ?? 1; 
-            // Check if student is in top N% of grade (using <= to include boundary cases)
-            const studentWithinGradeRatio = student.gradeRank <= Math.ceil(gradeStudentCount * ratioStudentsPerGrade);
-            const studentWithinOverall = student.rank <= numStudentsOverall;
-            const studentWithinPointGroup = 
-                student.pointGroups.find((pointGroup) => {
-                    const rank = pointGroupRankMap.get(pointGroup.id)?.get(student.id) ?? -1;
-                    return rank <= numStudentsPerPointGroup;
-                }) !== undefined;
-            return studentWithinGradeRatio || studentWithinOverall || studentWithinPointGroup;
         }),
         pointGroups: pointGroups ?? [],
         // Use the recalculated and sorted top-level student group data
@@ -1092,12 +1018,7 @@ async function getGlobalPointStats(
         pointEvents: processedPointEventsData?.map((event) => ({
             id: event.id,
             name: event.name,
-            // Recalculate maxPoints (could also be pre-calculated if needed)
-            maxPoints: calculatePoints(
-                event.template.conversionRule.name,
-                event.maxInput,
-                event.template.conversionRule.value
-            ),
+            maxPoints: event.maxInput,
             date: event.date,
             studentGroupId: event.studentGroup.id,
             pointGroup: event.template.pointGroupId,
@@ -1108,149 +1029,5 @@ async function getGlobalPointStats(
                 rank: data.rank
             }))
         })) ?? []
-    }
-}
-
-const NEARBY_STUDENT_COUNT = 2;
-export async function getStudentPointStats(
-    studentId: number | null,
-    timeframeId: number | null,
-) : Promise<StudentPointsData | null> {
-    let verifiedStudentId = studentId;
-    
-    if (verifiedStudentId === null) {
-        const studentData = await getOwnStudentData()
-        if (studentData === null) return null;
-        verifiedStudentId = studentData.id;
-    } else {
-        const adminData = await getAdminData();
-        if (adminData === null) return null;
-        const baseStudentData = await getStudent(verifiedStudentId);
-        if (baseStudentData === null) return null;
-        if (adminData.schools.find((school) => school === baseStudentData.schoolId) === undefined) return null;
-    }
-
-    const baseStudentData = await getStudent(verifiedStudentId);
-    if (baseStudentData === null) return null;
-
-    const globalStats = await getGlobalPointStats(baseStudentData.schoolId, timeframeId, null, null, null);
-    if (globalStats === null) return null;
-
-    const studentIndex = globalStats.students.findIndex((student) => student.id === verifiedStudentId);
-    if (studentIndex === undefined) return null;
-    const studentData = globalStats.students[studentIndex];
-
-    const nearbyStudents =
-        globalStats.students.slice(Math.max(studentIndex - NEARBY_STUDENT_COUNT, 0), Math.min(studentIndex + NEARBY_STUDENT_COUNT, globalStats.students.length));
-
-    const studentsFilteredByGrade = globalStats.students.filter((student) => student.grade === studentData.grade);
-    const studentGradeIndex = studentsFilteredByGrade.findIndex((student) => student.id === verifiedStudentId);
-    const nearbyGradeStudents = studentsFilteredByGrade.slice(Math.max(studentGradeIndex - NEARBY_STUDENT_COUNT, 0), Math.min(studentGradeIndex + NEARBY_STUDENT_COUNT, studentsFilteredByGrade.length));
-    
-    const pointGroupData = globalStats.pointGroups.map((pointGroup) => {
-        const studentsSortedByPointGroupPoints = globalStats.students.sort((a, b) => {
-            const aPoints = a.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0;
-            const bPoints = b.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0;
-            return bPoints - aPoints;
-        })
-        const idx = studentsSortedByPointGroupPoints.findIndex((student) => student.id === verifiedStudentId);
-        const nearbyStudentsData = studentsSortedByPointGroupPoints.slice(Math.max(idx - NEARBY_STUDENT_COUNT, 0), Math.min(idx + NEARBY_STUDENT_COUNT, studentsSortedByPointGroupPoints.length));
-        return {
-            id: pointGroup.id,
-            name: pointGroup.name,
-            color: pointGroup.color,
-            points: studentData.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0,
-            rank: idx + 1,
-            outOf: globalStats.students.length,
-            nearbyStudents: nearbyStudentsData.map((student) => ({
-                studentId: student.id,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                points: student.pointGroups.find((group) => group.id === pointGroup.id)?.points ?? 0,
-                rank: studentsSortedByPointGroupPoints.findIndex((sortedStudent) => sortedStudent.id === student.id) + 1
-            }))
-        }
-    })
-
-    const studentGroupData = globalStats.studentGroups.map((studentGroup) => {
-        const studentsSortedByStudentGroupPoints = globalStats.students
-            .filter((student) => student.studentGroups.find((group) => group === studentGroup.id) !== undefined)
-            .sort((a, b) => {
-                return b.totalPoints - a.totalPoints;
-            })
-        const idx = studentsSortedByStudentGroupPoints.findIndex((student) => student.id === verifiedStudentId);
-        if (idx !== -1) {
-            const nearbyStudentsData = studentsSortedByStudentGroupPoints.slice(Math.max(idx - NEARBY_STUDENT_COUNT, 0), Math.min(idx + NEARBY_STUDENT_COUNT, studentsSortedByStudentGroupPoints.length));
-            return {
-                id: studentGroup.id,
-                name: studentGroup.name,
-                rank: idx + 1,
-                outOf: studentsSortedByStudentGroupPoints.length,
-                nearbyStudents: nearbyStudentsData.map((student) => ({
-                    studentId: student.id,
-                    firstName: student.firstName,
-                    lastName: student.lastName,
-                    points: student.totalPoints,
-                    rank: studentsSortedByStudentGroupPoints.findIndex((sortedStudent) => sortedStudent.id === student.id) + 1
-                }))
-            }
-        }
-    }).filter((studentGroup) => studentGroup !== undefined)
-
-
-    const pointEventsData = globalStats.pointEvents.filter((pointEvent) => {
-        return studentData.studentGroups.find((group) => group === pointEvent.studentGroupId) !== undefined;
-    }).map((pointEvent) => {
-        const studentListCopy = pointEvent.students.map((student) => ({ ...student }));
-        const sortedStudents = studentListCopy
-            .sort((a, b) => b.points - a.points)
-        const idx = sortedStudents.findIndex((student) => student.id === verifiedStudentId);
-        const rank = sortedStudents
-            .filter((student) => student.points !== studentListCopy[idx].points || student.id === verifiedStudentId)
-            .findIndex((student) => student.id === verifiedStudentId) + 1;
-        return {
-            id: pointEvent.id,
-            name: pointEvent.name,
-            maxPoints: pointEvent.maxPoints,
-            date: pointEvent.date,
-            rank: rank === 0 ? pointEvent.students.length : rank,
-            outOf: pointEvent.students.length,
-            points: studentListCopy[idx].points,
-            pointGroup: {
-                id: pointEvent.pointGroup,
-                name: globalStats.pointGroups.find((group) => group.id === pointEvent.pointGroup)?.name ?? "",
-                color: globalStats.pointGroups.find((group) => group.id === pointEvent.pointGroup)?.color ?? ""
-            }
-        }
-    });
-
-    return {
-        schoolId: baseStudentData.schoolId,
-        studentId: baseStudentData.id,
-        firstName: baseStudentData.firstName,
-        lastName: baseStudentData.lastName,
-        grade: baseStudentData.grade,
-        gradeRank: studentData.gradeRank,
-        gradeOutOf: globalStats.students.filter((student) => student.grade === baseStudentData.grade).length,
-        totalPoints: studentData.totalPoints,
-        totalRank: studentData.rank,
-        totalOutOf: globalStats.totalStudents,
-        nearbyStudents: nearbyStudents.map((student) => ({
-            studentId: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            totalPoints: student.totalPoints,
-            rank: student.rank
-        })),
-        nearbyGradeStudents: nearbyGradeStudents.map((student) => ({
-            studentId: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            points: student.totalPoints,
-            rank: student.gradeRank
-        })),
-        pointGroups: pointGroupData,
-        studentGroups: studentGroupData,
-        pointEvents: pointEventsData
     }
 }

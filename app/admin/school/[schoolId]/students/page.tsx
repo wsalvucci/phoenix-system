@@ -39,6 +39,8 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>(SortType.LastName);
   const [sortDirection, setSortDirection] = useState<SortDirection>(SortDirection.Ascending);
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<AdminStudentData | null>(null);
 
@@ -79,10 +81,11 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
 
   // Filter and sort students
   const filteredAndSortedStudents = students?.filter(student =>
-    student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (gradeFilter === 'all' || student.grade.toString() === gradeFilter) &&
+    (student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (student.powerschoolId?.toString() || '').includes(searchTerm) ||
-    (student.linkCode || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (student.linkCode || '').toLowerCase().includes(searchTerm.toLowerCase()))
   ).sort((a, b) => {
     let comparison = 0;
     switch (sortBy) {
@@ -104,6 +107,10 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
     }
     return sortDirection === SortDirection.Ascending ? comparison : -comparison;
   }) || [];
+  const pageSize = 25;
+  const pageCount = Math.max(1, Math.ceil(filteredAndSortedStudents.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visibleStudents = filteredAndSortedStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Handle create student
   const handleCreateStudent = async (e: React.FormEvent) => {
@@ -325,8 +332,11 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
 
   return (
     <div className="h-full overflow-y-auto p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Students Management</h1>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Students</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Find students, review memberships, and manage records.</p>
+        </div>
         <div className="flex gap-2">
           <MotionButton
             onClick={() => setShowBulkImport(!showBulkImport)}
@@ -556,13 +566,24 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
       )}
 
       {/* Search and Sort Controls */}
-      <div className="flex gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-3 mb-6 md:grid-cols-[minmax(240px,1fr)_auto_auto_auto]">
         <ThemeInput
           placeholder="Search students..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
           className="flex-1"
         />
+        <ThemeSelect
+          value={gradeFilter}
+          onChange={(e) => { setGradeFilter(e.target.value); setPage(1); }}
+          aria-label="Filter by grade"
+        >
+          <option value="all">All grades</option>
+          <option value="9">Grade 9</option>
+          <option value="10">Grade 10</option>
+          <option value="11">Grade 11</option>
+          <option value="12">Grade 12</option>
+        </ThemeSelect>
         <ThemeSelect
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortType)}
@@ -616,7 +637,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                  {filteredAndSortedStudents.map((student) => (
+                  {visibleStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Link href={`/admin/school/${schoolId}/student/${student.id}`}>
@@ -644,9 +665,10 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex items-center gap-1">
                           {student.groupIds && student.groupIds.length > 0 ? (
-                            student.groupIds.map((groupId) => {
+                            <>
+                            {student.groupIds.slice(0, 2).map((groupId) => {
                               const group = groups?.find(g => g.id === groupId);
                               return (
                                 <span
@@ -656,7 +678,13 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                                   {group ? group.name : `Group #${groupId}`}
                                 </span>
                               );
-                            })
+                            })}
+                            {student.groupIds.length > 2 && (
+                              <span className="text-xs text-slate-500" title={student.groupIds.map(groupId => groups?.find(group => group.id === groupId)?.name || `Group #${groupId}`).join(', ')}>
+                                +{student.groupIds.length - 2} more
+                              </span>
+                            )}
+                            </>
                           ) : (
                             <span className="text-slate-400 text-xs">No groups</span>
                           )}
@@ -690,9 +718,14 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
       </LoadingState>
 
       {/* Summary */}
-      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
-        Showing {filteredAndSortedStudents.length} of {students?.length || 0} students
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600 dark:text-slate-400">
+        <span>Showing {visibleStudents.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filteredAndSortedStudents.length)} of {filteredAndSortedStudents.length} matching students</span>
+        <div className="flex items-center gap-2">
+          <button className="rounded border px-3 py-2 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</button>
+          <span>Page {currentPage} of {pageCount}</span>
+          <button className="rounded border px-3 py-2 disabled:opacity-40" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}>Next</button>
+        </div>
       </div>
     </div>
   );
-} 
+}

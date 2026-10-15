@@ -94,7 +94,6 @@ export async function getOwnTeacherData(): Promise<Teacher | null> {
         const teacher: Teacher = {
             id: teacherData.id,
             schoolId: teacherData.school_id,
-            linkCode: teacherData.link_code,
             firstName: teacherData.first_name,
             lastName: teacherData.last_name,
             linkedUserId: teacherData.linked_user,
@@ -160,7 +159,6 @@ export async function getTeacherDataWithContext(): Promise<Teacher | null> {
         const teacher: Teacher = {
             id: teacherData.id,
             schoolId: teacherData.school_id,
-            linkCode: teacherData.link_code,
             firstName: teacherData.first_name,
             lastName: teacherData.last_name,
             linkedUserId: teacherData.linked_user,
@@ -338,7 +336,6 @@ export async function getAllTeacherRecords(): Promise<Teacher[]> {
         const teachers: Teacher[] = teacherDataArray.map(teacherData => ({
             id: teacherData.id,
             schoolId: teacherData.school_id,
-            linkCode: teacherData.link_code,
             firstName: teacherData.first_name,
             lastName: teacherData.last_name,
             linkedUserId: teacherData.linked_user,

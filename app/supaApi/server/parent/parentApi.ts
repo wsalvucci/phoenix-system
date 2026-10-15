@@ -2,6 +2,8 @@
 
 import getOwnUserData from "../getOwnUserData";
 import supabaseServiceClient from "../supabaseServiceClient";
+import { redeemLinkCode } from "../link/linkCodeActions";
+import { linkFailureMessage } from "@/lib/linkCode";
 
 export async function getStudentsOfParent(): Promise<{ id: number, fullName: string }[]> {
     const userData = await getOwnUserData()
@@ -27,47 +29,14 @@ export async function getStudentsOfParent(): Promise<{ id: number, fullName: str
     })
 }
 
+// Delegates to the rate-limited, uniform-failure redeem_link_code RPC (BACKEND_PLAN.md §6.3,
+// DATA_DISCLOSURE.md §10.11). The code is never echoed or logged.
 export async function linkStudentToParent(
     schoolId: number,
     linkCode: string
 ): Promise<{ error?: string }> {
-    const userData = await getOwnUserData()
-    if (!userData) {
-        return { error: "No user data found" }
-    }
-
-    const supabase = await supabaseServiceClient();
-
-    const { data: studentData, error: studentDataError } =
-        await supabase
-            .from("student")
-            .select("id, school_id")
-            .eq("link_code", linkCode)
-            .eq("school_id", schoolId)
-            .single()
-
-    if (studentDataError) {
-        console.error(studentDataError.message)
-
-        if (studentData === null) {
-            return { error: "No student data found" }
-        }
-
-        return { error: "Error getting student data" }
-    }
-
-    const { data: _, error: insertStudentDataError } =
-        await supabase.from("user_student_pair").insert({
-            user_id: userData.id,
-            student_id: studentData.id
-        })
-
-    if (insertStudentDataError) {
-        console.error(insertStudentDataError.message)
-        return { error: "Error linking student to account" }
-    }
-
-    return {}
+    const { status } = await redeemLinkCode("parent_link", schoolId, linkCode)
+    return status === "linked" ? {} : { error: linkFailureMessage(status) }
 }
 
 export async function deleteStudentFromParent(
@@ -119,10 +88,6 @@ export type ParentStudentData = {
         id: number,
         name: string,
         date: string,
-        template: {
-            ruleType: string,
-            ruleValue: number
-        },
         pointGroup: {
             id: number,
             name: string,
@@ -172,7 +137,7 @@ export async function getStudentDataForParent(
 
     const { data: allStudentData, error: allStudentDataError } =
         await supabase.from("student")
-            .select("*, student_group (*), student_point (*, point_event (*, student_group (*), point_template (conversion_rule_value, point_group (*), point_conversion_rule_type (*))))")
+            .select("*, student_group (*), student_point (*, point_event (*, student_group (*), point_template (point_group (*))))")
             .eq("school_id", studentData.school_id)
 
     if (allStudentDataError) return null
@@ -228,10 +193,6 @@ export async function getStudentDataForParent(
                     id: studentPoint.point_event?.id ?? -1,
                     name: studentPoint.point_event?.name ?? "",
                     date: studentPoint.point_event?.date ?? "",
-                    template: {
-                        ruleType: studentPoint.point_event?.point_template?.point_conversion_rule_type?.name ?? "direct",
-                        ruleValue: studentPoint.point_event?.point_template?.conversion_rule_value ?? 0
-                    },
                     pointGroup: {
                         id: studentPoint.point_event?.point_template?.point_group?.id ?? -1,
                         name: studentPoint.point_event?.point_template?.point_group?.name ?? "",
@@ -271,10 +232,6 @@ export async function getStudentDataForParent(
                     id: number,
                     name: string,
                     date: string,
-                    template: {
-                        ruleType: string,
-                        ruleValue: number
-                    },
                     pointGroup: {
                         id: number,
                         name: string,

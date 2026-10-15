@@ -78,6 +78,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                 {data.school.name} - Admin Dashboard
                             </h1>
                             <p className="text-muted-foreground">Comprehensive overview and management</p>
+                            <Link href={`/dashboard?school=${schoolId}`} className="inline-flex min-h-[44px] items-center text-sm text-muted-foreground hover:underline">Open hallway display</Link>
                         </div>
                         <div className="flex space-x-2">
                             <Link href={`/admin/school/${schoolId}/students`}>

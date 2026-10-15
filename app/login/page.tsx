@@ -4,11 +4,12 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
 import { ForgotPassButton } from "./forgot-pass-button";
+import { safeNextPath } from "@/lib/safeRedirect";
 
 export default function Login({
   searchParams,
 }: {
-  searchParams: { message: string };
+  searchParams: { message?: string; next?: string };
 }) {
   const signIn = async (formData: FormData) => {
     "use server";
@@ -23,10 +24,13 @@ export default function Login({
     });
 
     if (error) {
-      return redirect("/login?message=Could not authenticate user");
+      const back = safeNextPath(formData.get("next"), "");
+      const nextPart = back ? `&next=${encodeURIComponent(back)}` : "";
+      return redirect(`/login?message=${encodeURIComponent("That email and password do not match. Try again or reset your password.")}${nextPart}`);
     }
 
-    return redirect("/");
+    // Same-origin paths only; anything else goes home.
+    return redirect(safeNextPath(formData.get("next")));
   };
 
   const signUp = async (formData: FormData) => {
@@ -77,12 +81,16 @@ export default function Login({
       </Link>
 
       <form className="animate-in flex-1 flex flex-col w-full justify-center gap-2 text-foreground">
+        <input type="hidden" name="next" value={safeNextPath(searchParams?.next)} />
         <label className="text-md" htmlFor="email">
           Email
         </label>
         <input
           className="rounded-md px-4 py-2 bg-inherit border mb-6"
           name="email"
+          id="email"
+          type="email"
+          autoComplete="email"
           placeholder="you@example.com"
           required
         />
@@ -92,6 +100,8 @@ export default function Login({
         <input
           className="rounded-md px-4 py-2 bg-inherit border mb-6"
           type="password"
+          id="password"
+          autoComplete="current-password"
           name="password"
           placeholder="••••••••"
           required

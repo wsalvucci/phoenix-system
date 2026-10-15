@@ -1,720 +1,119 @@
 "use client";
-import { backgroundGradient, numberToOrdinal, rankToColor } from "@/app/dataClasses";
-import { createClient } from "@/utils/supabase/client";
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react"
-import { Roboto_Mono } from "next/font/google";
-import { FaMedal } from "react-icons/fa"
-import Color from "color";
-import { GlobalPoints } from "@/app/supaApi/universal/utils/types";
-import { featuredDashGetGlobalStats } from "@/app/supaApi/universal/universalApi";
-import { useQuery } from "@tanstack/react-query";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { createClient } from '@/utils/supabase/client';
+import type { DisplayBoards } from '@/app/supaApi/universal/displayTypes';
+import { WallStage } from '@/components/display/WallStage';
+import { BoardScene } from '@/components/display/BoardScene';
+import { EventsScene, MessageScene, SpotlightScene } from '@/components/display/ExtraScenes';
+import { WallControls } from '@/components/display/WallControls';
+import { buildScenes, type Scene } from './displayData';
 
-const monoFont = Roboto_Mono({
-    subsets: ["latin"]
-})
+const TICK = 0.25;
 
-enum Category {
-    OVERALL = 0,
-    POINT_GROUP = 1,
-    GRADE = 2,
-    STUDENT_GROUP = 3,
-    TRENDING = 4
-}
+/**
+ * The rotating hallway wall. Each scene is one board, a spotlight or the upcoming events. New data
+ * is held until the next scene boundary so a ledger never reshuffles in view.
+ */
+export default function AnimatedFeatured({ data, timeframe, onTimeframeChange, updatedAt, offline }: {
+  data: DisplayBoards; timeframe: number | null; onTimeframeChange: (id: number | null) => void; updatedAt: number; refreshing: boolean; offline: boolean;
+}) {
+  const client = useQueryClient();
+  const reducedMotion = !!useReducedMotion();
+  const [sequence, setSequence] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [dwell, setDwell] = useState(20);
+  const [visible, setVisible] = useState(true);
+  const [shown, setShown] = useState(data);
+  const [pulse, setPulse] = useState(0);
+  const latest = useRef(data);
+  latest.current = data;
 
-type NavigationState = {
-    currentCategory: Category,
-    pointGroups: {
-        currentGroupIdx: number,
-        groups: {
-            id: number,
-            title: string
-        }[]
-    },
-    grades: {
-        currentGradeIdx: number,
-        grades: {
-            title: string
-        }[]
-    },
-    rankingGroups: {
-        currentGroupIdx: number,
-        groups: {
-            id: number,
-            name: string
-        }[]
-    }
-}
+  const scenes = useMemo(() => buildScenes(shown), [shown]);
+  const count = scenes.length;
+  const index = ((sequence % count) + count) % count;
+  const scene = scenes[index];
+  const cycle = Math.floor(Math.max(sequence, 0) / count);
+  const rotating = count > 1;
+  const running = !paused && visible;
+  const term = shown.timeframes.find(t => t.id === shown.timeframeId)?.name ?? null;
 
-
-export default function AnimatedFeatured(
-    {
-        initGlobalDashData: initFeaturedDashData,
-    }: {
-        initGlobalDashData: GlobalPoints,
-    }
-) {
-    const [selectedTimeframeId, setSelectedTimeframeId] = useState<number | null>(null);
-    
-    const { data: featuredDashData, isLoading, error } = useQuery({
-        queryKey: ["featured", selectedTimeframeId],
-        queryFn: () => featuredDashGetGlobalStats(12, selectedTimeframeId),
-        initialData: initFeaturedDashData
-    });
-    const [curNavigationState, setCurNavigationState] = useState<NavigationState>({
-        currentCategory: 1,
-        pointGroups: {
-            currentGroupIdx: 0,
-            groups: featuredDashData?.pointGroups?.map((pointGroup) => {
-                return {
-                    id: pointGroup.id,
-                    title: pointGroup.name
-                }
-            }) || []
-        },
-        grades: {
-            currentGradeIdx: 0,
-            grades: [9, 10, 11, 12].map((grade) => {
-                return {
-                    title: grade.toString()
-                }
-            })
-        },
-        rankingGroups: {
-            currentGroupIdx: 0,
-            groups: featuredDashData?.rankingGroups?.map((rankingGroup) => {
-                return {
-                    id: rankingGroup.id,
-                    name: rankingGroup.name
-                }
-            }) ?? []
-        }
-    })
-    const [curProgress, setCurProgress] = useState<{ [id: number]: { value: number } }>({})
-
-    const [paused, setPaused] = useState<boolean>(false)
-    const [intervalLength, setIntervalLength] = useState<number>(20000)
-    const [passedTime, setPassedTime] = useState<number>(0)
-
-    console.log("=== CLIENT-SIDE FEATURED DASH DATA ===");
-    console.log("Timeframes count:", featuredDashData?.timeframes?.length);
-    console.log("Timeframes:", featuredDashData?.timeframes);
-    console.log("Active timeframe:", featuredDashData?.timeframes?.find(tf => tf.isActive));
-    console.log("Sample student data:", featuredDashData?.students?.slice(0, 3)?.map(s => ({
-        id: s.id,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        totalPoints: s.totalPoints,
-        pointGroups: s.pointGroups?.map(pg => ({ id: pg.id, points: pg.points }))
-    })));
-    console.log("=====================================");
-
-    if (isLoading) {
-        return (
-            <div className="flex justify-center items-center h-full w-full">
-                <p className="text-white text-2xl">Loading featured dashboard...</p>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex justify-center items-center h-full w-full">
-                <p className="text-red-400 text-2xl">Error loading dashboard: {error.message}</p>
-            </div>
-        );
-    }
-
-    if (!featuredDashData) {
-        return (
-            <div className="flex justify-center items-center h-full w-full">
-                <p className="text-white text-2xl">No data available</p>
-            </div>
-        );
-    }
-
-    function decrementDav() {
-        setPassedTime(0)
-        setCurNavigationState((lastState) => {
-            if (lastState.currentCategory === Category.OVERALL) {
-                return {
-                    ...lastState,
-                    currentCategory: Category.STUDENT_GROUP,
-                    rankingGroups: {
-                        ...lastState.rankingGroups,
-                        currentGroupIdx: lastState.rankingGroups.groups.length - 1
-                    }
-                }
-            } else if (lastState.currentCategory === Category.POINT_GROUP) {
-                if (lastState.pointGroups.currentGroupIdx - 1 >= 0) {
-                    return {
-                        ...lastState,
-                        pointGroups: {
-                            ...lastState.pointGroups,
-                            currentGroupIdx: lastState.pointGroups.currentGroupIdx - 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.OVERALL,
-                        pointGroups: {
-                            ...lastState.pointGroups,
-                            currentGroupIdx: 0
-                        }
-                    }
-                }
-            } else if (lastState.currentCategory === Category.GRADE) {
-                if (lastState.grades.currentGradeIdx - 1 >= 0) {
-                    return {
-                        ...lastState,
-                        grades: {
-                            ...lastState.grades,
-                            currentGradeIdx: lastState.grades.currentGradeIdx - 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.POINT_GROUP,
-                        grades: {
-                            ...lastState.grades,
-                            currentGradeIdx: 0
-                        },
-                        pointGroups: {
-                            ...lastState.pointGroups,
-                            currentGroupIdx: lastState.pointGroups.groups.length - 1
-                        }
-                    }
-                }
-            } else if (lastState.currentCategory === Category.STUDENT_GROUP) {
-                if (lastState.rankingGroups.currentGroupIdx - 1 >= 0) {
-                    return {
-                        ...lastState,
-                        rankingGroups: {
-                            ...lastState.rankingGroups,
-                            currentGroupIdx: lastState.rankingGroups.currentGroupIdx - 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.GRADE,
-                        rankingGroups: {
-                            ...lastState.rankingGroups,
-                            currentGroupIdx: 0
-                        },
-                        grades: {
-                            ...lastState.grades,
-                            currentGradeIdx: lastState.grades.grades.length - 1
-                        }
-                    }
-                }
-            } // TODO: Remaining categories
-
-            return lastState
-        })
-    }
-
-    function incrementNav() {
-        setPassedTime(0)
-        setCurNavigationState((lastState) => {
-            if (lastState.currentCategory === Category.OVERALL) {
-                return {
-                    ...lastState,
-                    currentCategory: Category.POINT_GROUP
-                }
-            } else if (lastState.currentCategory === Category.POINT_GROUP) {
-                if (lastState.pointGroups.currentGroupIdx + 1 < lastState.pointGroups.groups.length) {
-                    return {
-                        ...lastState,
-                        pointGroups: {
-                            ...lastState.pointGroups,
-                            currentGroupIdx: lastState.pointGroups.currentGroupIdx + 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.GRADE,
-                        pointGroups: {
-                            ...lastState.pointGroups,
-                            currentGroupIdx: 0
-                        }
-                    }
-                }
-            } else if (lastState.currentCategory === Category.GRADE) {
-                if (lastState.grades.currentGradeIdx + 1 < lastState.grades.grades.length) {
-                    return {
-                        ...lastState,
-                        grades: {
-                            ...lastState.grades,
-                            currentGradeIdx: lastState.grades.currentGradeIdx + 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.STUDENT_GROUP,
-                        grades: {
-                            ...lastState.grades,
-                            currentGradeIdx: 0
-                        }
-                    }
-                }
-            } else if (lastState.currentCategory === Category.STUDENT_GROUP) {
-                if (lastState.rankingGroups.currentGroupIdx + 1 < lastState.rankingGroups.groups.length) {
-                    return {
-                        ...lastState,
-                        rankingGroups: {
-                            ...lastState.rankingGroups,
-                            currentGroupIdx: lastState.rankingGroups.currentGroupIdx + 1
-                        }
-                    }
-                } else {
-                    return {
-                        ...lastState,
-                        currentCategory: Category.OVERALL,
-                        rankingGroups: {
-                            ...lastState.rankingGroups,
-                            currentGroupIdx: 0
-                        }
-                    }
-                }
-            } // TODO: Remaining categories
-
-            return lastState
-        })
-    }
-
-    useEffect(() => {
-        const timePassedInterval = setInterval(() => {
-            if (paused) return
-            if ((passedTime + 1000) >= intervalLength) {
-                setPassedTime(0)
-                incrementNav()
-            } else {
-                setPassedTime((prevTime) => prevTime + 1000)
-            }
-        }, 1000)
-
-        return () => clearInterval(timePassedInterval)
-    }, [featuredDashData, paused, passedTime])
-
-    const updateData = (timeframe: number | null = null) => {
-        console.log("=== UPDATE DATA CALLED ===");
-        console.log("Requested timeframe ID:", timeframe);
-        setSelectedTimeframeId(timeframe);
-    }
-
+  // Live updates: the existing broadcast refetches; the data swaps in at the next scene boundary.
+  useEffect(() => {
     const supabase = createClient();
-    const broadcastChannel = supabase.channel("student-points-channel");
+    const channel = supabase.channel('student-points-channel').on('broadcast', { event: 'sync' }, () => {
+      void client.invalidateQueries({ queryKey: ['featured'] });
+    }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [client]);
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden);
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
 
-    broadcastChannel.on(
-        'broadcast',
-        { event: 'sync' },
-        (payload) => {
-            console.log('Received broadcast:', payload);
-            updateData();
-        }
-    ).subscribe();
+  // Scene boundary: adopt the newest data and give the divider its 600 ms shimmer.
+  useEffect(() => {
+    if (latest.current === shown) return;
+    setShown(latest.current);
+    setPulse(p => p + 1);
+    const t = setTimeout(() => setPulse(0), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequence]);
+  // With a single scene there is no boundary: adopt new data as it arrives.
+  useEffect(() => {
+    if (!rotating && latest.current !== shown) { setShown(latest.current); setPulse(p => p + 1); const t = setTimeout(() => setPulse(0), 700); return () => clearTimeout(t); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updatedAt]);
 
-    function StudentBar({
-        student,
-        index,
-        rankChange,
-        arrayLength,
-        firstPlacePoints,
-        breakdownPoints
-    }: {
-        student: {
-            id: number,
-            points: number,
-            firstName: string,
-            lastName: string
-        },
-        index: number,
-        rankChange: number | null,
-        arrayLength: number,
-        firstPlacePoints: number,
-        breakdownPoints: {
-            pointGroupColor: string,
-            pointGroupId: number,
-            points: number
-        }[] | null
-    }) {
-        const percentOfFirst = (student.points || 0) / (firstPlacePoints || 1)
-        let breakdownGradient : string | null = null
-        if (breakdownPoints !== null) {
-            breakdownGradient = backgroundGradient(breakdownPoints.map((pointGroup) => {
-                return {
-                    color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
-                    percent: ((pointGroup.points || 0) / (student.points || 1)) * 100
-                }
-            }))
-        }
-        return (
-            <motion.div
-                className={`grid py-2 text-2xl`}
-                style={{
-                    gridTemplateColumns: '1fr 3fr',
-                    zIndex: index
-                }}
-                key={student.id}
-                layout
-                transition={{
-                    layout: { duration: 0.5 }
-                }}
-            >
-                <motion.div
-                    className="border-b border-e"
-                    animate={{
-                        borderRightColor: 'white',
-                        borderBottomColor: rankToColor(index + 1).darken(0.5).toString(),
-                    }}
-                    transition={{
-                        duration: 1 * percentOfFirst
-                    }}
-                >
-                    <div
-                        className="grid"
-                        style={{
-                            gridTemplateColumns: '75px 75px 5fr',
-                        }}
-                    >
+  useEffect(() => {
+    if (!running || !rotating) return;
+    const timer = setInterval(() => setElapsed(e => e + TICK), TICK * 1000);
+    return () => clearInterval(timer);
+  }, [running, rotating]);
+  useEffect(() => {
+    if (rotating && elapsed >= dwell) { setSequence(s => s + 1); setElapsed(0); }
+  }, [elapsed, dwell, rotating]);
 
-                        {
-                            index < 3 ?
-                                <div className="px-3 flex justify-center">
-                                    <FaMedal color={rankToColor(index + 1).toString()} />
-                                </div>
-                                :
-                                <div className="px-3 flex justify-start items-center">
-                                    {numberToOrdinal(index + 1)}
-                                </div>
-                        }
-                        {
-                            rankChange !== null  && rankChange !== 0 ?
-                            <div className="px-3 flex justify-start items-center" style={{
-                                color: rankChange > 0 ? 'green' : 'red',
-                            }}>
-                                {rankChange > 0 ? <FontAwesomeIcon icon={faArrowUp} /> : <FontAwesomeIcon icon={faArrowDown} />} {Math.abs(rankChange)}
-                            </div> : <div className="px-3 flex justify-start items-center"/>
-                        }
-                        <motion.div
-                            className={`flex justify-start px-3 font-normal text-nowrap overflow-hidden`}
-                            animate={{
-                                backgroundColor: rankToColor(index + 1).darken(0.5).toString()
-                            }}>
-                            {student.firstName} {student.lastName}
-                        </motion.div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    className="px-3 flex justify-start align-middle"
-                    style={{
-                        background: breakdownPoints !== null ? backgroundGradient(breakdownPoints.reduce((acc, pointGroup) => {
-                            let curPct = 0
-                            if (acc.length > 0) {
-                                curPct = acc[acc.length - 1].percent
-                                acc.push({
-                                    color: Color(acc[acc.length - 1].color).darken(0.5).toString(),
-                                    percent: curPct
-                                })
-                            }
-                            acc.push({
-                                color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
-                                percent: curPct
-                            })
-                            acc.push({
-                                color: Color(pointGroup.pointGroupColor).darken(0.5).toString(),
-                                percent: ((pointGroup.points || 0) / (student.points || 1)) * 100 + curPct
-                            })
-                            return acc
-                        }, [] as { color: string, percent: number }[])) : backgroundGradient([
-                            { color: rankToColor(index + 1).darken(0.5).toString(), percent: 0 },
-                            { color: rankToColor(index + 1).darken(0.5).toString(), percent: 75 },
-                            { color: rankToColor(index + 1).lighten(0.75).toString(), percent: 100 }
-                        ])
-                    }}
-                    initial={{ width: '0%' }}
-                    animate={{
-                        width: `${percentOfFirst * 100}%`,
-                    }}
-                    onUpdate={(latest) => {
-                        // Funny trick. Mulitiplying by the current width means that the max width is <100% for everyone
-                        // except first place, so the animation progress is the current % width / the final % width, which
-                        // will only be 100% for 1st place and < 100% for everyone else
-                        const value = (Number(latest.width.toString().slice(0, -1)) / 100) / percentOfFirst
-                        setCurProgress((lastState) => ({
-                            ...lastState,
-                            [student.id]: { value },
-                        }));
-                    }}
-                    transition={{ duration: 1 * percentOfFirst }}
-                >
-                    <motion.div
-                        className={`flex items-center ${monoFont.className}`}
-                    >
-                        {(() => {
-                            const points = student.points || 0;
-                            const progress = curProgress[student.id]?.value ?? 0;
-                            const result = points * progress;
-                            return Math.round(isNaN(result) ? 0 : result).toLocaleString();
-                        })()}
-                    </motion.div>
-                </motion.div>
-            </motion.div>
-        )
+  const go = useCallback((delta: number) => { setSequence(s => s + delta); setElapsed(0); }, []);
+
+  const renderScene = (s: Scene) => {
+    switch (s.kind) {
+      case 'board': return <BoardScene slide={s.slide} pulse={pulse} />;
+      case 'spotlight': {
+        const rows = shown.overall.rows;
+        const row = rows[cycle % rows.length];
+        return row ? <SpotlightScene row={row} pulse={pulse} /> : null;
+      }
+      case 'events': return <EventsScene events={s.events} pulse={pulse} />;
+      case 'message': return <MessageScene heading={s.heading} sub={s.sub} />;
     }
+  };
 
-    function OverallTop20() {
-        return (
-            <AnimatePresence>
-                {
-                    featuredDashData?.students
-                    ?.sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
-                    .slice(0, 20)
-                    .map((student, index, array) => {
-                        return (
-                            StudentBar(
-                                {
-                                    student: {
-                                        id: student.id,
-                                        points: student.totalPoints || 0,
-                                        firstName: student.firstName,
-                                        lastName: student.lastName
-                                    },
-                                    index: index,
-                                    rankChange: student.lastMonthRank - student.rank,
-                                    arrayLength: array.length,
-                                    firstPlacePoints: array.at(0)?.totalPoints || 0,
-                                    breakdownPoints: student.pointGroups.map((pointGroup) => {
-                                        return {
-                                            pointGroupColor: featuredDashData?.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
-                                            pointGroupId: pointGroup.id,
-                                            points: pointGroup.points || 0
-                                        }
-                                    })
-                                },
-
-                            )
-                        )
-                    })
-                }
-            </AnimatePresence>
-        )
-    }
-
-    function PointGroupTop20() {
-        return (
-            <AnimatePresence>
-                {
-                    featuredDashData
-                        ?.students
-                        ?.sort((a, b) =>
-                            (b.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0) -
-                            (a.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0)
-                        )
-                        .slice(0, 20)
-                        .map((student, index, array) => {
-                            return (
-                                StudentBar(
-                                    {
-                                        student: {
-                                            id: student.id,
-                                            points: student.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0,
-                                            firstName: student.firstName,
-                                            lastName: student.lastName
-                                        },
-                                        index: index,
-                                        rankChange: null,
-                                        arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.pointGroups.find((pg) => pg.id === curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.id)?.points || 0,
-                                        breakdownPoints: null
-                                    },
-
-                                )
-                            )
-                        })
-                }
-            </AnimatePresence>
-        )
-    }
-
-    function GradeTop20() {
-        const selectedGrade = parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? '');
-        const studentsInGrade = featuredDashData?.students?.filter(
-            (student) => student.grade === selectedGrade
-        ) ?? [];
-        const topGradeStudents = [...studentsInGrade]
-            .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0))
-            .slice(0, 20);
-        
-        return (
-            <AnimatePresence>
-                {
-                    topGradeStudents
-                        .map((student, index, array) => {
-                            return (
-                                StudentBar(
-                                    {
-                                        student: {
-                                            id: student.id,
-                                            points: student.totalPoints || 0,
-                                            firstName: student.firstName,
-                                            lastName: student.lastName
-                                        },
-                                        index: index,
-                                        rankChange: null,
-                                        arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.totalPoints || 0,
-                                        breakdownPoints: student.pointGroups.map((pointGroup) => {
-                                            return {
-                                                pointGroupColor: featuredDashData?.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
-                                                pointGroupId: pointGroup.id,
-                                                points: pointGroup.points || 0
-                                            }
-                                        })
-                                    },
-
-                                )
-                            )
-                        })
-                }
-            </AnimatePresence>
-        )
-    }
-
-    function TopStudentGroups() {
-        return (
-            <AnimatePresence>
-                {
-                    featuredDashData
-                        ?.studentGroups
-                        ?.filter((group) => featuredDashData?.rankingGroups.find((rg) => rg.id === curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.id)?.studentGroups.find((sg) => sg.id === group.id) !== undefined)
-                        .map((group) => {
-                            return {
-                                id: group.id,
-                                name: group.name,
-                                averagePoints: group.averagePoints + group.rawPoints
-                            }
-                        })
-                        .sort((a, b) => (b.averagePoints ?? 0) - (a.averagePoints ?? 0)).map((studentGroup, index, array) => {
-                            return (
-                                StudentBar(
-                                    {
-                                        student: {
-                                            id: studentGroup.id,
-                                            points: studentGroup.averagePoints || 0,
-                                            firstName: studentGroup.name,
-                                            lastName: ''
-                                        },
-                                        index: index,
-                                        rankChange: null,
-                                        arrayLength: array.length,
-                                        firstPlacePoints: array.at(0)?.averagePoints || 0,
-                                        breakdownPoints: featuredDashData?.studentGroups.find((sg) => sg.id === studentGroup.id)?.pointGroups.map((pointGroup) => {
-                                            return {
-                                                pointGroupColor: featuredDashData?.pointGroups.find((pg) => pg.id === pointGroup.id)?.color ?? 'black',
-                                                pointGroupId: pointGroup.id,
-                                                points: (pointGroup.points || 0) / (featuredDashData?.studentGroups.find((sg) => sg.id === studentGroup.id)?.totalStudents || 1)
-                                            }
-                                        }) ?? null
-                                    },
-
-                                )
-                            )
-                        })
-                }
-            </AnimatePresence>
-        )
-    }
-
-    return (
-        <div
-            className={`p-3 text-slate-100 font-bold`}
+  const fade = { duration: reducedMotion ? 0 : 0.3, ease: 'easeOut' as const };
+  return (
+    <WallStage term={term} status={offline ? 'offline' : paused ? 'paused' : 'live'} progress={rotating ? elapsed / dwell : null}>
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={`${scene.id}-${cycle}`}
+          className="hb-scene"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: fade }}
+          exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.2, ease: 'easeOut' } }}
         >
-            <div className="h-1 bg-green-500" style={{
-                width: `${(passedTime / intervalLength) * 100}%`
-            }}/>
-            <div>
-                <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={() => { decrementDav() }}
-                >
-                    Previous
-                </button>
-                <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={() => { setPaused(!paused) }}
-                >
-                    {
-                        paused ? 'Resume' : 'Pause'
-                    }
-                </button>
-                <button className="border-gray-500 border-2 rounded-lg px-3 my-1 mx-1 hover:bg-slate-700"
-                    onClick={() => { incrementNav() }}
-                >
-                    Next
-                </button>
-                <select
-                    className="px-3 py-1 bg-transparent text-white"
-                    defaultValue={intervalLength}
-                    onChange={(e) => {
-                        setIntervalLength(parseInt(e.target.value))
-                    }}
-                >
-                    <option className="text-black" key={10} value={10000}>10s</option>
-                    <option className="text-black" key={20} value={20000}>20s</option>
-                    <option className="text-black" key={30} value={30000}>30s</option>
-                    <option className="text-black" key={45} value={45000}>45s</option>
-                    <option className="text-black" key={60} value={60000}>60s</option>
-                    <option className="text-black" key={90} value={90000}>90s</option>
-                    <option className="text-black" key={120} value={120000}>120s</option>
-                </select>
-                <select
-                    className="px-3 py-1 bg-transparent text-white"
-                    value={selectedTimeframeId || featuredDashData?.timeframes.find((timeframe) => timeframe.isActive)?.id || ""}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        updateData(value === "" ? null : parseInt(value));
-                    }}
-                    >
-                        <option value="">Active Timeframe</option>
-                        {
-                            (() => {
-                                console.log("=== RENDERING DROPDOWN ===");
-                                console.log("featuredDashData?.timeframes:", featuredDashData?.timeframes);
-                                console.log("Timeframes count for dropdown:", featuredDashData?.timeframes.length);
-                                return featuredDashData?.timeframes.map((timeframe) => {
-                                    console.log("Rendering timeframe:", timeframe);
-                                    return (
-                                        <option className="text-black" key={timeframe.id} value={timeframe.id}>
-                                            {timeframe.name} {timeframe.isActive ? "(Active)" : ""}
-                                        </option>
-                                    )
-                                })
-                            })()
-                        }
-                </select>
-            </div>
-            <motion.div
-                className="flex justify-center text-5xl">
-                TOP {
-                    (curNavigationState.currentCategory === Category.OVERALL && "students" ||
-                        curNavigationState.currentCategory === Category.POINT_GROUP && curNavigationState.pointGroups.groups.at(curNavigationState.pointGroups.currentGroupIdx)?.title + " students" ||
-                        curNavigationState.currentCategory === Category.GRADE && numberToOrdinal(parseInt(curNavigationState.grades.grades.at(curNavigationState.grades.currentGradeIdx)?.title ?? '')) + " grade students" ||
-                        curNavigationState.currentCategory === Category.STUDENT_GROUP && curNavigationState.rankingGroups.groups.at(curNavigationState.rankingGroups.currentGroupIdx)?.name)
-                        ?.toString().toUpperCase()
-                }
-            </motion.div>
-            {
-                curNavigationState.currentCategory === Category.OVERALL && OverallTop20() ||
-                curNavigationState.currentCategory === Category.POINT_GROUP && PointGroupTop20() ||
-                curNavigationState.currentCategory === Category.GRADE && GradeTop20() ||
-                curNavigationState.currentCategory === Category.STUDENT_GROUP && TopStudentGroups()
-            }
-        </div>
-    )
+          {renderScene(scene)}
+        </motion.div>
+      </AnimatePresence>
+      <WallControls
+        timeframes={data.timeframes} timeframe={timeframe}
+        onTimeframe={id => { setSequence(0); setElapsed(0); onTimeframeChange(id); }}
+        dwell={dwell} onDwell={setDwell}
+        paused={paused} onTogglePaused={() => setPaused(p => !p)} onPrev={() => go(-1)} onNext={() => go(1)}
+      />
+    </WallStage>
+  );
 }

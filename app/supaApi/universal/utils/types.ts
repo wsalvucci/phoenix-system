@@ -29,10 +29,6 @@ export type PointEventData = {
     template: {
         id: number,
         pointGroupId: number,
-        conversionRule: {
-            name: string,
-            value: number
-        }
     },
     studentGroup: {
         id: number,
@@ -102,6 +98,11 @@ export type CompiledStudentPoints = {
 }
 
 export type GlobalPoints = {
+    // Counts before privacy shortlisting, for category-specific public display limits.
+    categoryStudentCounts?: {
+        grades: Record<number, number>,
+        pointGroups: Record<number, number>,
+    },
     schoolId: number,
     totalStudents: number,
     timeframes: TimeframeData[],
@@ -175,74 +176,5 @@ export type GlobalPoints = {
             id: number,
             points: number
         }[]
-    }[]
-}
-
-export type StudentPointsData = {
-    schoolId: number,
-    studentId: number,
-    firstName: string,
-    lastName: string,
-    grade: number,
-    gradeRank: number,
-    gradeOutOf: number,
-    totalPoints: number,
-    totalRank: number,
-    totalOutOf: number,
-    nearbyStudents: {
-        studentId: number,
-        firstName: string,
-        lastName: string,
-        totalPoints: number,
-        rank: number,
-    }[],
-    nearbyGradeStudents: {
-        studentId: number,
-        firstName: string,
-        lastName: string,
-        points: number,
-        rank: number,
-    }[],
-    pointGroups: {
-        id: number,
-        name: string,
-        color: string,
-        points: number,
-        rank: number,
-        outOf: number,
-        nearbyStudents: {
-            studentId: number,
-            firstName: string,
-            lastName: string,
-            points: number,
-            rank: number,
-        }[]
-    }[],
-    studentGroups: {
-        id: number,
-        name: string,
-        rank: number,
-        outOf: number,
-        nearbyStudents: {
-            studentId: number,
-            firstName: string,
-            lastName: string,
-            points: number,
-            rank: number,
-        }[]
-    }[],
-    pointEvents: {
-        id: number,
-        name: string,
-        date: string,
-        maxPoints: number,
-        points: number,
-        rank: number,
-        outOf: number,
-        pointGroup: {
-            id: number,
-            name: string,
-            color: string
-        },
     }[]
 }

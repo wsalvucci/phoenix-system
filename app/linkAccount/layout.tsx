@@ -10,8 +10,7 @@ export default async function LinkAccountLayout({ children }: { children: React.
     }
 
     return (
-        <div className="grid grid-cols-1">
-            <div className="flex justify-center">Link Your Account</div>
+        <div className="app-page flex flex-1 flex-col px-4 py-8">
             {children}
         </div>
     )

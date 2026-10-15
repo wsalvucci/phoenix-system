@@ -5,9 +5,13 @@ import { cookies } from "next/headers";
 export const createClient = () => {
   const cookieStore = cookies();
 
+  // Session (cookie) client: the ANON key. With a session, requests carry the user's JWT and run as
+  // `authenticated` under RLS. Without one they run as `anon`. This used to be the service-role key,
+  // which made every request WITHOUT a session run as service_role and bypass RLS.
+  // Privileged reads go through app/supaApi/server/supabaseServiceClient.ts after an explicit check.
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {

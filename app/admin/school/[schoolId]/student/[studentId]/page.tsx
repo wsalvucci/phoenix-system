@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSignedPoints } from "@/lib/formatPoints";
 import { useQuery } from "@tanstack/react-query";
 import { getAdminStudentDataWithTimeframe } from "@/api/admin";
 import { numberToOrdinal } from "@/app/dataClasses";
@@ -11,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { DateTime } from "luxon";
 import Color from "color";
+import { ParentLinksPanel } from "@/components/admin/ParentLinksPanel";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
   const { selectedTimeframe } = useTimeframe();
@@ -178,7 +180,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-foreground">
-                            +{event.pointsEarned.value}
+                            {formatSignedPoints(event.pointsEarned.value)}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {event.pointsEarned.input}/{event.maxInput}
@@ -233,6 +235,8 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
               </div>
             )}
 
+            <ParentLinksPanel studentId={parseInt(studentId)} studentName={data.student.name} />
+
             {/* All Point Events (detailed list with rank) */}
             <div className="bg-card border border-border rounded-lg p-6 mt-6">
               <div className="flex items-center gap-2 mb-4">
@@ -274,7 +278,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-primary">
-                            +{event.pointsEarned.value}
+                            {formatSignedPoints(event.pointsEarned.value)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-foreground">

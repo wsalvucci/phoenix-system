@@ -151,16 +151,14 @@ export async function createTeacher(schoolId: number, teacherData: {
       throw new Error('Access denied - admin does not have access to this school');
     }
 
-    // Generate a unique link code
-    const linkCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
     // Create teacher
     const { data: newTeacher, error: createError } = await serviceClient
       .from('teacher')
       .insert({
         first_name: teacherData.firstName,
         last_name: teacherData.lastName,
-        link_code: linkCode,
+        // link_code omitted: the column default generate_link_code() mints 10 Crockford characters
+        // (50 bits, pgcrypto). The old Math.random() code was ~31 bits and fails 20261014230700's CHECK.
         school_id: schoolId
       })
       .select()

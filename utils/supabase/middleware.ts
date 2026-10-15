@@ -2,6 +2,9 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const updateSession = async (request: NextRequest) => {
+  // Tell server components which page was requested (always overwritten here, so a
+  // client cannot supply its own). Used to send signed-out users back after login.
+  request.headers.set("x-next-path", request.nextUrl.pathname + request.nextUrl.search);
   // This `try/catch` block is only here for the interactive tutorial.
   // Feel free to remove once you have Supabase connected.
   try {

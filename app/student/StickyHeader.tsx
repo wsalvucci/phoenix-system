@@ -1,61 +1,63 @@
-'use client';
-
-import { Student, StudentMonthlyTrends } from '@/types/domain';
+import Link from "next/link";
+import { Student } from "@/types/domain";
+import { rankTier } from "@/lib/rankTier";
+import { isRanked, NOT_RANKED_YET, numberToOrdinal } from "@/lib/rankText";
+import AwardBalance from "./AwardBalance";
+import { Flourish, Frame, RankBadge, WaxSeal } from "./ui";
 
 interface StickyHeaderProps {
     student: Student;
     totalPoints: number;
-    monthlyTrends: StudentMonthlyTrends | null;
-    timeframe: {
-        id: number;
-        name: string;
-        startsAt: string;
-        endsAt: string;
-        active: boolean;
-    };
+    gradeRank: number | null;
+    gradeOutOf: number | null;
+    timeframe: { id: number; name: string; startsAt: string; endsAt: string; active: boolean };
 }
 
-export default function StickyHeader({ student, totalPoints, monthlyTrends, timeframe }: StickyHeaderProps) {
+/**
+ * Identity and balance: one block. One H1 (the student's name), one primary number (the balance),
+ * one line of standing under it. No second competing number at the same size.
+ */
+export default function StickyHeader({ student, totalPoints, gradeRank, gradeOutOf, timeframe }: StickyHeaderProps) {
+    const ranked = isRanked(gradeRank, gradeOutOf);
     return (
-        <div className="victorian-header w-full max-w-full overflow-x-hidden">
-            <div className="container mx-auto px-4 victorian-header-content max-w-full">
-                <div className="flex items-start justify-between victorian-header-main min-w-0">
-                    <div className="space-y-2 victorian-fade-in flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <h1 className="victorian-header-name text-2xl md:text-3xl font-bold text-white truncate">
-                                {student.firstName} {student.lastName}
-                            </h1>
-                        </div>
-                        <div className="victorian-header-details flex items-center gap-4 text-white/90 text-sm flex-wrap">
-                            <span className="flex items-center gap-2 flex-shrink-0">
-                                Grade {student.grade}
-                            </span>
-                            <span className="flex items-center gap-2 truncate min-w-0">
-                                {timeframe.name}
-                            </span>
-                        </div>
+        <header className="mx-auto w-full max-w-3xl px-4 pt-2">
+            <div className="flex">
+                <Link href="/" className="inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-foreground underline-offset-4 hover:underline">← Home</Link>
+            </div>
+            <Frame className="vic-enter relative">
+                <WaxSeal className="absolute right-3 top-3 z-10" />
+                <div className="flex items-center gap-3 pr-14 sm:gap-4">
+                    <div
+                        aria-hidden="true"
+                        className="vic-numeral flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-lg text-secondary-foreground sm:h-14 sm:w-14 sm:text-xl"
+                    >
+                        {student.firstName?.[0]}{student.lastName?.[0]}
                     </div>
-                    <div className="text-right victorian-fade-in victorian-delay-1 flex-shrink-0 ml-2">
-                        <div className="victorian-stat">
-                            <div className="victorian-header-points victorian-stat-number text-white text-xl md:text-2xl">
-                                {totalPoints.toLocaleString()}pts
-                            </div>
-                            {monthlyTrends?.currentMonth && (() => {
-                                const inc = monthlyTrends.currentMonth.pointIncrease;
-                                const pct = Math.round(monthlyTrends.currentMonth.percentageIncrease);
-                                const incSign = inc > 0 ? '+' : inc < 0 ? '-' : '';
-                                const pctSign = pct > 0 ? '+' : pct < 0 ? '-' : '';
-                                const colorClass = inc > 0 ? 'text-green-400' : inc < 0 ? 'text-red-400' : 'text-gray-300';
-                                return (
-                                    <div className={`${colorClass} text-xs mt-1`}>
-                                        {incSign}{Math.abs(inc)}pts ({pctSign}{Math.abs(pct)}%)
-                                    </div>
-                                );
-                            })()}
-                        </div>
+                    <div className="min-w-0">
+                        <h1 className="font-display text-2xl font-semibold leading-tight text-foreground [overflow-wrap:anywhere] min-[390px]:text-3xl sm:text-4xl">{student.firstName} {student.lastName}</h1>
+                        <p className="vic-label mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                            <span>Grade <strong className="font-semibold text-foreground">{student.grade}</strong></span>
+                            <span>{timeframe.name}</span>
+                        </p>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <div className="mt-6 text-center">
+                    <div className="vic-divider" aria-hidden="true" />
+                    <AwardBalance studentId={student.id} timeframeId={timeframe.id} timeframeName={timeframe.name} totalPoints={totalPoints} />
+                    <p className="flex flex-wrap items-center justify-center gap-2 px-2 pb-6 pt-4 text-sm font-semibold text-foreground">
+                        {ranked ? (
+                            <>
+                                <RankBadge rank={gradeRank as number} tier={rankTier(gradeRank, gradeOutOf)} />
+                                <span>{numberToOrdinal(gradeRank as number)} of {gradeOutOf} in Grade {student.grade}</span>
+                            </>
+                        ) : (
+                            <span>{NOT_RANKED_YET}</span>
+                        )}
+                    </p>
+                </div>
+                <Flourish className="absolute bottom-3 right-3" />
+            </Frame>
+        </header>
     );
 }

@@ -1,47 +1,10 @@
-"use client";
-
-import { useState } from "react";
-
-// Force static generation to reduce serverless functions
-export const dynamic = 'force-static';
-import linkStudent from "@/app/supaApi/server/linkStudent";
+import { Suspense } from "react";
+import LinkAccountForm from "@/components/linkAccount/LinkAccountForm";
 
 export default function LinkStudent() {
-
-    const [schoolId, setSchoolId] = useState<number>(-1)
-    const [studentLinkCode, setStudentLinkCode] = useState<string>('')
-    const [errorText, setErrorText] = useState<string | null>(null)
-
-    const handleLinkStudent = async (schoolId: number, linkCode: string) => {
-        const linkResult = await linkStudent(schoolId, linkCode);
-        if (linkResult.success) {
-            window.location.href = "/student"
-        } else {
-            setErrorText(linkResult.message)
-        }
-    }
-
     return (
-        <div>
-            <input
-                className="w-full dark:[color-scheme:dark] py-1 px-3 my-2"
-                type="number"
-                placeholder="School ID"
-                onChange={(e) => setSchoolId(parseInt(e.target.value))}
-            />
-            <input
-                className="w-full dark:[color-scheme:dark] py-1 px-3 my-2"
-                type="text"
-                placeholder="Student Link Code"
-                onChange={(e) => setStudentLinkCode(e.target.value)}
-            />
-            <button
-                className="w-full bg-blue-300 dark:bg-blue-700 rounded-lg"
-                onClick={() => handleLinkStudent(schoolId, studentLinkCode)}
-            >Link Student</button>
-            {
-                errorText && <div className="text-red-500">{errorText}</div>
-            }
-        </div>
-    )
+        <Suspense fallback={<div className="mx-auto h-64 w-full max-w-md animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800" />}>
+            <LinkAccountForm kind="student" />
+        </Suspense>
+    );
 }
