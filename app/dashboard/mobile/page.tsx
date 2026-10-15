@@ -1,28 +1,35 @@
 "use client";
-import { backgroundGradient, metalStyle, metalTextShadow } from "@/app/dataClasses";
-import { displayRankTier } from "@/lib/rankTier";
-
 import { useEffect, useState } from "react";
-import { Azeret_Mono, Quicksand } from "next/font/google"
 import Link from "next/link";
 import { getDisplayBoards } from "@/app/supaApi/server/dashboard/displayBoards";
-import type { DisplayBoards } from "@/app/supaApi/universal/displayTypes";
-import Color from "color";
+import type { DisplayBoard, DisplayBoards } from "@/app/supaApi/universal/displayTypes";
 import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
+import { useTheme } from "@/components/ThemeProvider";
+import { LedgerRow } from "@/components/display/LedgerRow";
+import { OrnamentDivider } from "@/components/display/OrnamentDivider";
+import { formatPoints, toDisplayRows, visibleRows } from "../featured/screens/displayData";
+import "../honor-board.css";
 
-const customFont = Quicksand({
-    weight: "400",
-    subsets: ["latin"]
-});
+function Board({ board, title, level }: { board: DisplayBoard; title: string; level: 1 | 2 }) {
+    const rows = visibleRows(toDisplayRows(board));
+    const Heading = level === 1 ? "h1" : "h3";
+    return (
+        <section className="hb-phone-section">
+            <Heading className="hb-phone-title">{title}</Heading>
+            <OrnamentDivider />
+            <div className="hb-phone-list">
+                {rows.map((r) => (
+                    <LedgerRow key={r.key} rank={r.rank} name={r.name} points={formatPoints(r.points)} />
+                ))}
+            </div>
+        </section>
+    );
+}
 
-const azeret = Azeret_Mono({
-    weight: "400",
-    subsets: ["latin"]
-});
-
+/** Phone view of the same boards: one column, follows the device's light or dark mode. */
 export default function MobileDashboard() {
     const [mobileDashData, setMobileDashData] = useState<DisplayBoards | null>(null);
-
+    const { theme } = useTheme();
     const { schoolId } = useDashboardSchool();
 
     useEffect(() => {
@@ -32,103 +39,19 @@ export default function MobileDashboard() {
         });
     }, [schoolId]);
 
-    const topStudentCard = ({
-        fullName,
-        points,
-        rank
-    }: {
-        fullName: string;
-        points: number;
-        rank: number;
-    }) => {
-        return (
-            <div className="grid grid-cols-3 px-2 py-1 my-1" data-rank-tier={displayRankTier(rank)} style={{
-                background: 'hsl(var(--rank))',
-                color: 'hsl(var(--rank-foreground))',
-                gridTemplateColumns: "1fr 6fr 2fr",
-            }}>
-                <div className={`flex ${azeret.className}`}>{rank}</div>
-                <div className="flex ">{fullName}</div>
-                <div className={`flex justify-end ${azeret.className}`}>{points.toLocaleString()}</div>
-            </div>
-        );
-    }
-
     return (
-        <div className={`w-full h-svh px-10 text-white bg-slate-800 ${customFont.className} overflow-auto`}>
-            <div className="pb-10">
-                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students</div>
-                <div>
-                    {
-                        mobileDashData?.overall.rows
-                        .map((student) => {
-                            return (
-                                <div key={student.key} className="my-1">{
-                                        topStudentCard(
-                                            {
-                                                fullName: student.firstName + " " + student.lastName,
-                                                points: student.totalPoints,
-                                                rank: student.rank
-                                            }
-                                        )
-                                    }
-                                </div>
-                            );
-                        })
-                    }
+        <div className={`honor-board hb-phone ${theme === "dark" ? "dark" : ""}`}>
+            <div className="hb-phone-wrap">
+                {mobileDashData && <Board board={mobileDashData.overall} title="Top Students" level={1} />}
+                <Link href="/student" className="hb-phone-link">View Your Page</Link>
+                <div className="hb-phone-section">
+                        <h2 className="hb-phone-title">Top Students by Grade</h2>
+                        <OrnamentDivider />
+                        {mobileDashData?.grades.map((grade) => (
+                            <Board key={grade.key} board={grade} title={grade.title} level={2} />
+                        ))}
                 </div>
             </div>
-            <div className="flex justify-center">
-                <Link
-                    href="/student"
-                    className="px-2 py-1 mb-10 text-2xl bg-slate-700 w-3/4 rounded-lg flex justify-center">View Your Page</Link>
-            </div>
-            <div className="pb-5">
-                <div className="px-2 py-1 my-1 flex justify-center text-2xl border-b">Top Students by Grade</div>
-                {
-                    mobileDashData?.grades
-                    .map((grade) => {
-                        return (
-                            <div key={grade.key} className="pb-3">
-                                <div className="px-2 py-1 my-1 flex justify-center text-lg" style={{
-                                    background: backgroundGradient([
-                                        {
-                                            color: Color('#555').darken(0.5).toString(),
-                                            percent: 0
-                                        },
-                                        {
-                                            color: Color('#555').darken(0.25).toString(),
-                                            percent: 50
-                                        },
-                                        {
-                                            color: Color('#555').darken(0.5).toString(),
-                                            percent: 100
-                                        }
-                                    ]),
-                                    borderLeft: `1px solid ${Color('#555').toString()}`,
-                                    borderRight: `1px solid ${Color('#555').toString()}`,
-                                    backgroundSize: "cover",
-                                    textShadow: metalTextShadow
-                                }}>{grade.title}</div>
-                                <div>
-                                    {
-                                        grade.rows
-                                        .map((student) => {
-                                            return <div key={student.key}>{topStudentCard(
-                                                {
-                                                    fullName: student.firstName + " " + student.lastName,
-                                                    points: student.totalPoints,
-                                                    rank: student.rank
-                                                }
-                                            )}</div>;
-                                        })
-                                    }
-                                </div>
-                            </div>
-                        )
-                    })
-                }
-            </div>
         </div>
-    )
+    );
 }
