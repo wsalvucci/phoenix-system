@@ -173,7 +173,7 @@ describe("student RPCs and what they disclose", () => {
     });
 });
 
-// D21 (docs/schema/BACKEND_PLAN.md section 12): the app reads and writes through the server-only service
+// D25 (docs/schema/BACKEND_PLAN.md section 12): the app reads and writes through the server-only service
 // client after a TypeScript authorization check. RLS is a deny-all backstop: no API role reads a row of any
 // table, and no API role holds a write grant (migration 20261014230655). A green test here that starts
 // failing means someone added a policy or a grant: that is an architecture change, not a fix.

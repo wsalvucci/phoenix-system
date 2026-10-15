@@ -1,6 +1,6 @@
 -- Function and table grants (docs/DATA_DISCLOSURE.md, migration 20261014223115).
 -- anon may execute nothing in public. authenticated may execute exactly the allowed list below.
--- Table writes: migration 20261014230655 (D21).
+-- Table writes: migration 20261014230655 (D25).
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(14);
@@ -58,7 +58,7 @@ select is(
   'row level security is enabled on every public table'
 );
 
--- D21 (docs/schema/BACKEND_PLAN.md section 12), migration 20261014230655: no API role writes a table.
+-- D25 (docs/schema/BACKEND_PLAN.md section 12), migration 20261014230655: no API role writes a table.
 select is(
   (select coalesce(string_agg(r.rolname || ' ' || c.relname, ',' order by 1), '')
      from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -107,7 +107,7 @@ select ok(
   'default privileges: a new public table and its sequence get no write grant for anon or authenticated'
 );
 
--- D21: RLS is a deny-all backstop. These are the only policies, and none can match for an API role
+-- D25: RLS is a deny-all backstop. These are the only policies, and none can match for an API role
 -- because each one subqueries public.user, which has no policy. Adding a policy is an architecture
 -- change: update BACKEND_PLAN section 12 and this list together.
 select is(
@@ -121,7 +121,7 @@ select is(
   || 'student_group_pair:Teachers Can See Students in Their Groups,'
   || 'teacher_student_group_pair:Admins Can Manage Teacher Student Group Pairs in School,'
   || 'teacher_student_group_pair:Teachers Can See Group Pairs They''re Assigned',
-  'the policy set is exactly the 9 inert legacy policies (D21 deny-all)'
+  'the policy set is exactly the 9 inert legacy policies (D25 deny-all)'
 );
 
 select is(

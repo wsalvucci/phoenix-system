@@ -1,19 +1,19 @@
 -- Revoke table and sequence write privileges from the API roles `anon` and `authenticated`.
--- Owner: backend. See docs/schema/BACKEND_PLAN.md section 12 (decision D21) and docs/TESTING.md.
+-- Owner: backend. See docs/schema/BACKEND_PLAN.md section 12 (decision D25) and docs/TESTING.md.
 --
 -- NOT APPLIED TO PRODUCTION. Needs the product owner's go-ahead before `db push`.
 --
 -- Why: Supabase's default privileges gave anon and authenticated INSERT, UPDATE, DELETE, TRUNCATE,
 -- REFERENCES and TRIGGER on all 32 original public tables, plus USAGE/UPDATE on every sequence.
 -- RLS is currently the only thing between those grants and `student_point`, `point_event`, `user`
--- and `student`. Under D21 nothing ever writes through an API role:
+-- and `student`. Under D25 nothing ever writes through an API role:
 --   - Web app: every write goes through the server-only service client after a TypeScript authorization
 --     check; the anon-key cookie client is used for `auth.*` only (audited 2026-10-14).
 --   - Phoenix Student Mobile: RPC only (14 `get_*` calls, grepped 2026-10-14), and every function
 --     `authenticated` may execute is SECURITY DEFINER, so it needs no table privilege at all.
 --   - Realtime: broadcast only; no table is in a publication.
 --   - Auth: `handle_new_user` is SECURITY DEFINER owned by postgres.
--- `service_role` is untouched. SELECT is kept for both roles for now: RLS returns no rows to them (D21
+-- `service_role` is untouched. SELECT is kept for both roles for now: RLS returns no rows to them (D25
 -- deny-all backstop) and revoking SELECT is a separate, proposed step.
 --
 -- No data change. Not destructive. Narrows access only.
