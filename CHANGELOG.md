@@ -5,6 +5,9 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Added
+- Operators can create and later remove a clearly fictional "QA Test School (not real)" with six test sign-in accounts for checking hosted deploys (`scripts/qa-school/`, see `docs/TESTING.md`).
+
 ## [2.0.0] - 2026-10-15
 
 ### Added
