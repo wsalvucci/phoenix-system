@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-15
+
 ### Added
 - When a student's points have gone up since they last looked, the total on their page counts up and the gold rule beneath it shimmers once. Reduced-motion settings skip it.
 - Students and parents see "N points to move up" for the whole school, the grade and each category. Grade and category gaps show only when at least 10 students there have points, and nothing shows at first place. No other student is named.
