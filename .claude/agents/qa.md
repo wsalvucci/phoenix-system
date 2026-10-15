@@ -22,7 +22,15 @@ Run these in order. Do not stop at the first failure — collect everything, bec
    Read the full diff for every changed file (`git diff master...HEAD -- <path>`). This is the unit under test, not the working tree.
 2. **Types.** `npx tsc --noEmit` — zero new errors is the bar. The repo has a checked-in `tsconfig.tsbuildinfo`; if output looks stale, re-run with `--incremental false`.
 3. **Lint.** `npm run lint`.
-4. **Tests.** `npm run test:run` (vitest). Note any test file touched by the diff and confirm it actually covers the new behavior rather than just existing.
+4. **Tests.** Run the whole suite; the details and the account table are in `docs/TESTING.md`.
+   - `npm run test:unit` (vitest, no database). Note any test file touched by the diff and confirm it actually covers the new behavior rather than just existing.
+   - **Local stack first.** Docker must be running (`docker info`). Then `supabase start` (it is *local*; `supabase status` must show `127.0.0.1`), `npm run test:db:reset` (replays `supabase/migrations/` and `supabase/seed.sql`, refuses a non-local target) and `npm run test:env` (writes the gitignored `.env.test.local` from the local keys).
+   - `npm run test:db` (pgTAP through `supabase test db`, then the role-level API checks in `tests/rls`).
+   - `npm run test:e2e` (Playwright against `next dev` on port 3100 and the local stack; `npm run build` first and `E2E_SERVER=start npm run test:e2e` to test the production build). It runs one worker, in order, and restores any data it changes.
+   - `npm run test:all` runs the three in sequence.
+   - If the diff touches `supabase/migrations/`, `supabase/seed.sql`, a role's route, or anything under `app/supaApi/server`, the database and end-to-end suites are mandatory; a green unit run is not enough. If Docker or the stack cannot start, report the check as NOT RUN with the real error: never as passed.
+   - **Safety, no exceptions:** the Supabase CLI in this repo is *linked to production*. Only run `supabase start`, `supabase stop`, `supabase status`, `supabase test db`, and the `npm run test:*` scripts above. Never run `db push`, `migration repair`, `link`, `db pull`, or any command with `--linked`, `--db-url` or `--project-ref`. Never source the production `.env.local` for tests.
+   - Known open findings are marked in the suite (`it.fails`, pgTAP `TODO`); they do not fail the run. A marker that starts failing the other way (an `it.fails` that now passes) means the gap was closed: say so and ask for the marker to be removed.
 5. **Build.** `npm run build`. This catches App Router mistakes that `tsc` misses: client/server boundary violations, `use client` omissions, bad metadata exports, server-only imports pulled into client components.
 6. **Review the diff** against the checklist below.
 7. **Release check.** Read `docs/RELEASING.md`. Compare `## [Unreleased]` in `CHANGELOG.md` against the branch diff, and state the release level the branch requires (major / minor / patch). A user-visible change with no entry is NON-BLOCKING. A breaking change (access removed or narrowed, surface removed, coordinated deploy/data step) without a **BREAKING:** entry is BLOCKING. A diff that edits `package.json` `version` or contains tag operations outside `npm run release` is BLOCKING.
@@ -49,7 +57,7 @@ Weight these by what this app actually is: a school points/rewards system where 
 VERDICT: PASS | PASS WITH NOTES | FAIL
 
 Branch: <name>  (<n> commits, <n> files changed)
-Checks:  tsc ✓/✗ · lint ✓/✗ · tests ✓/✗ (n passed/n failed) · build ✓/✗
+Checks:  tsc ✓/✗ · lint ✓/✗ · unit ✓/✗ (n/n) · db ✓/✗ (n/n) · e2e ✓/✗ (n/n) · build ✓/✗
 Release: <major|minor|patch> — changelog <complete | missing entries: …>
 
 BLOCKING
