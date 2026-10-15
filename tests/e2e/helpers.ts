@@ -1,4 +1,4 @@
-import type { Page, ConsoleMessage, Response } from "@playwright/test";
+import { expect, type Page, type Locator, type ConsoleMessage, type Response } from "@playwright/test";
 import { ACCOUNTS, PASSWORD, type Role } from "../helpers/localStack";
 
 export const ROLES = Object.keys(ACCOUNTS) as Role[];
@@ -35,8 +35,21 @@ export function watchProblems(page: Page): Problems {
     return problems;
 }
 
-/** Waits until the network is quiet, then returns the visible text. */
-export async function settle(page: Page): Promise<string> {
-    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+/** Loading placeholders used across the app: skeleton blocks and "Loading..." status regions. */
+const LOADING = String.raw`[aria-label^="Loading"], [role="status"]:has-text("Loading"), .animate-pulse, :text-matches("^Loading.*(\.\.\.|…)$")`;
+
+/**
+ * Waits for the page's own loading placeholders to go away (not for the network, which never goes quiet
+ * on pages that poll or rotate), then returns the visible text. Pass `ready` to also wait for an element.
+ */
+export async function settle(page: Page, ready?: Locator): Promise<string> {
+    await page.waitForLoadState("domcontentloaded");
+    await page.locator("body").waitFor({ state: "attached" });
+    const loading = page.locator(LOADING);
+    await expect
+        .poll(async () => loading.filter({ visible: true }).count(), { timeout: 20_000 })
+        .toBe(0)
+        .catch(() => undefined);
+    if (ready) await ready.first().waitFor({ state: "visible", timeout: 20_000 });
     return (await page.locator("body").innerText()).trim();
 }

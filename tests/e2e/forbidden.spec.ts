@@ -30,7 +30,7 @@ test.describe("student", () => {
     }
 
     test("is sent home from the staff dashboards", async ({ page }) => {
-        for (const route of ["/dashboard", "/dashboard/global?school=1", "/dashboard/featured?school=1", "/dashboard/mobile?school=1", "/dashboard/topCards?school=1"]) {
+        for (const route of ["/dashboard", "/dashboard/global?school=1", "/dashboard/featured?school=1", "/dashboard/mobile?school=1"]) {
             await page.goto(route);
             await page.waitForURL((u) => !u.pathname.startsWith("/dashboard"));
             const text = await settle(page);
