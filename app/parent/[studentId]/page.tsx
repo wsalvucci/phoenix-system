@@ -1,3 +1,4 @@
+import { formatSignedPoints } from "@/lib/formatPoints";
 import { getStudentDashboardDataById } from "@/api/student";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -70,7 +71,7 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
                                     key={event.studentPointId ?? event.eventId}
                                     title={event.eventName}
                                     detail={[formatDate(event.eventDate), event.pointGroup.name].filter(Boolean).join(" · ")}
-                                    amount={`+${event.points}`}
+                                    amount={formatSignedPoints(event.points)}
                                 />
                             ))}
                         </div>

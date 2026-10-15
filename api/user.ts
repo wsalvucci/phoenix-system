@@ -144,3 +144,35 @@ export async function validateSchoolAccess(schoolId: number): Promise<boolean> {
         return false;
     }
 }
+
+export type MyRoles = { admin: boolean; teacher: boolean; student: boolean; parent: boolean };
+
+/**
+ * Which roles the signed-in caller holds, from their own records only. Lets the home page call just the
+ * loaders that apply instead of calling every loader and swallowing the 500s from the ones that do not.
+ */
+export async function getMyRoles(): Promise<MyRoles> {
+    const none: MyRoles = { admin: false, teacher: false, student: false, parent: false };
+    const supabaseUser = await getSupabaseUser();
+    if (supabaseUser === null) return none;
+
+    const supabase = await supabaseServiceClient();
+    const { data: me } = await supabase
+        .from('user')
+        .select('id, admin_id')
+        .eq('supabase_id', supabaseUser.id)
+        .maybeSingle();
+    if (!me) return none;
+
+    const [teacher, student, parent] = await Promise.all([
+        supabase.from('teacher').select('id', { count: 'exact', head: true }).eq('linked_user', me.id),
+        supabase.from('student').select('id', { count: 'exact', head: true }).eq('linkedUser', me.id),
+        supabase.from('user_student_pair').select('student_id', { count: 'exact', head: true }).eq('user_id', me.id),
+    ]);
+    return {
+        admin: me.admin_id !== null,
+        teacher: (teacher.count ?? 0) > 0,
+        student: (student.count ?? 0) > 0,
+        parent: (parent.count ?? 0) > 0,
+    };
+}

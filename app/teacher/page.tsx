@@ -7,6 +7,7 @@ import { getTeacherDashboardData } from "@/api/teacher";
 import { LoadingState } from "@/components/LoadingLayout";
 import { useQuery } from "@tanstack/react-query";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
+import NotAllowed from "@/components/NotAllowed";
 import MotionButton from "@/components/MotionButton";
 import { useState } from "react";
 import ThemeInput from "@/components/ThemeInput";
@@ -33,7 +34,8 @@ export default function TeacherHome() {
 
     const { data, isLoading, error } = useQuery({
         queryKey: ["teacherDashboard"],
-        queryFn: () => wrapServerAction(getTeacherDashboardData)()
+        queryFn: () => wrapServerAction(getTeacherDashboardData)(),
+        retry: false
     });
 
     const filteredAndSortedGroups = data?.studentGroups
@@ -76,14 +78,7 @@ export default function TeacherHome() {
             isLoading={isLoading}
             error={error}
             data={data}
-            errorFallback={(err) => (
-                <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Dashboard</h2>
-                        <p className="text-gray-600 dark:text-gray-400">{err.message}</p>
-                    </div>
-                </div>
-            )}
+            errorFallback={() => <NotAllowed what="the teacher dashboard" />}
         >
             {(data) => (
                 <div className="app-page animate-in w-full">

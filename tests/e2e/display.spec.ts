@@ -95,12 +95,13 @@ test.describe.serial("display pairing", () => {
     test("an admin approves the code and the kiosk opens its school's displays", async () => {
         const code = await kioskCode(kiosk);
         await approve(admin, code, "Main hallway");
-        await kiosk.waitForURL(/\/dashboard/, { timeout: 45_000 });
-        const text = await settle(kiosk);
-        expect(text).toContain("Example Academy");
-        expect(text).toContain("Featured board");
-        // A display is not staff: no pairing entry on its hub.
-        expect(text).not.toContain("Pair a new display");
+        // A newly paired screen opens the rotating featured board directly.
+        await kiosk.waitForURL(/\/dashboard\/featured/, { timeout: 45_000 });
+        await expect(kiosk.locator("body")).toContainText("Ada Sample", { timeout: 30_000 });
+        // A display is not staff: its hub has no pairing entry.
+        await kiosk.goto("/dashboard");
+        await expect(kiosk.locator("body")).toContainText("Example Academy", { timeout: 30_000 });
+        expect(await settle(kiosk)).not.toContain("Pair a new display");
     });
 
     test("the paired screen shows its own school's cut and nothing outside it", async () => {
@@ -122,7 +123,7 @@ test.describe.serial("display pairing", () => {
         for (const route of ["/admin", "/admin/school/1", "/teacher", "/teacher/group/1", "/parent", "/student"]) {
             await kiosk.goto(route);
             const text = await settle(kiosk);
-            expect(text, route).not.toMatch(/Total Students|Top Performers|Homeroom A|Ada Sample|Your points/i);
+            expect(text, route).not.toMatch(/Total Students|Top Performers|Homeroom A|Ada Sample|Your points are|Rank [0-9]/i);
         }
         await kiosk.goto("/display/pair");
         expect(await settle(kiosk)).not.toContain("Pair a display for Example Academy");
@@ -147,7 +148,7 @@ test.describe.serial("display pairing", () => {
             const code = await kioskCode(kiosk);
             await approve(teacher, code, "Teacher hall");
             await kiosk.waitForURL(/\/dashboard/, { timeout: 45_000 });
-            await expect(kiosk.locator("body")).toContainText("Example Academy");
+            await expect(kiosk.locator("body")).toContainText("Ada Sample", { timeout: 30_000 });
 
             // The teacher leaves the school.
             await db.from("teacher").update({ linked_user: null }).eq("id", 1);

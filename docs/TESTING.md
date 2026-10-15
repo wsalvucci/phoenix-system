@@ -128,13 +128,10 @@ Failures keep a screenshot and trace in `test-results/` (`npx playwright show-tr
 
 ## Status when this was written
 
-Not fully green end to end. Last measured: unit 62/62, pgTAP 151/151, role-level API 273/273. The browser suite was
-run in pieces: display and linking 26/26, dashboards and forbidden all passing apart from two test fixes, auth and
-roles passing after the logout account fix. The last full run was cut short, and it showed (a) `display.spec`
-"cannot reach staff or family pages" failing (selector or text to re-check) and (b) admin section tests taking
-about 30s each because `settle()` waits for `networkidle`, which never settles on those pages (switch to waiting
-for a visible element). `agent-remediation` has since rebuilt the dashboards and deleted `/dashboard/topCards`:
-drop that route from `tests/e2e/dashboards.spec.ts` and `forbidden.spec.ts` and re-check the selectors.
+Green on the current dashboards (Honor Board, `/dashboard/topCards` redirecting to global, paired screens opening
+`/dashboard/featured`). `settle()` waits for the app's own loading placeholders to disappear (and optionally for a
+given element) rather than for `networkidle`. The old "paired screen cannot reach staff or family pages" failure was
+a test bug: the pattern `Your points` matched the account-link prompt's own copy ("see your points") on `/student`.
 
 ## Known findings
 
@@ -149,13 +146,11 @@ run, and they will tell you when they are fixed.
 2. ~~anon holds INSERT/UPDATE/DELETE grants~~ **Fixed locally by migration `20261014230655`** (no table write or
    sequence privilege for anon or authenticated). It is **not yet applied to production**: it waits for the product
    owner's go-ahead (BACKEND_PLAN S-3). `01_grants` asserts it.
-3. **Home page raises server errors for every role the user does not have (frontend).** `HomeRoles` calls the admin,
-   teacher, student and parent loaders with `Promise.allSettled`, and the ones that do not apply throw, so each home
-   visit logs two or more 500s from server actions. The e2e home check tolerates this.
-4. **Staff-only pages show "Loading…" forever to the wrong role (frontend).** `/admin` and `/teacher` as a student,
-   parent or the wrong staff role stay on a spinner (the server action throws) instead of redirecting. No data
-   leaks; the check is that none is shown.
-5. **A negative score renders as "+-5" on the student page (frontend).**
+3. **Fixed:** the home page asked every role loader and logged a 500 per missing role. `HomeRoles` now calls
+   `getMyRoles()` first and only the loaders that apply; the e2e home check asserts no 5xx.
+4. **Fixed:** `/admin`, `/teacher` and `/teacher/group/*` spun forever for the wrong role. They now show a "You do not
+   have access" state (`components/NotAllowed.tsx`).
+5. **Fixed:** a negative score rendered as "+-5"; `lib/formatPoints.ts` formats the sign.
 
 ## Adding tests
 

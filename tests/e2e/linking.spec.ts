@@ -1,7 +1,7 @@
 // Account linking through the real forms: uniform failure, rate limit, and a successful link.
 // These tests change the seeded data and restore it afterwards.
 import { test, expect, type Page } from "@playwright/test";
-import { authFile, settle } from "./helpers";
+import { authFile } from "./helpers";
 import { serviceClient } from "../helpers/localStack";
 import { LINK_NO_MATCH_MESSAGE, LINK_RATE_LIMITED_MESSAGE } from "../../lib/linkCode";
 
@@ -44,8 +44,7 @@ test.describe.serial("linking", () => {
             await db.from("link_attempt").delete().not("id", "is", null);
             await submit(page, "student", "1", "stud-39 abcd");
             await page.waitForURL(/\/student$/, { timeout: 30_000 });
-            const text = await settle(page);
-            expect(text).toContain("Mona Placeholder");
+            await expect(page.locator("body")).toContainText("Mona Placeholder", { timeout: 30_000 });
             const { data } = await db.from("student").select("linkedUser").eq("id", 39).single();
             expect(data?.linkedUser).not.toBeNull();
         });

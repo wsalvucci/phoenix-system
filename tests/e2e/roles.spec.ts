@@ -42,7 +42,7 @@ test.describe("admin", () => {
     }
 
     test("dashboard hub and pairing page load", async ({ page }) => {
-        expect(await openClean(page, "/dashboard")).toContain("Featured board");
+        expect(await openClean(page, "/dashboard")).toContain("Rotating highlights");
         expect(await openClean(page, "/display/pair?school=1")).toContain("Pair a display for Example Academy");
     });
 });
@@ -170,7 +170,7 @@ test.describe("account with no role yet", () => {
     test.use({ storageState: authFile("newuser") });
 
     test("is offered the link screens, and sees no data", async ({ page }) => {
-        const home = await openClean(page, "/", { allow5xx: true });
+        const home = await openClean(page, "/");
         expect(home).toMatch(/Who is using Phoenix\?|student|parent/i);
         const student = await openClean(page, "/student");
         expect(student).toContain("Connect your student account");
@@ -190,9 +190,12 @@ test.describe("home page for every signed-in role", () => {
         test(`${role} sees their destinations`, async ({ browser }) => {
             const context = await browser.newContext({ storageState: authFile(role) });
             const page = await context.newPage();
+            const problems = watchProblems(page);
             await page.goto("/");
+            await expect(page.locator("body")).toContainText(pattern, { timeout: 30_000 });
             await settle(page);
-            await expect(page.locator("body")).toContainText(pattern);
+            // The home page used to call every role loader and log a 500 for each role the user lacks.
+            expect(problems.badResponses).toEqual([]);
             await context.close();
         });
     }

@@ -10,6 +10,7 @@ import importPhoenixScorebookData from "@/app/supaApi/server/teacher/teacherServ
 import { getTeachingAssistantData, assignTeachingAssistant, updateTeachingAssistant, removeTeachingAssistant, clearTeachingAssistantPointEvents } from "@/api/teacher"
 import { duplicateScorebookTimeframeEvents, getScorebookAccess } from "@/api/scorebook"
 import { NewScorebookData, NewScorebookPointEvent, ImportedScorebook, TeacherTimeframe, ImportPreviewTableRow, TeachingAssistant, TeachingAssistantManagementData } from "@/types/domain"
+import NotAllowed from "@/components/NotAllowed"
 import { evaluatePointConversionFormula, validatePointConversionFormula } from "@/lib/pointConversionFormula"
 
 type NewPointEventData = {
@@ -68,6 +69,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
   const [timeframes, setTimeframes] = useState<TeacherTimeframe[]>([])
   const [selectedTimeframe, setSelectedTimeframe] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [accessFailed, setAccessFailed] = useState(false)
 
   const [newPointEventModalOpen, setNewPointEventModalOpen] = useState(false)
   const [newPointEventData, setNewPointEventData] = useState<NewPointEventData>({
@@ -456,6 +458,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       }
     } catch (error) {
       console.error("Error fetching timeframes:", error)
+      setAccessFailed(true)
     }
   }
 
@@ -467,6 +470,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       setCurrentStudentOrder(data.students.sort((a, b) => a.lastName.localeCompare(b.lastName)))
     } catch (error) {
       console.error("Error fetching scorebook data:", error)
+      setAccessFailed(true)
     } finally {
       setLoading(false)
     }
@@ -2589,6 +2593,10 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       </div>
     </div>
   )
+
+  if (accessFailed) {
+    return <NotAllowed what="this scorebook" />
+  }
 
   if (loading) {
     return loadingScreen()

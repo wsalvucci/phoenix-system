@@ -60,7 +60,6 @@ const COUNT_PATTERNS: Array<[string, RegExp]> = [
 const BOARDS = [
     "/dashboard/global?school=1",
     "/dashboard/featured?school=1",
-    "/dashboard/topCards?school=1",
     "/dashboard/mobile?school=1",
 ];
 
@@ -72,11 +71,12 @@ for (const who of ["admin", "teacher1"] as const) {
             test(`${route} loads without errors`, async ({ page }) => {
                 const problems = watchProblems(page);
                 await page.goto(route);
+                // Wait for real content (a board renders its scene after a server action), not for the network.
+                await expect.poll(async () => (await settle(page)).length, { timeout: 30_000 }).toBeGreaterThan(100);
                 const text = await settle(page);
                 expect(problems.pageErrors).toEqual([]);
                 expect(problems.badResponses).toEqual([]);
                 expect(text).not.toMatch(RLS_ERROR);
-                expect(text.length).toBeGreaterThan(100);
             });
 
             test(`${route} names only students inside the publication cut`, async ({ page }) => {
@@ -108,15 +108,10 @@ for (const who of ["admin", "teacher1"] as const) {
             const positions = t.overall.map((r) => text.indexOf(t.name(r)));
             expect(positions.every((p) => p >= 0)).toBe(true);
             expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-            // The tie at the cut boundary (55 points) is dropped whole from the overall board. These two may still
-            // appear on a category board, where they are inside that cohort's own cut.
-            const start = text.indexOf("THE SCHOOL LEADERBOARD");
-            const end = text.indexOf("CATEGORY STANDINGS");
-            expect(start, "overall board heading").toBeGreaterThanOrEqual(0);
-            expect(end, "category board heading").toBeGreaterThan(start);
-            const overallBoard = text.slice(start, end);
-            expect(overallBoard).not.toContain("Jude Testcase");
-            expect(overallBoard).not.toContain("Kai Placeholder");
+            // The tie at the cut boundary (55 points) is dropped whole. The rebuilt Honor Board shows only the overall
+            // scene, so those two appear nowhere on the page.
+            expect(text).not.toContain("Jude Testcase");
+            expect(text).not.toContain("Kai Placeholder");
             expect(t.overall).toHaveLength(9);
             expect(t.overall.filter((r) => r.display_rank === 5)).toHaveLength(2);
         });
@@ -135,13 +130,23 @@ for (const who of ["admin", "teacher1"] as const) {
     });
 }
 
+test.describe("retired boards", () => {
+    test.use({ storageState: authFile("admin") });
+
+    test("/dashboard/topCards redirects to the whole-school board", async ({ page }) => {
+        await page.goto("/dashboard/topCards?school=1");
+        await page.waitForURL(/\/dashboard\/global/);
+        expect(new URL(page.url()).pathname).toBe("/dashboard/global");
+    });
+});
+
 test.describe("the hub", () => {
     test.use({ storageState: authFile("admin") });
 
     test("offers every board and the pairing entry", async ({ page }) => {
         await page.goto("/dashboard");
         await settle(page);
-        for (const label of ["Featured board", "Whole-school board", "Phone view", "Top cards", "Pair a new display"]) {
+        for (const label of ["Rotating highlights", "Top students", "Phone view", "Pair a new display"]) {
             await expect(page.locator("body")).toContainText(label);
         }
     });

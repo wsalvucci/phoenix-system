@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSignedPoints } from "@/lib/formatPoints";
 import { useQuery } from "@tanstack/react-query";
 import { getAdminStudentDataWithTimeframe } from "@/api/admin";
 import { numberToOrdinal } from "@/app/dataClasses";
@@ -179,7 +180,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-foreground">
-                            +{event.pointsEarned.value}
+                            {formatSignedPoints(event.pointsEarned.value)}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {event.pointsEarned.input}/{event.maxInput}
@@ -277,7 +278,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-primary">
-                            +{event.pointsEarned.value}
+                            {formatSignedPoints(event.pointsEarned.value)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-foreground">

@@ -3,6 +3,7 @@ import { getAdminHomeDashboard, getAdminSchoolDashboardData } from "@/api/admin"
 import { LoadingState } from "@/components/LoadingLayout";
 import { useQuery } from "@tanstack/react-query";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
+import NotAllowed from "@/components/NotAllowed";
 import MotionButton from "@/components/MotionButton";
 import { useState } from "react";
 
@@ -23,7 +24,8 @@ export default function AdminHome() {
 
     const { data, isLoading, error } = useQuery({
         queryKey: ["adminDashboard"],
-        queryFn: () => wrapServerAction(getAdminHomeDashboard)()
+        queryFn: () => wrapServerAction(getAdminHomeDashboard)(),
+        retry: false
     });
 
     // Fetch detailed data for each school
@@ -54,15 +56,7 @@ export default function AdminHome() {
             isLoading={isLoading}
             error={error}
             data={data}
-            errorFallback={(err) => (
-                <div className="flex flex-col items-center justify-center min-h-screen">
-                    <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Dashboard</h1>
-                    <p className="text-gray-600 mb-4">{err.message}</p>
-                    <MotionButton onClick={() => window.location.reload()} variant="primary">
-                        Retry
-                    </MotionButton>
-                </div>
-            )}
+            errorFallback={() => <NotAllowed what="the administration dashboard" />}
         >
             {(data) => {
                 const filteredSchools = data.schools.filter(school =>
