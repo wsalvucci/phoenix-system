@@ -31,7 +31,7 @@ export function SpotlightScene({ row, pulse = 0 }: { row: DisplayStudentRow; pul
 /** Upcoming events: metadata only, soonest first. */
 export function EventsScene({ events, pulse = 0 }: { events: readonly DisplayEvent[]; pulse?: number }) {
   return (
-    <SceneLayout title="Coming up" subtitle="Chances to earn points" pulse={pulse}>
+    <SceneLayout title="Coming up" subtitle="Events where you can earn points" pulse={pulse}>
       <div className="hb-center">
         <div className="hb-events">
           {events.map((e, i) => (

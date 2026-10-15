@@ -8,12 +8,11 @@ import { useTheme } from "@/components/ThemeProvider";
 type Tile = { title: string; desc: string; endpoint: string };
 
 const MAIN_TILES: Tile[] = [
-    { title: "Featured board", desc: "Rotating highlights for a hallway screen.", endpoint: "featured" },
-    { title: "Whole-school board", desc: "Whole-school highlights on one screen.", endpoint: "global" },
+    { title: "Rotating highlights", desc: "Top students, spotlights and upcoming events, one after another. Best for a hallway screen.", endpoint: "featured" },
+    { title: "Top students", desc: "The school's top ten on one screen that stays put. Best for a lobby.", endpoint: "global" },
 ];
 const QUIET_TILES: Tile[] = [
-    { title: "Phone view", desc: "Highlights sized for a phone.", endpoint: "mobile" },
-    { title: "Top cards", desc: "Top students as cards.", endpoint: "topCards" },
+    { title: "Phone view", desc: "The same highlights, sized for a phone.", endpoint: "mobile" },
 ];
 
 /** Flat block thumbnail of a scene: shapes only, no names, no numbers. */
@@ -26,12 +25,6 @@ function Thumb({ kind }: { kind: string }) {
                 <div className="mx-auto grid h-full w-1/3 content-start gap-1 rounded-md border border-rule bg-card p-1.5">
                     <div className="mx-auto h-1.5 w-1/2 rounded-sm bg-foreground/60" />
                     {[0, 1, 2, 3, 4].map((i) => <div key={i} className="flex items-center gap-1"><span className="size-2 rounded-full bg-rank-ink/70" /><span className={`${bar} flex-1`} /></div>)}
-                </div>
-            ) : kind === "topCards" ? (
-                <div className="mx-auto grid h-full w-1/2 content-center gap-1">
-                    <div className={`${plate} h-1/3 border-t-2 border-t-gilt`} />
-                    <div className={`${plate} h-1/4`} />
-                    <div className={`${plate} h-1/4`} />
                 </div>
             ) : (
                 <div className="grid h-full grid-cols-[36fr_64fr] gap-2">
@@ -102,7 +95,7 @@ export default function Dashboard() {
             {isStaff && (
                 <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-medium hover:underline">← Home</Link>
             )}
-            <h1 className="mt-2 font-display text-3xl font-semibold">Which display do you want to open?</h1>
+            <h1 className="mt-2 font-display text-3xl font-semibold">Choose a screen to show</h1>
 
             {loading ? (
                 <div className="mt-3 h-6 w-48 animate-pulse rounded bg-muted" aria-label="Loading your school" />
@@ -146,7 +139,7 @@ export default function Dashboard() {
             <div className="mt-6 grid gap-4">
                 {MAIN_TILES.map((t, i) => renderTile(t, i === 0))}
             </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3">
                 {QUIET_TILES.map((t) => renderTile(t, false))}
             </div>
             {isStaff && schoolId !== null && (

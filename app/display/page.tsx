@@ -7,6 +7,6 @@ import { KioskPairing } from "./KioskPairing";
 export const dynamic = "force-dynamic";
 
 export default async function DisplayPage() {
-    if ((await getDisplayContext()) !== null) redirect("/dashboard");
+    if ((await getDisplayContext()) !== null) redirect("/dashboard/featured");
     return <KioskPairing />;
 }

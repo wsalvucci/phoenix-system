@@ -64,7 +64,7 @@ export function KioskPairing() {
                 if (stopped) return;
                 if (status === "paired") {
                     setState({ kind: "paired" });
-                    window.location.replace("/dashboard");
+                    window.location.replace("/dashboard/featured");
                 } else if (status === "expired") {
                     void start();
                 }

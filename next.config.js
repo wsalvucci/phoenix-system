@@ -5,6 +5,8 @@ const nextConfig = {
   // /student/compare was retired (DATA_DISCLOSURE.md §10.1); send old bookmarks home.
   async redirects() {
     return [
+      // Top cards and the Hall of Honor were the same wall; keep old bookmarks and kiosks working.
+      { source: "/dashboard/topCards", destination: "/dashboard/global", permanent: false },
       { source: "/student/compare", destination: "/student", permanent: false },
     ];
   },
