@@ -1,7 +1,7 @@
 /**
- * The double gilt rule under a title. The artwork is applied by one mask variable in
- * honor-board.css (--hb-divider-mask), so replacing public/display/divider-double.svg (or the
- * three-slice redo) replaces the rule. `pulse` replays the 600 ms live-update shimmer.
+ * The double gilt rule under a title. A three-slice mask in honor-board.css (--hb-divider-mask):
+ * divider-left.svg and divider-right.svg caps at 2x the divider height, divider-mid.svg repeating
+ * on x between them. `pulse` replays the 600 ms live-update shimmer under the same mask.
  */
 export function OrnamentDivider({ pulse = 0, className = "" }: { pulse?: number; className?: string }) {
   return (
