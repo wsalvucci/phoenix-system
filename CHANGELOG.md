@@ -97,6 +97,9 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - New teacher accounts, and teacher codes reissued when an admin unlinks a teacher, now get a 10-character code from a secure generator instead of a short guessable one.
 
 ### Fixed
+- A score that takes points away now shows as "-5" instead of "+-5" on the student, parent and admin student pages.
+- The home page no longer makes the server log errors for every role you do not have; it checks your roles first and loads only those.
+- The administration and teacher pages now say "You do not have access" with a link home when opened with the wrong kind of account, instead of loading forever.
 - Point totals on the admin school and student pages now use the score each student was given. An old template rule is no longer applied a second time on top, so totals for assignments made from such a template may change.
 - The Recent points list on the student page no longer re-checks sharing status over and over.
 - Building a fresh local database from the migration files no longer stops at the first file on current Supabase images. On the live database the added lines do nothing.
