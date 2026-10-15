@@ -2,6 +2,7 @@
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { Teacher, TeachingAssistant } from "@/types/domain";
 import { getPhoenixUser } from "./user";
+import { getOwnStudent } from "@/app/supaApi/server/sessionActor";
 import { createServerLogger } from "@/utils/serverLogger";
 
 /**
@@ -51,6 +52,21 @@ async function checkTeacherGroupAccess(teacher: Teacher, groupId: number): Promi
       error: error instanceof Error ? error.message : 'Unknown error'
     }, error instanceof Error ? error : undefined);
     return false;
+  }
+}
+
+/** Every id must be a point event of this group, so a TA grant can never point at another group's events. */
+async function assertPointEventsInGroup(pointEventIds: number[], groupId: number): Promise<void> {
+  const unique = Array.from(new Set(pointEventIds));
+  if (unique.length === 0) return;
+  const supabase = await supabaseServiceClient();
+  const { data, error } = await supabase
+    .from('point_event')
+    .select('id')
+    .eq('student_group_id', groupId)
+    .in('id', unique);
+  if (error || (data?.length ?? 0) !== unique.length) {
+    throw new Error('Point event is not part of this group');
   }
 }
 
@@ -359,7 +375,7 @@ export async function getAllTeacherRecords(): Promise<Teacher[]> {
 /**
  * Gets student groups for multiple teachers
  */
-export async function getStudentGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; archived: boolean }[]> {
+async function getStudentGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; archived: boolean }[]> {
     const logger = createServerLogger({ component: 'TeacherAPI', action: 'getStudentGroupsForTeachers' });
     
     try {
@@ -419,7 +435,7 @@ export async function getStudentGroupsForTeachers(teacherIds: number[]): Promise
 /**
  * Gets ranking groups for multiple teachers
  */
-export async function getRankingGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; studentGroups: { id: number; name: string }[] }[]> {
+async function getRankingGroupsForTeachers(teacherIds: number[]): Promise<{ id: number; name: string; studentGroups: { id: number; name: string }[] }[]> {
     const logger = createServerLogger({ component: 'TeacherAPI', action: 'getRankingGroupsForTeachers' });
     
     try {
@@ -693,13 +709,15 @@ export async function getTeachingAssistantData(groupId: number): Promise<{
         // Check teacher access using centralized function
         hasAccess = await checkTeacherGroupAccess(teacher, groupId);
 
-        // Check teaching assistant access if not a teacher
-        if (!hasAccess) {
+        // Check teaching assistant access if not a teacher. teaching_assistant.student_id is a
+        // STUDENT id, so compare it with the student this account owns, never with user.id.
+        const ownStudent = hasAccess ? null : await getOwnStudent(userRow.id);
+        if (!hasAccess && ownStudent) {
           const { data: taRow } = await supabase
             .from('teaching_assistant')
             .select('id')
             .eq('group_id', groupId)
-            .eq('student_id', userRow.id)
+            .eq('student_id', ownStudent.id)
             .limit(1);
 
           if (taRow && taRow.length > 0) {
@@ -864,6 +882,8 @@ export async function assignTeachingAssistant(
       throw new Error('Access denied to this group');
     }
 
+    await assertPointEventsInGroup(pointEventIds, groupId);
+
     // Check if student is in the group
     const { data: studentInGroup, error: studentError } = await supabase
       .from('student_group_pair')
@@ -976,6 +996,8 @@ export async function updateTeachingAssistant(
       logger.warn('Teaching assistant not found or not in this group', { assistantId, groupId });
       throw new Error('Teaching assistant not found');
     }
+
+    await assertPointEventsInGroup(pointEventIds, groupId);
 
     // Update full access flag
     const { error: updateError } = await supabase
@@ -1306,6 +1328,33 @@ export async function editRankingGroupPointEvent(
         requestedRankingGroupId: rankingGroupId
       });
       throw new Error('Point event does not belong to this ranking group');
+    }
+
+    // Every scored group must be in this ranking group, and every existing score row must already
+    // belong to this event: the upsert below writes by id and would otherwise overwrite other rows.
+    {
+      const groupIds = Array.from(new Set(points.map((point) => point.studentGroupId)));
+      if (groupIds.length > 0) {
+        const { data: members, error: membersError } = await supabase
+          .from('ranking_group_pair')
+          .select('student_group_id')
+          .eq('ranking_group_id', rankingGroupId)
+          .in('student_group_id', groupIds);
+        if (membersError || (members?.length ?? 0) !== groupIds.length) {
+          throw new Error('Student group is not part of this ranking group');
+        }
+      }
+      const existingIds = Array.from(new Set(points.filter((point) => point.pointId !== -1).map((point) => point.pointId)));
+      if (existingIds.length > 0) {
+        const { data: owned, error: ownedError } = await supabase
+          .from('student_group_point')
+          .select('id')
+          .eq('ranking_group_point_event_id', pointEventId)
+          .in('id', existingIds);
+        if (ownedError || (owned?.length ?? 0) !== existingIds.length) {
+          throw new Error('Point entry does not belong to this point event');
+        }
+      }
     }
 
     // Update the point event
