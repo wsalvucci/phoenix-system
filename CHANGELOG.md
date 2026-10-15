@@ -72,6 +72,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - **BREAKING:** The student compare page (`/student/compare`) and its school-wide ranking endpoint are retired. The old address redirects to `/student`.
 
 ### Security
+- **BREAKING:** Signed-out visitors and signed-in accounts can no longer add, change or delete any database row directly with the public app key; only the server and the student functions can. Nothing in the web or mobile app changes. Operators: migration `20261014230655` needs the product owner's approval before it is applied to the live database.
 - A paired screen stops showing displays as soon as it is removed or its pairer stops being staff at that school, and then shows a new pairing code rather than a staff sign-in form.
 - Removed three unused dashboard server endpoints that returned any school's student points, rankings and nearby students without checking who was asking.
 - Hallway display data no longer carries student ids, every student's score on every assignment, or last-month figures; the list cut is applied in the database only, with no adjustable settings.

@@ -6,6 +6,8 @@ Disclosure rules: `docs/DATA_DISCLOSURE.md`.
 production, by the product owner. File 8 (`20261014230700`) is **not** applied and now lives in
 `supabase/held/`, outside `supabase/migrations/`, so `db push` cannot pick it up. `types/supabase.ts`
 was regenerated from production after the apply, and the TypeScript wrappers are built (§11).
+File 9 (`20261014230655`, §12) is in `supabase/migrations/` and is **not** applied: it waits for the
+product owner's go-ahead (S-3). Verified on the local stack only.
 
 ## 0. Migration files and apply order
 
@@ -21,6 +23,7 @@ was regenerated from production after the apply, and the TypeScript wrappers are
 | 6 | `20261014230500_link_codes_and_attempts.sql` | 50-bit generator as the new default, rate-limited redeem and preview, admin parent-link list, revoke and rotate. | Additive. Existing codes still work. |
 | 7 | `20261014230600_leader_letters.sql` | D13 snapshot and functions, with D15 (zero points = E; L8(c) participation), D16 (whole UTC days), D18 (ranked point groups only). | Additive. |
 | 7a | `20261014230650_mobile_rpc_disclosure.sql` | D14 for 10 mobile RPCs: cut per cohort, peer ids/trends NULL, no neighbours, school scoping (G1), aggregate floors, per-event rank floor, `ranking_group` school + membership, `point_group` school + `ranked`. Also fixes all-time totals in 5 bodies. Depends on 4. | No data change. **BREAKING for the mobile app as shipped** (§1.5). |
+| 9 | `20261014230655_revoke_api_role_table_writes.sql` | D25 (§12): revoke INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on every public table and all sequence privileges from `anon` and `authenticated`, plus the matching `postgres` default privileges in `public`. Self-checking. `service_role` unchanged; SELECT kept. **Not applied; needs S-3.** | No data change. Narrows access only. No caller writes through an API role (§12.2). |
 | 8 | `supabase/held/20261014230700_regenerate_link_codes.sql` | **FLAGGED, held.** Overwrites every link code, then UNIQUE (school_id, upper(link_code)) and a format CHECK. | **Data loss: every outstanding code stops working.** Needs a reissue plan and the product owner's go-ahead. |
 
 **Apply order:** 1 and 1a together (urgent; 1a needs nothing else). Then 0 (recorded only, see below).
@@ -351,6 +354,10 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
 
 ## 10. Decisions needed from the product owner
 - **S-1** Approve the production operations: apply file 1, and record file 0 with `migration repair`.
+- **S-3** Approve applying file 9 (`20261014230655_revoke_api_role_table_writes.sql`) to production with a
+  plain `db push` (it sorts after the latest applied file, 7a, and before held file 8). What it does: removes
+  every table write and sequence privilege from `anon` and `authenticated`. What it changes for users: nothing
+  (§12.2). Rollback, if ever needed: re-grant from the self-check's list.
 - ~~S-2~~ RULED D14: implemented in 1a and 7a. **New: M-1** (§1.5): when to apply 7a relative to the mobile release.
 - ~~D-1~~ RULED D17: any staff, with lapse and admin re-confirm (file 3).
 - ~~P-1~~ RULED D18, ~~P-2~~ RULED D19: built everywhere, including letters and the mobile RPCs.
@@ -438,3 +445,70 @@ type DisplayEvent = { key; name; date; maxPoints; pointGroupId: number | null };
   `getStudentPointsWithRanking`). `getGlobalPointStats` now has one caller, `adminGetGlobalPointStats`.
 - **Still to do:** `/display` routes and pairing UI; `app/dashboard/layout.tsx` still requires a staff
   session, so a paired device cannot reach these pages yet.
+
+## 12. Data-access architecture (D25, backend ruling 2026-10-14) and file 9
+
+### 12.1 The rule
+**All table reads and writes go through the server-only service client, after a TypeScript
+authorization check in `app/supaApi/server/*`, `api/*` or a server action. RLS is a deny-all backstop.**
+The anon-key cookie client (`utils/supabase/server.ts`, `utils/supabase/client.ts`) is for `auth.*` and
+Realtime broadcast only. The only thing an API role may call is the 13 SECURITY DEFINER student RPCs
+(`authenticated`), which scope by `auth.uid()` themselves.
+
+Why not add policies instead: a SELECT policy on `student_point`, `point_event`, `student` or `user` hands
+the raw rows to anyone holding a session and the public anon key, straight from PostgREST, with no
+publication cut. DATA_DISCLOSURE (the cut, floors, no counts, no peer ids) cannot be expressed as row
+policies, so row access through PostgREST would bypass it. Every web screen already authorizes in
+TypeScript and reads through the service client, and the mobile app is RPC-only, so deny-all costs nothing.
+
+Consequences, binding on everyone:
+- No new code reads or writes a table through the cookie client. It returns no rows (reads) or `42501`
+  (writes, after file 9). `UserContextResolver` now requires the service client.
+- No new RLS policy for `anon` or `authenticated`, and no new table grant to them, without a backend
+  ruling that amends this section. `01_grants` pins the policy set and `tests/rls` asserts zero rows per
+  role per table, so either change fails the suite on purpose.
+- The 9 legacy policies stay. They are inert: each subqueries `public.user`, which has no policy, and after
+  file 9 their write branches have no grant behind them. Dropping them is cleanup (§9), not needed for safety.
+- Every service-client use must authorize first (non-negotiable 2). That check is now the only gate, so
+  it is what reviews look for.
+
+### 12.2 Who needs which grant (audit 2026-10-14)
+| Caller | Path | Table privilege needed |
+|---|---|---|
+| Web server code | service client (`service_role`) | all; unchanged |
+| Web cookie client | `auth.getUser/signIn/signOut/exchangeCodeForSession`, Realtime broadcast | none |
+| Web browser bundle | Realtime broadcast `student-points-channel`, password reset (`auth.*`) | none |
+| Phoenix Student Mobile | 14 `postgrest.rpc("get_*")` calls, no `from(...)`, no Realtime | none (all SECURITY DEFINER) |
+| Auth trigger | `handle_new_user`, SECURITY DEFINER owned by `postgres` | none for API roles |
+
+The only cookie-client table read in the tree was the unimported Supabase starter `components/tutorial`
+(`from('notes')`); it is deleted.
+
+### 12.3 File 9
+- Revokes table writes and all sequence privileges from `anon` and `authenticated`; `ALTER DEFAULT
+  PRIVILEGES FOR ROLE postgres IN SCHEMA public` does the same for future tables and sequences. There are no
+  global (non-schema) default ACLs to override. Self-check aborts if any API role can still write or use a
+  sequence, or if `service_role` lost SELECT/INSERT/UPDATE/DELETE.
+- SELECT is kept for now. Revoking it from both roles is the logical next step under D25 (reads would
+  then fail with `42501` instead of returning no rows), but it changes error behaviour for any stray read,
+  so it is proposed, not done.
+- Verified locally: `npm run test:db:reset` applies it cleanly; pgTAP and `tests/rls` pass (§12.5).
+
+### 12.4 Baseline replay fix in `20240607213353_remote_schema.sql` (ruling: keep it there)
+The test-suite agent added three `CREATE SCHEMA IF NOT EXISTS` lines (`pgsodium`, `graphql`, `vault`) to this
+already-applied file so a fresh local replay works. **Approved as harmless; it stays where it is.**
+- Production never re-runs it: version `20240607213353` is recorded in `supabase_migrations.schema_migrations`,
+  and the CLI selects files by version, not by content. Even if it ran, the statements are idempotent and the
+  schemas exist there.
+- It cannot move to file 0 or a later migration: file 0 is dated 2026 and runs after this file, which needs
+  the schemas at its first `CREATE EXTENSION`. `config.toml` has no pre-migration hook (the seed runs after),
+  so a local-only bootstrap would mean a wrapper around `supabase db reset` that CI and every developer must
+  remember. The guard in place is smaller and always runs.
+- Cost, recorded: this file no longer matches byte-for-byte what production applied in 2024. The source of
+  truth for the live schema remains `docs/schema/baseline-2026-10-14/`. Rule: no other edit to an applied
+  migration is allowed; this exception is limited to idempotent `IF NOT EXISTS` replay guards.
+
+### 12.5 Verification (local stack only, 2026-10-14)
+`npm run test:db:reset`, then `supabase test db` 157/157 (01_grants 14/14; before file 9 the four new write
+assertions failed as expected) and `vitest -c vitest.rls.config.ts` 481/481. Unit 62/62. No remote target
+was used.
