@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDisplayBoards } from '@/app/supaApi/server/dashboard/displayBoards';
 import AnimatedFeatured from './screens/AnimatedFeatured';
-import './featured.css';
+import { WallStage } from '@/components/display/WallStage';
+import { MessageScene } from '@/components/display/ExtraScenes';
 import { useDashboardSchool } from "@/app/dashboard/useDashboardSchool";
 
 export default function FeaturedDashboard() {
@@ -19,6 +20,17 @@ export default function FeaturedDashboard() {
     },
     refetchInterval: 60_000,
   });
-  if (!query.data) return <div className="phoenix-display display-loading"><span className="display-eyebrow">PHOENIX / STUDENT RECOGNITION</span><h1>{query.isError ? 'We’ll be right back.' : 'Great things are happening.'}</h1><p>{query.isError ? 'The board is reconnecting. Please check the connection if this continues.' : 'Getting the latest student achievements…'}</p>{query.isError && <button onClick={() => void query.refetch()}>Try again</button>}</div>;
+  if (!query.data) return (
+    <WallStage term={null}>
+      <div className="hb-scene">
+        <MessageScene
+          heading={query.isError ? 'We’ll be right back.' : 'Great things are happening.'}
+          sub={query.isError ? 'The board is reconnecting. Please check the connection if this continues.' : 'Getting the latest student achievements…'}
+        >
+          {query.isError && <button className="hb-btn" onClick={() => void query.refetch()}>Try again</button>}
+        </MessageScene>
+      </div>
+    </WallStage>
+  );
   return <AnimatedFeatured data={query.data} timeframe={timeframe} onTimeframeChange={setTimeframe} updatedAt={query.dataUpdatedAt} refreshing={query.isFetching} offline={query.isError} />;
 }

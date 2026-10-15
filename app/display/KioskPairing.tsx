@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pollDisplayPairing, startDisplayPairing } from "./actions";
+import { WallStage } from "@/components/display/WallStage";
 
 type State =
     | { kind: "starting" }
@@ -77,37 +78,51 @@ export function KioskPairing() {
         };
     }, [state, start]);
 
+    // A quiet 3 px expiry line: the share of the 10 minute code life that is left. No number.
+    const [left, setLeft] = useState<number | null>(null);
+    useEffect(() => {
+        if (state.kind !== "code") { setLeft(null); return; }
+        const tick = () => setLeft(Math.max(0, Math.min(1, (new Date(state.expiresAt).getTime() - Date.now()) / (10 * 60_000))));
+        tick();
+        const t = setInterval(tick, 5_000);
+        return () => clearInterval(t);
+    }, [state]);
+
     return (
-        <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col items-center justify-center gap-6 px-6 py-10 text-center">
-            <p className="eyebrow">Phoenix display</p>
-            {state.kind === "starting" && (
-                <p className="text-xl text-muted-foreground" role="status">Getting a pairing code…</p>
-            )}
-            {state.kind === "paired" && (
-                <p className="text-2xl font-semibold" role="status">Paired. Opening the displays…</p>
-            )}
-            {state.kind === "error" && (
-                <p className="text-xl text-muted-foreground" role="alert">{state.message}</p>
-            )}
-            {state.kind === "code" && (
-                <>
-                    <h1 className="page-title">Pair this screen</h1>
-                    <div
-                        className="surface px-10 py-6 font-mono text-6xl font-bold tracking-[0.2em] text-foreground sm:text-7xl"
-                        aria-label={`Pairing code ${state.userCode.split("").join(" ")}`}
-                    >
-                        {formatCode(state.userCode)}
-                    </div>
-                    <ol className="grid max-w-xl gap-2 text-left text-lg text-foreground">
-                        <li>1. On your own phone or computer, sign in to Phoenix as staff.</li>
-                        <li>2. Open <span className="font-semibold">{host ? `${host}/display/pair` : "/display/pair"}</span>.</li>
-                        <li>3. Type this code and tap Pair.</li>
-                    </ol>
-                    <p className="text-sm text-muted-foreground">
-                        A new code appears every 10 minutes. Nobody needs to sign in on this screen.
-                    </p>
-                </>
-            )}
-        </div>
+        <WallStage term={null} progress={left}>
+            <div className="hb-scene">
+                <span className="hb-wordmark">Phoenix</span>
+                <div className="hb-center">
+                    <p className="hb-note">Phoenix display</p>
+                    {state.kind === "starting" && (
+                        <p className="hb-lede" role="status">Getting a pairing code…</p>
+                    )}
+                    {state.kind === "paired" && (
+                        <p className="hb-paired" role="status">Paired. Opening the displays…</p>
+                    )}
+                    {state.kind === "error" && (
+                        <p className="hb-lede" role="alert">{state.message}</p>
+                    )}
+                    {state.kind === "code" && (
+                        <>
+                            <h1 className="hb-heading">Pair this screen</h1>
+                            <div className="hb-pair-plate">
+                                <div className="hb-code" aria-label={`Pairing code ${state.userCode.split("").join(" ")}`}>
+                                    {formatCode(state.userCode)}
+                                </div>
+                            </div>
+                            <ol className="hb-steps">
+                                <li>1. On your own phone or computer, sign in to Phoenix as staff.</li>
+                                <li>2. Open <b>{host ? `${host}/display/pair` : "/display/pair"}</b>.</li>
+                                <li>3. Type this code and tap Pair.</li>
+                            </ol>
+                            <p className="hb-note">
+                                A new code appears every 10 minutes. Nobody needs to sign in on this screen.
+                            </p>
+                        </>
+                    )}
+                </div>
+            </div>
+        </WallStage>
     );
 }

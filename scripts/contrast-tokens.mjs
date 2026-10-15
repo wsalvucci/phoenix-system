@@ -12,8 +12,8 @@ function block(selector) {
   for (const m of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) vars[m[1]] = m[2].trim()
   return vars
 }
-const root = block(':root'), dark = block('.dark')
-const vic = block('.theme-victorian'), darkVic = block('.dark .theme-victorian')
+const root = block(':root,\n  .force-light'), dark = block('.dark')
+const vic = block('.theme-victorian,\n  .honor-board'), darkVic = block('.dark .theme-victorian,\n  .honor-board.dark')
 
 const contexts = {
   'global light': { ...root },
