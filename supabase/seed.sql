@@ -56,6 +56,8 @@ select pg_temp.seed_auth_user(7, 'ta@example.test');
 select pg_temp.seed_auth_user(8, 'zero@example.test');
 select pg_temp.seed_auth_user(9, 'parent@example.test');
 select pg_temp.seed_auth_user(10, 'newuser@example.test');
+-- Used only by the logout test: signing out revokes every session of an account, so it needs its own.
+select pg_temp.seed_auth_user(11, 'logout@example.test');
 
 -- ---------------------------------------------------------------------------------------------
 -- Schools, admins, timeframes
