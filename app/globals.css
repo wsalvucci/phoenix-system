@@ -3,7 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* .force-light lets a surface that owns its mode (the Honor Board wall) restate the light
+     values inside a page whose root carries .dark. */
+  :root,
+  .force-light {
     --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -141,8 +144,12 @@
   }
 
   /* Student surface: re-points the semantic tokens ("prize-day parlour").
-     Rank-tier tokens are deliberately not redefined here. */
-  .theme-victorian {
+     Rank-tier tokens are deliberately not redefined here.
+     The Honor Board wall (hallway displays, phone board view) adopts the identical warm values
+     (DASHBOARD_REDESIGN_PLAN.md decision 1) rather than defining a palette of its own. The wall
+     owns its mode: it carries .dark itself, or nothing for light. */
+  .theme-victorian,
+  .honor-board {
     --background: 40 38% 95%;
     --foreground: 22 28% 12%;
     --card: 42 48% 98%;
@@ -183,7 +190,8 @@
     --off-black: 24 22% 8%;
   }
 
-  .dark .theme-victorian {
+  .dark .theme-victorian,
+  .honor-board.dark {
     --background: 24 22% 8%;
     --foreground: 40 32% 92%;
     --card: 24 20% 12%;
