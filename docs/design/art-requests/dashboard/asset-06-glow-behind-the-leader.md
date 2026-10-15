@@ -1,4 +1,4 @@
-# A6. Glow behind the leader
+# A6. Glow behind the leader (RETIRED: the glow is dropped, do not produce or redo)
 
 School rewards app "Phoenix" — hallway TV dashboards ("Honor Board" look).
 

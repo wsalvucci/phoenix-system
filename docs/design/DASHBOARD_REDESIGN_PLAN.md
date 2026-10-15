@@ -15,7 +15,7 @@ Decisions:
 
 1. **Dark is the default for walls, and it is the parlor's dark: warm gaslight, never blue-black.** Light is a supported option and is warm paper, not cool white. Hallway TVs are emissive; a white field at 1080p glares and burns in. Both modes use only tokens and both must pass contrast (section 4.3). The wall owns its mode as a device setting, independent of `ThemeProvider`, because a paired device has no user theme. Implementation: a wrapper class (`.honor-board`) that applies the `.dark` (or light) variables. **Token status, checked against `app/globals.css`:** `--gilt*`, `--seal*` and `--rank-*` are already correct, but `--background`, `--card`, `--foreground`, `--muted-foreground`, `--border` and `--rule` still hold the wave-1 slate/blue-black values (dark `--background` 222.2 84% 4.9%). The parlor plan (`VICTORIAN_REMAKE_PLAN.md` token table) retunes these to warm values. The wall adopts those same warm values and defines no palette of its own. If the remake's token change has landed, the wall just uses the tokens; if not, Phase 0 lands that one token change (shared with the remake, identical values) rather than a wall-only override. Blue-black was not a deliberate choice for TVs: warm near-black is also kinder on a hallway wall at night and keeps gilt and cream ink in one room with the phone.
 2. **Tokens, not hex.** The current display uses a private palette in `featured.css` / `global.css` (`#f4f6fc`, `#9caec8`, `#bbf775` mint, `#20322d`, `#18253b`, `#354966`, aurora blobs). All of it is retired. Surfaces use `--background`, `--card`, `--border`, `--rule`, `--foreground`, `--muted-foreground`; ornament uses `--gilt`, `--gilt-ink`, `--seal`; rank identity uses `--rank-1..5`, `--rank-top10` with their `-foreground` and `-ink` partners. Mint is dropped: gilt is the one celebratory color, so the brightest thing is the leader.
-3. **Rank color identity (standing decision #5).** Tier comes only from `displayRankTier(rank)` (`lib/rankTier.ts`). Color sits only on the rank medallion (fill, numeral and a ring), which always prints the numeral it comes from. **Points are never rank-colored: they are `--gilt-ink` on every row and plate, and names stay `--foreground`** (parlor rank section: "Ledger rows are not rank-colored. Points stay `--gilt-ink`"; rank color must not be applied to points totals). No row tint, bar, plate edge or glow takes a rank color. Gilt text is deep ochre (hue 36) and rank-1 gold is a bright yellow fill (hue 51) with a numeral always inside, so they are not confused. One deliberate difference from the student card, where the balance is the brightest element and rank is never larger than it: on a leaderboard the rank organizes the page, so the medallion may be larger than the points figure, but points remain the brightest text. Tied students share a rank and so a tier. Per D9 a wall only shows tiers `1`, `2`, `3`, `4`, `5`, `top10`; `top20` and `none` have no wall rendering. A row with rank above 10 renders nothing and is logged (a cut violation, not a styling case).
+3. **Rank color identity (standing decision #5).** Tier comes only from `displayRankTier(rank)` (`lib/rankTier.ts`). Color sits only on the rank medallion (fill, numeral and a ring), which always prints the numeral it comes from. **Points are never rank-colored: they are `--gilt-ink` on every row and plate, and names stay `--foreground`** (parlor rank section: "Ledger rows are not rank-colored. Points stay `--gilt-ink`"; rank color must not be applied to points totals). No row tint, bar, plate edge or glow takes a rank color. Gilt text is deep ochre (hue 36) and rank-1 gold is a bright yellow fill (hue 51) with a numeral always inside, so they are not confused. One deliberate difference from the student card, where the balance is the brightest element and rank is never larger than it: on a leaderboard the rank organizes the page, and the medallion is one fixed 72 px size on every row and plate (see the medallion rule below), so it is never larger than the points figure and points remain the brightest text. Tied students share a rank and so a tier. Per D9 a wall only shows tiers `1`, `2`, `3`, `4`, `5`, `top10`; `top20` and `none` have no wall rendering. A row with rank above 10 renders nothing and is logged (a cut violation, not a styling case).
 4. **Celebrate, never shame.** No "bottom", no "rest of the school", no counts, no "N shown", no "of N", no ghost rows, no rank-movement arrows (D10), no "Moving up", no team panels. Copy is about what students did, never who is missing. An empty board is "Your story starts here", not "No data".
 5. **One board per scene.** Each `DisplayBoard` renders alone as its own scene (section 3.3 rule 6 of the disclosure document). No scene joins two boards or shows cohorts side by side; the legibility floor leaves no room for a second panel at corridor distance.
 6. **No scrolling lists.** The cut caps every board at 10 rows and 10 rows fit a 1080p screen at corridor sizes. The auto-scrolling `ScrollingLeaderboard` (pinned leader plus moving track) is a legibility defect: nobody reads a moving list from across a hall. It is replaced by a static ten-row ledger with a short entrance stagger.
@@ -25,6 +25,24 @@ Decisions:
 - Radius: `--radius` (0.5rem) for plates and rows, `calc(var(--radius) * 2)` for the scene frame; medallions are circles. No other radii.
 - Elevation, two levels only: rows are flat on `--card` with a 2 px `--rule` bottom border; the leader plate and scene frame use `--shadow-2` (in dark, plus a 1 px `--gilt` inner line since shadows vanish on near-black). No `--shadow-3` on walls.
 - Ornament budget per scene: one frame, one divider under the title, one medallion per row. Nothing else.
+
+### Medallion rule (owner decision, binding)
+The seal looked right at phone size and gaudy at 112 to 144 px, where the bevel, scallop, ring and laurel all become visible at once and compete with the name and the points. Decision: **the medallion is one size on every wall surface, 72 px at 1080p (6.7u), podium and podium cards included. Rank 1 to 3 emphasis is carried by the plate, the name and the gilt edge, never by a bigger seal.** Specifically:
+- **Size:** 72 px (6.7u), 40 px numeral, 3 px `--rank-N-ink` ring. Phone stays 36 px. No other medallion size exists on a wall (the old 112 and 144 px are retired).
+- **Style at wall size: flat.** Flat `--rank-N` fill, one ring, live numeral. No laurel, no bevel or gloss gradient, no drop shadow, no glow, no second inner ring. The scalloped outline of `seal-ring.svg` may stay because it reads as a seal at 72 px, but the artwork must be redrawn with one ring at a 3 px weight (asset 3b). The concept sheets' glossy, laurel-wreathed, beveled medals are rejected as a style reference; the flat discs in the Brief 5 storyboard are the target.
+- **Glow is dropped.** No glow on the medallion, the leader plate or the stage. The asset `glow-leader.webp` is retired. The leader is made the brightest thing by plate size, name size and the gilt edge.
+- **Emphasis ladder (1080p):**
+
+| | Rank 1 plate | Rank 2 and 3 plates | Ledger row (4 to 10) |
+|---|---|---|---|
+| Height | 25u | 21u | 9u |
+| Medallion | 72 px | 72 px | 72 px |
+| Name (Fraunces 600) | 64 px | 52 px | 44 px |
+| Points (gilt ink) | 72 px | 60 px | 48 px |
+| Edge | 3 px `--gilt` top edge plus gilt sweep at entrance | 2 px `--rule` bottom border | 2 px `--rule` bottom border |
+| Surface | leader plate backing (A5) | `--card` | `--card` |
+
+In portrait and on podium cards the same ladder applies with the same sizes. Rank 1 still reads first because it is the tallest plate with the largest name and the only gilt edge.
 
 ## 2. Screen inventory and what each is for
 
@@ -59,7 +77,7 @@ Design unit `--u` = 1/100 of the short design edge: 10.8 px at 1920x1080 and at 
 - Safe area 4u (about 43 px) on every side; TV overscan is real.
 - Header band 11u: left, board title (serif display) with the gilt divider under it; right, school name, timeframe, clock (30 s tick as today), and a tiny paused/offline mark that never overlaps rows.
 - Body 78u, two columns 36% / 64%:
-  - Left, "the podium": ranks 1 to 3 as stacked plates, rank 1 largest; ties put several students on one step sharing the medallion color.
+  - Left, "the podium": ranks 1 to 3 as stacked plates (25u, 21u, 21u, 2u gaps), rank 1 largest; ties put several students on one step sharing the medallion color.
   - Right, "the ledger": ranks 4 to 10, each row 9u, medallion, name, grade chip, points at the right edge. If ranks 1 to 3 are not all present the podium shrinks; with fewer than 4 rows the ledger is omitted and the podium centers.
 - Footer 3u: the progress line only.
 
@@ -83,8 +101,8 @@ Rule of thumb: 1 mm of letter height buys about 300 mm of quick-read distance. A
 | Rank 1 name | 64 px | Fraunces 600 | leader plate |
 | Rank 2 and 3 names | 52 px | Fraunces 600 | |
 | Rank 4 to 10 names | 44 px | Fraunces 600 | same face as ranks 1 to 3, so a name never changes typeface when it changes rank |
-| Points | 48 px ledger, 72 px podium | Fraunces 600, `--gilt-ink`, lining tabular figures | `formatPoints`; columns align; never rank-colored |
-| Medallion numeral | 40 px in 72 px circle (ledger); 64 px in 112 px circle (podium) | Fraunces 600, lining | `--rank-N-foreground` on `--rank-N`, 3 px ring in `--rank-N-ink` |
+| Points | 48 px ledger, 60 px rank 2 and 3, 72 px rank 1 | Fraunces 600, `--gilt-ink`, lining tabular figures | `formatPoints`; columns align; never rank-colored |
+| Medallion numeral | 40 px in a 72 px circle, every row and plate (never larger) | Fraunces 600, lining | `--rank-N-foreground` on `--rank-N`, 3 px ring in `--rank-N-ink` |
 | Grade chip, timeframe, school name | 28 px | Geist 600 | absolute floor for any word meant to be read |
 | Clock, paused/offline marks | 24 px | Geist 600 | non-essential, never the only carrier of meaning |
 | Progress line | 3 px | n/a | decorative |
@@ -136,11 +154,11 @@ Ease-out. 150 to 250 ms for state changes; scene changes may reach 400 ms becaus
 - **Dwell:** default 20 s (as today), configurable 12 to 60 s. Minimum 12 s so a ten-row ledger can be read by someone who just walked up.
 - **Scene transition:** outgoing fades out 200 ms; incoming fades in 300 ms ease-out with the title rising 1.5u; overlap allowed. No slides, wipes, flips or zooms; large lateral motion distracts walkers and reads as an error.
 - **Row entrance:** 40 ms stagger, 180 ms each (1u rise plus fade), total at most 480 ms. Podium plates enter first, rank 1 last (the reveal).
-- **Celebration:** one 1.2 s gilt sweep across the leader plate's top edge at scene entrance (transform only); rank 1 medallion has a soft static glow in dark. No confetti, no looping sparkle behind text.
+- **Celebration:** one 1.2 s gilt sweep across the leader plate's top edge at scene entrance (transform only); the leader plate carries the only gilt edge. No glow, no confetti, no looping sparkle behind text.
 - **Live update:** keep the realtime `sync` broadcast and the 60 s refetch. Do not diff rows: row `key` is `${cohortKey}:${index}`, positional rather than an identity, and comparing names across payloads would derive rank change, which D10 denies. Feedback is a 600 ms gilt shimmer along the divider. New data swaps in at the next scene boundary, never mid-scene, so a ledger never reshuffles in view.
 - **Progress:** 3 px gilt line fills across the dwell. Paused shows a "Paused" mark (24 px).
-- **Sparkle:** `app/student/SparkleBackground.tsx` is a student asset and is not reused. The wall's only ambient layer is a 60 s radial gilt glow behind the leader plate, static under reduced motion.
-- **Reduced motion:** entrances, sweep, glow, shimmer and burn-in drift are off; scenes change instantly. Rotation continues (it is content) at the configured dwell. Keep the existing blanket `@media (prefers-reduced-motion)` rule as a safety net; the `motion` path uses `useReducedMotion`.
+- **Sparkle:** `app/student/SparkleBackground.tsx` is a student asset and is not reused. The wall has no ambient animated layer (the glow idea is dropped); the stage texture is static.
+- **Reduced motion:** entrances, sweep, shimmer and burn-in drift are off; scenes change instantly. Rotation continues (it is content) at the configured dwell. Keep the existing blanket `@media (prefers-reduced-motion)` rule as a safety net; the `motion` path uses `useReducedMotion`.
 - **Visibility:** rotation pauses while `document.hidden` (kept) and resumes without replaying entrances.
 - **Burn-in:** header band and frame brackets drift 1u every 10 minutes (transform, only when motion is allowed). A TV running all day with a static frame retains images.
 
@@ -176,7 +194,7 @@ Each phase ships on its own and is checked in light and dark at 1920x1080, 1080x
 
 **Phase 0. Tokens, assets, shared primitives** (no route changes)
 - Add the `.honor-board` scope and the `--u` unit in `app/dashboard/honor-board.css`.
-- Candidate new tokens, only if a real gap shows: `--stage` (a step deeper than `--background` in dark, equal in light) and `--gilt-glow`. Both go in `:root` and `.dark` and into `tailwind.config.js`.
+- Candidate new token, only if a real gap shows: `--stage` (a step deeper than `--background` in dark, equal in light). `--gilt-glow` is not needed. It goes in `:root` and `.dark` and into `tailwind.config.js`.
 - Integrate the delivered assets from section 10 under `public/display/`, as `next/image` or CSS `mask-image` (for the single-color shapes, so they take token colors and need no dark variant).
 - Shared components under `components/display/`: `Medallion`, `LedgerRow`, `PodiumPlate`, `SceneFrame` (header, bracket frame, progress line, burn-in drift), `BoardScene`.
 - Contrast table for the six tiers in both modes.
@@ -233,18 +251,18 @@ Relay each brief verbatim. These rules apply to all briefs.
 - **Palette: warm gaslight and warm paper, never blue-black or cool white.** Hex values are computed from the HSL tokens (parlor warm values for surfaces, `globals.css` for gilt, seal and rank). Dark: stage #191410, card #251D18, rule #463D35 (decorative only), UI edge #897A6C, foreground (cream ink) #F1EDE4, secondary text #BFB5A6, gilt fill #D6B151, gilt text #E5C36C, seal #7F392F with seal numeral #FAF7F0. Light: stage #F7F4ED, card #FCFBF7, rule #D7CAB7 (decorative only), UI edge #94806B, foreground (iron-gall ink) #271C16, secondary text #64554A, gilt fill #D6A529 (ornament only), gilt text #794D0C, seal #632A21 with seal numeral #FBF9F4. Do not use #020817, #0E1525, #F8FAFC or #FFFFFF as surfaces, and do not invent colors.
 - **Rank medallion fills** (dark / light), numeral color in brackets: rank 1 #FFD91A / #E6C300 (#191410 dark, #271C16 light); rank 2 #9FA5AD / #868D98 (same); rank 3 #C67839 / #975926 (#191410 dark, #FBF9F4 light); rank 4 #853285 / #5C0F5C (#F6F4EE dark, #FBF9F4 light); rank 5 #157979 / #006B6B (same as rank 4); ranks 6 to 10 #B81E3A / #A1122C (same as rank 4). Each medallion has a 3 px ring in its ink color. Dark rings: 1 #FFD91A, 2 #B0B6BF, 3 #D68D51, 4 #E198E1, 5 #3BCECE, 6-10 #F8778D. Light rings: 1 #7A5600, 2 #4E555F, 3 #804A1E, 4 #5C0F5C, 5 #006B6B, 6-10 #A1122C. **Rank color appears only on the medallion (fill, numeral, ring). Points are always gilt text (#E5C36C dark, #794D0C light); names are always the foreground ink.** No row tint, bar, plate edge or glow in a rank color.
 - **Typography: Fraunces 600 for titles, names, points and all numerals (lining, tabular figures, `SOFT` 0, `WONK` 0, optical size at its display end); Geist 400 and 600 for chips, labels and body.** No Playfair, no Didone, no hairline strokes, no other weights. Show type at the px sizes given for the canvas.
-- **Ornament.** Restrained: one gilt corner-bracket frame, one thin double gilt divider under the title, wax-seal medallions for rank, at most one soft radial gilt glow behind rank 1. No filigree borders, scrollwork fills, or stacked drop shadows.
+- **Ornament.** Restrained: one gilt corner-bracket frame, one thin double gilt divider under the title, flat wax-seal medallions for rank (72 px maximum, flat fill, one ring, no laurel, no bevel), no glow anywhere. No filigree borders, scrollwork fills, or stacked drop shadows.
 - **Avoid.** Neon, cyan sci-fi, glassmorphism, rainbow gradients, confetti, trophy clip art, cartoon characters, fireworks, stock photos, emoji, text on busy backgrounds, text under 28 px at 1920x1080, lists that fade out, anything implying a bottom of the list, counts ("of 600"), arrows or "up/down", "new" badges, small-print footers, team panels, "Moving up" modules, and red anywhere but the rank 6 to 10 medallion.
 
 ### Brief 1. Overall Hall of Honor, landscape, dark
 - **Subject and purpose:** main wall scene for `/dashboard/global` and Featured's first scene: overall top ten. Establishes the whole look; hero image for the owner.
 - **Size and aspect:** 1920x1080 (16:9); export 3840x2160 if possible.
 - **Mode:** dark.
-- **Content:** title "The Honor Roll", under it "Spring Term". Header right: "Example High School" and clock "10:42". Left 36%: podium plates for ranks 1 to 3 stacked, rank 1 largest (112 px medallion, 64 px name, 72 px points), 2 and 3 smaller (name 52 px). Right 64%: ranks 4 to 10 as ledger rows 98 px tall: medallion, name (44 px), grade chip "Grade 11" (28 px), points (48 px) at the right edge. Gilt progress line along the bottom, about 40% filled.
+- **Content:** title "The Honor Roll", under it "Spring Term". Header right: "Example High School" and clock "10:42". Left 36%: podium plates for ranks 1 to 3 stacked, rank 1 plate 25u tall with the 3 px gilt top edge (72 px medallion, 64 px name, 72 px points), 2 and 3 plates 21u tall (72 px medallion, 52 px name, 60 px points). The medallion is the same 72 px on all ten rows; rank 1 stands out by plate, name and gilt edge, not seal size. Right 64%: ranks 4 to 10 as ledger rows 98 px tall: medallion, name (44 px), grade chip "Grade 11" (28 px), points (48 px) at the right edge. Gilt progress line along the bottom, about 40% filled.
 - **Palette:** dark set and medallion fills as above. Names #F1EDE4; points #E5C36C on every row; only the medallion carries rank color.
 - **Typography / ornament:** general rules, plus a 2 px gilt top edge on the leader plate.
 - **Placeholders:** ranks 1 to 10 from the list.
-- **Avoid:** general list; also scroll bars, a pinned-leader strip, "N shown", shine on non-leader rows.
+- **Avoid:** general list; also scroll bars, a pinned-leader strip, "N shown", shine on non-leader rows, any medallion above 72 px, laurel or bevel on the medallions, glow around the leader.
 
 ### Brief 2. Overall Hall of Honor, landscape, light
 - **Subject and purpose:** same scene in light mode, to validate token pairs and offer a bright-lobby option.
@@ -257,9 +275,9 @@ Relay each brief verbatim. These rules apply to all briefs.
 - **Subject and purpose:** the board for a portrait panel (corridor kiosk, trophy case), dark beside light.
 - **Size and aspect:** 1080x1920, two artboards.
 - **Mode:** both.
-- **Content:** header (title, school, clock), three stacked podium plates (rank 1 on top, largest), ranks 4 to 10 as 86 px ledger rows, progress line at the bottom. Same px type sizes as Brief 1. Show the name "Cy Placeholder-Example" truncated with an ellipsis on one ledger row to demonstrate the rule.
+- **Content:** header (title, school, clock), three stacked podium plates (rank 1 on top, largest), ranks 4 to 10 as 86 px ledger rows, progress line at the bottom. Same px type and medallion sizes as Brief 1 (72 px medallion everywhere, plates 25u / 21u / 21u). Show the name "Cy Placeholder-Example" truncated with an ellipsis on one ledger row to demonstrate the rule.
 - **Palette, typography, ornament, placeholders:** general rules and Brief 1.
-- **Avoid:** general list; shrinking type to fit, cropped ranks, scroll cues.
+- **Avoid:** general list; shrinking type to fit, cropped ranks, scroll cues, medallions larger than 72 px, laurel wreaths, a rank 1 medallion in any color but #FFD91A (dark) or #E6C300 (light).
 
 ### Brief 4. Category board and grade board, landscape, dark
 - **Subject and purpose:** one point-group scene ("Citizenship" with a small chip) and one grade scene ("Grade 9 standouts", subtitle "Your classmates. Their achievements."), to show the chip and the short-board rule.
@@ -298,9 +316,9 @@ Relay each brief verbatim. These rules apply to all briefs.
 - **Subject and purpose:** `/dashboard/topCards` as a trophy-case podium wall.
 - **Size and aspect:** 1080x1920 (primary) and 1920x1080.
 - **Mode:** dark.
-- **Content:** rank 1 card raised on top (880 px wide in portrait, medallion 144 px, name 72 px Fraunces 600, "Grade 12" chip, points 96 px); ranks 2 and 3 at 760 px (name 56 px, points 72 px); ledger below, ranks 4 to 10 at 80 px rows. Card edges 2 px #897A6C, a 2 px gilt top edge (#D6B151) on rank 1 only, cards on #251D18, points in #E5C36C (never rank-colored), medallions per the rank list.
+- **Content:** rank 1 card raised on top (880 px wide in portrait, medallion 72 px (same as every other card), name 72 px Fraunces 600, "Grade 12" chip, points 96 px); ranks 2 and 3 at 760 px (medallion 72 px, name 56 px, points 72 px); ledger below, ranks 4 to 10 at 80 px rows. Card edges 2 px #897A6C, a 2 px gilt top edge (#D6B151) on rank 1 only, cards on #251D18, points in #E5C36C (never rank-colored), medallions per the rank list.
 - **Palette, typography, ornament, placeholders:** general rules.
-- **Avoid:** general list; painted pedestal steps with numerals, trophies, ribbons, laurel larger than the medallion.
+- **Avoid:** general list; painted pedestal steps with numerals, trophies, ribbons, laurel, any medallion above 72 px, a numeral printed twice on one row, seven-across vertical cards.
 
 ### Brief 9. Phone view, light and dark
 - **Subject and purpose:** `/dashboard/mobile`, seen after a QR scan.
@@ -353,7 +371,7 @@ The art agent can deliver production assets. These replace CSS gradients and uni
 
 ### A3. Rank seal medallion artwork
 - **File and usage:** `public/display/seal-ring.svg` (the scalloped wax-seal outline and inner ring) and `public/display/seal-flame.svg` (the numberless glyph for empty states). `Medallion` fills the shape with `--rank-N` and prints the numeral as live text.
-- **Dimensions:** 256x256 viewBox; renders at 72 px (ledger), 112 px (podium) and 144 px (podium cards, top cards).
+- **Dimensions:** 256x256 viewBox; renders at 72 px on every wall surface (ledger, podium, podium cards) and 36 px on the phone. Nothing larger.
 - **Tiles:** no.
 - **Transparency:** yes.
 - **Variants:** none; flat shapes using `currentColor` for the fill and a separate inner ring path with `fill: none; stroke: currentColor` so CSS can set the ring to `--rank-N-foreground` at 50 percent.
@@ -381,7 +399,7 @@ The art agent can deliver production assets. These replace CSS gradients and uni
 - **Format:** WebP lossless with alpha.
 - **Text safe area:** the inner rectangle inset 48 px (at 1280 wide) on all sides is a flat color with at most 2 percent variation. Text sits there: name at 64 px and points at 72 px, rank-ink on base. The art agent states the measured contrast for #F1EDE4 (names) and #E5C36C (points) on the dark base, and #271C16 (names) and #794D0C (points) on the light base.
 
-### A6. Glow behind the leader
+### A6. Glow behind the leader (RETIRED: glow dropped, see medallion rule)
 - **File and usage:** `public/display/glow-leader.webp`. A radial warm halo placed behind the rank 1 plate; CSS animates its opacity (60 s breathing, off under reduced motion). It must never sit behind text; it is behind the plate, which is opaque.
 - **Dimensions:** 1600x1600; @2x not needed (low frequency).
 - **Tiles:** no.
@@ -424,6 +442,53 @@ The art agent can deliver production assets. These replace CSS gradients and uni
 - **File and usage:** a single review sheet (not shipped): `asset-review.png` showing every asset in both modes on its real background with the sample text and the measured contrast figures written beside it (the one place text is allowed, since it is not shipped).
 - **Dimensions:** 3840x2160.
 - **Variants:** dark and light halves.
+
+## Art review
+
+Reviewed 2026-10-14: every concept PNG in `docs/design/concepts/`, the production assets in `public/display/` (opened and, for SVGs, read as source) and the art agent's two notes, against this plan and Briefs 1 to 10. Concepts are mood and layout references only; this plan's tables win wherever they differ.
+
+### Adopted
+- **Briefs 1 and 2 layout.** Header (title left, school name and clock right), 36/64 podium and ledger split, plates for ranks 1 to 3, ten rows, grade chips, gilt points, bottom progress line, the single corner-bracket frame and the double rule under the header. Both modes read as one family, warm paper in light.
+- **Gilt top edge on the leader plate only.** Now the main rank 1 emphasis (see the medallion rule).
+- **Brief 3 truncation demo.** One-line ledger name ending in an ellipsis, last name only.
+- **Brief 4 grade board.** Two students sharing rank 3 with the same bronze medallion, rows centered, calm blank space, subtitle under the title. The small category chip beside the title.
+- **Brief 5 storyboard** as the motion and scene spec (fade-and-rise, stagger, progress line, Spotlight and Coming-up scenes). Its flat-disc medallions are the target seal style at wall size.
+- **Brief 6 states.** Seal with flame glyph above the message, centered heading and sub-line, flanking gilt rules, the three-plate small-school scene, light variant. Reconnecting keeps the last board visible.
+- **Brief 7 pairing layout.** Code in a bracketed plate, host line, one instruction line, thin expiry line at about 70 percent, "Connected" in gilt. No school name, no QR code.
+- **Brief 8 portrait card stack.** Rank 1 on top, 2 and 3 below, ledger under a divider.
+- **Brief 9 phone view.** Sticky header with timeframe select, board-jump chip row with a filled active chip, 36 px medallions, grade column, points at the right.
+- **Brief 10 hub layout.** 2x2 cards, gilt top edge on the two larger cards, "Pair a screen" link at the foot, Fraunces heading.
+
+### Rejected or corrected
+- **Medallion style and size (all concepts).** Large beveled, glossy, laurel-wreathed seals (Briefs 1, 2, 8) and 144 px cards are rejected. Corrected to 72 px flat discs everywhere (medallion rule above). Brief 1 and 2 numerals are fine; the laurel inside the seal, the specular gloss and the halo around the rank 1 plate are removed.
+- **Glow.** Dropped everywhere, including the plate halo in Briefs 1 and 8.
+- **Wrong rank colors.** Brief 3 (rank 1 red; ranks 4 to 10 plain gray circles), Brief 8 (rank 2 purple, rank 3 teal, rank 4 to 10 numerals doubled and a "9" shown at rank 10), Brief 9 (rank 2 red, 3 blue, 4 green, 5 purple, 6 to 10 bronze or gray). Standing decision #5 and the plan's fill list are the only source: 1 yellow, 2 silver, 3 bronze, 4 purple, 5 teal, 6 to 10 red.
+- **Brief 1 and 2 typography.** The title is gradient gilt on dark (the title is `--foreground`; gilt belongs to points); the school name and clock are gilt (should be muted foreground and foreground); "SPRING TERM" and "POINTS" are tracked caps near 22 to 26 px, under the 28 px floor. Drop the "POINTS" label entirely (the figure is self-explanatory) and set the timeframe at 28 px Geist 600 without letter-spacing.
+- **Brief 3 ornaments.** Italic "The" over a caps title, a diamond on the divider, laurel wreaths larger than the medallion, and small tracked caps for school name. One title style, plain double rule.
+- **Brief 4 category board.** Bare numerals instead of medallions, a lit-wall backdrop and two framed panels per image. Every ranked row has a medallion; one scene per board; placeholder names drift from the list (Ben Example, Di Example).
+- **Brief 6 additions.** Phoenix wing watermark behind text (new ornament, breaks the budget), an added "Phoenix Honor Board" header, a spinner icon on Reconnecting and its 16 px label (24 px floor, no spinner), laurels on the small medallions, a raised middle step in the small-school scene (use the same stacked plates or three equal plates).
+- **Brief 7 faults.** Stand-in Arial for host and instruction lines (must be Geist), a plain rounded rectangle where the gilt corner-bracket frame belongs, and no outer scene frame. Layout otherwise good.
+- **Brief 8 landscape.** Seven vertical ledger cards with the numeral above and inside the seal, tracked small caps "PHOENIX SCHOOL HONOR BOARD" title and gradient gilt, invented names. Portrait only is adopted.
+- **Brief 9 faults.** Column header row at about 11 px (14 px minimum, or drop it), fleur-de-lis ornament (not in the asset set; use the double divider), invented names and scores.
+- **Brief 10 thumbnails.** Photoreal oak honor boards with crests are not the product and would misrepresent the screens. Use real screenshots built from placeholder data, or flat block thumbnails. The description lines in the image are invented copy and need ux-optimizer.
+- **Review sheet proofs.** `asset-review.png` shows the divider blank and the glow with an inverted alpha (see assets), so it proves nothing for those two.
+
+### Production assets
+| Asset | Verdict | Notes |
+|---|---|---|
+| `stage-dark.webp`, `stage-light.webp` | Pass | Faint grain, measured 14.9 / 14.2 for names, 10.2 / 6.2 for gilt text. Light gilt text on raw stage is 6.2, so points stay on opaque `--card` rows as planned. The review sheet exaggerates the pattern; the file is subtle. |
+| `frame-corner.svg` | Pass | Single path, `currentColor`, double line at 6 of 256 (3 px at 130 px). Interior clear. |
+| `seal-ring.svg` | Redo (3b) | Scallop is an irregular 36-point polygon, the second inner ring is 2 of 256 (about 0.6 px at 72 px, below the 3 px floor), and the 6 of 256 ring is half transparent. Redraw as the flat wall seal. |
+| `seal-flame.svg` | Pass | Reads at empty-state size. Keep. |
+| `divider-double.svg` | Redo (4b) | One SVG with `preserveAspectRatio="none"`: stretched end caps distort, stroke weight scales with width, and strokes are 2 of 24 (under 3 px at 1080p). It rendered blank on the proof sheet. Needs a 9-slice. |
+| `plate-leader-dark.webp`, `plate-leader-light.webp` | Pass | Flat interior, measured 14.2 / 9.8 (dark) and 16.1 / 7.0 (light). The 3 px gilt top edge is set in CSS to meet the floor; the baked highlight is only a tint. |
+| `glow-leader.webp` | Fail, retired | Alpha is near zero in the middle and gold at the square edges (a visible box). Not redone: the glow is dropped. Delete at integration. |
+| `laurel.svg` | Pass, restricted | Strokes are 5 of 512, so use only at 520 px wide or more (empty and new-term states). Remove the "small scale beside the rank 1 plate" use from A7. |
+| `banner-header-dark.webp`, `banner-header-light.webp` | Pass, not used | Optional A8. Stage plus divider is enough; do not integrate unless the Hall of Honor looks bare in QA. |
+| `mobile-header-dark.webp`, `mobile-header-light.webp` | Pass | 1170x360, flat, measured 14.2 / 15.2. |
+| `asset-review.png` | Redo with 3b and 4b | Add the corrected seal at 72 and 36 px in all six tiers, both modes, and a rendered divider. |
+
+Follow-up requests: `docs/design/art-requests/dashboard/asset-03b-flat-wall-seal-72px.md` and `docs/design/art-requests/dashboard/asset-04b-divider-nine-slice.md`.
 
 ## 11. What this plan deliberately does not do
 - No app code, styles, tokens or data change in this run.

@@ -14,7 +14,7 @@ School rewards app "Phoenix" — hallway TV dashboards ("Honor Board" look).
 ## This request
 
 - **File and usage:** `public/display/seal-ring.svg` (the scalloped wax-seal outline and inner ring) and `public/display/seal-flame.svg` (the numberless glyph for empty states). `Medallion` fills the shape with `--rank-N` and prints the numeral as live text.
-- **Dimensions:** 256x256 viewBox; renders at 72 px (ledger), 112 px (podium) and 144 px (podium cards, top cards).
+- **Dimensions:** 256x256 viewBox; renders at 72 px on every wall surface and 36 px on the phone. Nothing larger. SUPERSEDED for the seal ring by asset-03b.
 - **Tiles:** no.
 - **Transparency:** yes.
 - **Variants:** none; flat shapes using `currentColor` for the fill and a separate inner ring path with `fill: none; stroke: currentColor` so CSS can set the ring to `--rank-N-foreground` at 50 percent.
