@@ -1,4 +1,5 @@
 "use client";
+import { formatSignedPoints } from "@/lib/formatPoints";
 import React, { useState, useEffect } from "react";
 import { rankTier } from "@/lib/rankTier";
 import { isRanked, standingText } from "@/lib/rankText";
@@ -126,7 +127,7 @@ export default function RecentEventsWithRankings({ pointEventRankings, initialCo
                                     </div>
                                 </div>
                                 <div className="flex shrink-0 flex-col items-end gap-2">
-                                    <p className="vic-numeral whitespace-nowrap text-lg text-gilt-ink">+{event.points}</p>
+                                    <p className="vic-numeral whitespace-nowrap text-lg text-gilt-ink">{formatSignedPoints(event.points)}</p>
                                     {event.studentPointId && (
                                         <button
                                             type="button"

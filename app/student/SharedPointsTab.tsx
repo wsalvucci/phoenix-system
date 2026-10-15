@@ -1,4 +1,5 @@
 "use client";
+import { formatSignedPoints } from "@/lib/formatPoints";
 import React, { useState, useEffect } from "react";
 import { getSharedPointsForStudent } from "@/api/student";
 import { SharedPointData } from "@/types/domain";
@@ -109,7 +110,7 @@ export default function SharedPointsTab() {
                                 <LedgerRow
                                     key={point.key}
                                     title={`${point.sharer.firstName} ${point.sharer.lastName}`}
-                                    amount={`+${point.pointValue}`}
+                                    amount={formatSignedPoints(point.pointValue)}
                                 />
                             ))}
                         </div>
