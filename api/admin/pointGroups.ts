@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdminOfRow } from '@/app/supaApi/server/adminScope';
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { createServerLogger } from '@/utils/serverLogger';
@@ -262,6 +263,9 @@ export async function updatePointGroup(
       logger.error('User is not an admin', { userId: supabaseUser.id });
       throw new Error('Access denied - admin role required');
     }
+
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireAdminOfRow('point_group', pointGroupId);
 
     // Update point group
     const { data: updatedPointGroup, error: updateError } = await serviceClient

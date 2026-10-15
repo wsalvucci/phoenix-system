@@ -1,5 +1,6 @@
 "use server";
 
+import { assertRowsInSchool } from '@/app/supaApi/server/adminScope';
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { AdminStudentData } from '@/types/domain';
@@ -261,6 +262,9 @@ export async function createStudent(schoolId: number, studentData: {
       throw new Error('Access denied - admin does not have access to this school');
     }
 
+    // Every group must belong to this school
+    await assertRowsInSchool('student_group', studentData.groupIds ?? [], schoolId);
+
     // Create student
     const { data: newStudent, error: createError } = await serviceClient
       .from('student')
@@ -396,6 +400,9 @@ export async function updateStudent(studentId: number, studentData: {
       });
       throw new Error('Access denied - admin does not have access to this student');
     }
+
+    // Every group must belong to the student's school
+    await assertRowsInSchool('student_group', studentData.groupIds ?? [], currentStudent.school_id);
 
     // Prepare update data
     const updateData: Record<string, unknown> = {};

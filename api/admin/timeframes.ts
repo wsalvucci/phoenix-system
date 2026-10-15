@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdminOfRow } from '@/app/supaApi/server/adminScope';
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { createServerLogger } from '@/utils/serverLogger';
@@ -252,6 +253,9 @@ export async function updateTimeframe(
       throw new Error('Access denied - admin role required');
     }
 
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireAdminOfRow('school_timeframes', timeframeId);
+
     // Update timeframe
     const { data: updatedTimeframe, error: updateError } = await serviceClient
       .from('school_timeframes')
@@ -335,6 +339,9 @@ export async function deleteTimeframe(timeframeId: number): Promise<boolean> {
       logger.error('User is not an admin', { userId: supabaseUser.id });
       throw new Error('Access denied - admin role required');
     }
+
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireAdminOfRow('school_timeframes', timeframeId);
 
     // Delete timeframe
     const { error: deleteError } = await serviceClient

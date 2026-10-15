@@ -1,4 +1,3 @@
-"use server";
 import supabaseServiceClient from "../../supabaseServiceClient";
 import { LinkedPointGroups } from "@/app/supaApi/mappers/dataTypes";
 

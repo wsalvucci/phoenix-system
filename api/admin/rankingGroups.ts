@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdminOfRow, requireSameSchoolAdmin } from '@/app/supaApi/server/adminScope';
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { createServerLogger } from '@/utils/serverLogger';
@@ -342,6 +343,9 @@ export async function addStudentGroupToRankingGroup(
       throw new Error('Access denied - admin role required');
     }
 
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireSameSchoolAdmin([['student_group', studentGroupId], ['ranking_group', rankingGroupId]]);
+
     // Add student group to ranking group
     const { error: addError } = await serviceClient
       .from('ranking_group_pair')
@@ -422,6 +426,9 @@ export async function removeStudentGroupFromRankingGroup(
       throw new Error('Access denied - admin role required');
     }
 
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireAdminOfRow('ranking_group', rankingGroupId);
+
     // Remove student group from ranking group
     const { error: removeError } = await serviceClient
       .from('ranking_group_pair')
@@ -500,6 +507,9 @@ export async function addTeacherToRankingGroup(
       logger.error('User is not an admin', { userId: supabaseUser.id });
       throw new Error('Access denied - admin role required');
     }
+
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireSameSchoolAdmin([['teacher', teacherId], ['ranking_group', rankingGroupId]]);
 
     // Add teacher to ranking group
     const { error: addError } = await serviceClient
@@ -580,6 +590,9 @@ export async function removeTeacherFromRankingGroup(
       logger.error('User is not an admin', { userId: supabaseUser.id });
       throw new Error('Access denied - admin role required');
     }
+
+    // Authorize against the school that owns the row(s), not just 'is some admin'
+    await requireAdminOfRow('ranking_group', rankingGroupId);
 
     // Remove teacher from ranking group
     const { error: removeError } = await serviceClient

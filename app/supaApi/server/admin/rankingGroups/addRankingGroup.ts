@@ -4,7 +4,7 @@ import supabaseServiceClient from "../../supabaseServiceClient";
 import checkAdminSchoolAccess from "../schools/checkAdminSchoolAccess";
 
 export default async function addRankingGroup(schoolId: number, name: string): Promise<boolean> {
-    const adminAccess = checkAdminSchoolAccess(schoolId);
+    const adminAccess = await checkAdminSchoolAccess(schoolId);
 
     if (!adminAccess) return false;
 
