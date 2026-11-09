@@ -11,6 +11,8 @@ import CSVReader from 'react-csv-reader';
 import { DateTime } from 'luxon';
 import { bulkAddStudentsToSchool } from '@/app/supaApi/server/admin/adminApi';
 import Link from 'next/link';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import InlineError from '@/components/InlineError';
 
 enum SortType {
   FirstName = 'firstName',
@@ -49,6 +51,12 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
   const [previewStudents, setPreviewStudents] = useState<PreviewStudent[]>([]);
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [bulkImportError, setBulkImportError] = useState<string | null>(null);
+
+  // Inline errors and the delete confirmation (replace alert()/confirm())
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   // Queries
   const { data: students, isLoading, error, refetch } = useSchoolStudents(parseInt(schoolId));
@@ -115,8 +123,9 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
   // Handle create student
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateError(null);
     if (!createForm.firstName || !createForm.lastName || !createForm.grade || !createForm.powerschoolId) {
-      alert('Please fill in all required fields');
+      setCreateError('First name, last name, grade and PowerSchool ID are all required. Fill in the missing ones and try again.');
       return;
     }
 
@@ -147,7 +156,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
       setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create student:', error);
-      alert('Failed to create student');
+      setCreateError('The student was not added. Check the PowerSchool ID is not already in use, then try again.');
     }
   };
 
@@ -155,6 +164,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
   const handleUpdateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
+    setEditError(null);
 
     try {
       await updateStudentMutation.mutateAsync({
@@ -182,21 +192,21 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
       });
     } catch (error) {
       console.error('Failed to update student:', error);
-      alert('Failed to update student');
+      setEditError('Your changes were not saved. Check the details and try again.');
     }
   };
 
   // Handle delete student
-  const handleDeleteStudent = async (studentId: number, studentName: string) => {
-    if (!confirm(`Are you sure you want to delete ${studentName}?`)) {
-      return;
-    }
-
+  const handleDeleteStudent = async () => {
+    if (!deleteTarget) return;
+    setDeleteError(null);
     try {
-      await deleteStudentMutation.mutateAsync(studentId);
+      await deleteStudentMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
     } catch (error) {
       console.error('Failed to delete student:', error);
-      alert('Failed to delete student');
+      setDeleteTarget(null);
+      setDeleteError(`${deleteTarget.name} was not deleted. Nothing changed; try again.`);
     }
   };
 
@@ -483,6 +493,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
               <option value="F">Female</option>
               <option value="O">Other</option>
             </ThemeSelect>
+            <InlineError message={createError} className="col-span-2" />
             <div className="col-span-2 flex gap-2">
               <button
                 type="submit"
@@ -545,6 +556,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                 <option value="F">Female</option>
                 <option value="O">Other</option>
               </ThemeSelect>
+              <InlineError message={editError} className="col-span-2" />
               <div className="col-span-2 flex gap-2">
                 <button
                   type="submit"
@@ -602,6 +614,18 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
           <option value={SortDirection.Descending}>Descending</option>
         </ThemeSelect>
       </div>
+
+      <InlineError message={deleteError} className="mb-4" />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`Delete ${deleteTarget?.name ?? 'this student'}?`}
+        body="Their points and group memberships are deleted with them. This cannot be undone."
+        confirmLabel={`Delete ${deleteTarget?.name ?? 'student'}`}
+        cancelLabel="Keep student"
+        busy={deleteStudentMutation.isPending}
+        onConfirm={handleDeleteStudent}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Students Table */}
       <LoadingState
@@ -700,7 +724,7 @@ export default function StudentsManagementPage({ params: { schoolId } }: { param
                             Edit
                           </MotionButton>
                           <button
-                            onClick={() => handleDeleteStudent(student.id, `${student.firstName} ${student.lastName}`)}
+                            onClick={() => setDeleteTarget({ id: student.id, name: `${student.firstName} ${student.lastName}` })}
                             className="px-3 py-2 bg-red-600 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={deleteStudentMutation.isPending}
                           >
