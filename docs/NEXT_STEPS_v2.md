@@ -29,7 +29,7 @@ item is in brackets.
    payload logs at `teacherServerActions.ts:269/:586`. [privacy]
 9. **Scope teacher reach** (§7.4 #19): `getAllTimeframePointEvents`, `getSchoolStudents`, `getRankingGroupPoints`
    give any teacher whole-school per-event scores. [privacy]
-10. **Private Realtime channel** for `student-points-channel` (anyone with the anon key can force walls to
+10. DONE (agent/backend-wave3, migration 20261109120200): **Private Realtime channel** for `student-points-channel` (anyone with the anon key can force walls to
     reload). [backend, lead]
 11. **Link-code regeneration (held 230700):** owner sets a reissue date; then test it, wire `previewLinkCode`
     confirm, drop the School-number field. [backend, privacy, senior-dev, ux, qa]
@@ -43,6 +43,6 @@ item is in brackets.
     color presets; wire the wax-seal stamp into `AwardBalance`. [designer]
 
 ## Housekeeping
-17. Index gaps migration (`user.supabase_id` unique, link and school_id indexes). [backend]
+17. DONE (agent/backend-wave3, migration 20261109120000): Index gaps migration (`user.supabase_id` unique, link and school_id indexes). [backend]
 18. Remove hardcoded `id = 7` query in `loadSchoolTimeframes`; delete unused `api/core` and `api/v2`. [senior-dev, lead]
 19. CI: add lint, pin `supabase/setup-cli`; fix stale TESTING.md finding 2; fifth disclosure audit in §11. [qa, privacy]

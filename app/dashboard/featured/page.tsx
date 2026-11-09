@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useScoreSignal } from '@/components/display/useScoreSignal';
 import { getDisplayBoards } from '@/app/supaApi/server/dashboard/displayBoards';
 import AnimatedFeatured from './screens/AnimatedFeatured';
 import { WallStage } from '@/components/display/WallStage';
@@ -20,6 +21,8 @@ export default function FeaturedDashboard() {
     },
     refetchInterval: 60_000,
   });
+  const queryClient = useQueryClient();
+  useScoreSignal(schoolId, () => void queryClient.invalidateQueries({ queryKey: ['featured'] }));
   if (!query.data) return (
     <WallStage term={null}>
       <div className="hb-scene">

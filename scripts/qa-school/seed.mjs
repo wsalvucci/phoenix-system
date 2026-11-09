@@ -139,8 +139,21 @@ async function ensureUpdate(table, id, values, desc) {
 // Guards on accounts that already exist: a qa-* account must not already hold any role outside the QA
 // school, or this script would be granting a QA password access to something real.
 // ---------------------------------------------------------------------------------------------------
+async function findUserRow(authId, email) {
+  return must(await db.from("user").select("id, admin_id, student_id, teacher_id").eq("supabase_id", authId).maybeSingle(), `user row for ${email}`);
+}
+
 async function assertUserConfinedToSchool(userRow, schoolId, email) {
   const outside = [];
+  // The mobile app's link columns ("user".student_id / teacher_id) reach a school too.
+  if (userRow.student_id != null) {
+    const own = must(await db.from("student").select("school_id").eq("id", userRow.student_id), "mobile student link");
+    if (own.some((s) => s.school_id !== schoolId)) outside.push("mobile-linked to a student in another school");
+  }
+  if (userRow.teacher_id != null) {
+    const own = must(await db.from("teacher").select("school_id").eq("id", userRow.teacher_id), "mobile teacher link");
+    if (own.some((t) => t.school_id !== schoolId)) outside.push("mobile-linked to a teacher in another school");
+  }
   if (userRow.admin_id !== null) {
     const pairs = must(await db.from("admin_school_pair").select("school_id").eq("admin_id", userRow.admin_id), "admin schools");
     if (pairs.some((p) => p.school_id !== schoolId)) outside.push("admin of another school");
@@ -237,8 +250,13 @@ async function main() {
   const userId = {};
   for (const a of ACCOUNTS) {
     let authId = existingAuth.get(a.email)?.id;
+    let userRow = null;
     if (authId) {
       counts.existing++;
+      // Confine first: an existing account that reaches another school is refused before its
+      // password is reset, or the reset would hand a QA password to something real.
+      userRow = await findUserRow(authId, a.email);
+      if (userRow) await assertUserConfinedToSchool(userRow, isPlaceholder(schoolId) ? -1 : schoolId, a.email);
       if (!dryRun) {
         const { error } = await db.auth.admin.updateUserById(authId, { password: cfg.password, email_confirm: true });
         if (error) throw new Error(`reset password for ${a.email}: ${error.message}`);
@@ -259,18 +277,15 @@ async function main() {
       });
       if (error) throw new Error(`create auth user ${a.email}: ${error.message}`);
       authId = data.user.id;
-    }
-
-    let userRow = null;
-    if (!isPlaceholder(authId)) {
-      userRow = must(await db.from("user").select("id, admin_id, student_id").eq("supabase_id", authId).maybeSingle(), `user row for ${a.email}`);
+      // A brand-new auth user may already have a public."user" row from the handle_new_user trigger.
+      userRow = await findUserRow(authId, a.email);
       if (userRow) await assertUserConfinedToSchool(userRow, isPlaceholder(schoolId) ? -1 : schoolId, a.email);
     }
     if (!userRow) {
       if (dryRun) {
         userRow = { id: placeholder("user"), admin_id: null };
       } else {
-        userRow = must(await db.from("user").insert({ supabase_id: authId }).select("id, admin_id, student_id").single(), `create user row for ${a.email}`);
+        userRow = must(await db.from("user").insert({ supabase_id: authId }).select("id, admin_id, student_id, teacher_id").single(), `create user row for ${a.email}`);
       }
     }
     await ensureUpdate("user", userRow.id, { first_name: a.first, last_name: a.last }, `name of ${a.email}`);

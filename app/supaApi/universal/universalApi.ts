@@ -82,14 +82,6 @@ async function loadSchoolTimeframes(
         .select("*")
         .eq("school_id", schoolId);
 
-    
-    // Test query for specific timeframe ID 7
-    const { data: specificTimeframe, error: specificError } = await supabase
-        .from("school_timeframes")
-        .select("*")
-        .eq("school_id", schoolId)
-        .eq("id", 7);
-    
 
     if (timeframes === null) {
         console.error(timeframesError);
@@ -103,25 +95,6 @@ async function loadSchoolTimeframes(
         endDate: timeframe.ends_at,
         isActive: timeframe.active
     }));
-
-    // WORKAROUND: Check if we're missing the active timeframe due to RLS filtering
-    // If the specific query for ID 7 worked, add it to the results
-    if (specificTimeframe && specificTimeframe.length > 0) {
-        const activeTimeframe = specificTimeframe[0];
-        const isAlreadyIncluded = mappedTimeframes.some(tf => tf.id === activeTimeframe.id);
-        
-        if (!isAlreadyIncluded) {
-            mappedTimeframes.push({
-                id: activeTimeframe.id,
-                name: activeTimeframe.name,
-                startDate: activeTimeframe.starts_at,
-                endDate: activeTimeframe.ends_at,
-                isActive: activeTimeframe.active
-            });
-        }
-    }
-
-    // Debug logging for timeframes
 
     return mappedTimeframes;
 }
@@ -437,6 +410,10 @@ async function loadRankingGroupPoints(
     return filteredEvents;
 }
 
+// getAllTimeframePointEvents, getSchoolStudents and getRankingGroupPoints (whole-school per-event
+// scores, DATA_DISCLOSURE.md §7.4 #19) were deleted: they had no caller and admitted any teacher. A
+// teacher's own groups are served by app/supaApi/server/teacher/*; the whole school only by
+// adminGetGlobalPointStats below (checked against admin_school_pair).
 // ---------------------------------------------------------------------------
 // Authorized entry points.
 // Every export of a "use server" file is a POST-able endpoint, and the loaders
@@ -456,19 +433,6 @@ export async function getSelectedOrActiveTimeframe(
 ): Promise<TimeframeData | null> {
     if (!(await isStaffOfSchool(schoolId))) return null;
     return loadSelectedOrActiveTimeframe(schoolId, timeframeId);
-}
-
-export async function getAllTimeframePointEvents(
-    schoolId: number,
-    timeframeId: number | null,
-): Promise<PointEventData[] | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    return loadAllTimeframePointEvents(schoolId, timeframeId);
-}
-
-export async function getSchoolStudents(schoolId: number): Promise<StudentData[] | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    return loadSchoolStudents(schoolId);
 }
 
 /**
@@ -509,15 +473,6 @@ export async function getSchoolRankingGroups(schoolId: number): Promise<RankingG
     if (!(await isStaffOfSchool(schoolId))) return null;
     return loadSchoolRankingGroups(schoolId);
 }
-
-export async function getRankingGroupPoints(
-    schoolId: number,
-    timeframeId: number | null = null,
-): Promise<RankingGroupPointEventData[] | null> {
-    if (!(await isStaffOfSchool(schoolId))) return null;
-    return loadRankingGroupPoints(schoolId, timeframeId);
-}
-
 
 export async function adminGetGlobalPointStats(
     schoolId: number,
@@ -927,8 +882,6 @@ async function getGlobalPointStats(
     }
 
     // --- Final Mapping Logic (Using Rank Maps & Pre-calculated Group/Event Data) --- 
-    // Debug logging for timeframes
-
     return {
         schoolId: schoolId,
         totalStudents: allStudentsRanked.length,

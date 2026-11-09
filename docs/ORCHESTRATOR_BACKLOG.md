@@ -55,3 +55,11 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - Nit (backlog for backend): `scripts/qa-school/seed.mjs` resets a QA user's password before `assertUserConfinedToSchool`; swap order.
 - Backend-owned: no DB constraint stops pair tables mixing two schools (actions refuse it now).
 - **Worktree cleanup blocked:** removing 15 clean, merged agent worktrees + merged branches was denied by the auto-mode classifier; needs owner to allow or run `git worktree remove` themselves.
+
+## 2026-11-09 backend wave 3 (`agent/backend-wave3`)
+- **Owner, read-only on production (SQL editor):** `docs/schema/production_read_only_checks.sql`. Query 1 lists student TAs linked only via mobile `user.student_id` (lost TA access in v2.1.0); query 2 must be empty before applying `20261109120000`; query 3 lists pre-existing mixed-school pairs; query 4 counts groups with no school. Send results (ids/counts only) to backend.
+- **Owner go-ahead needed to apply to production** (all additive, no data change, safe in any order relative to the web deploy): `20261109120000_index_gaps` (fails cleanly if query 2 has rows), `20261109120100_same_school_pairs`, `20261109120200_private_score_signal`. Held `20261014230700` is unaffected.
+- Optional dashboard setting after deploy: Realtime > Settings > turn off "Allow public access".
+- Done: QA seed confines before password reset (also checks mobile links); DB same-school guard; private score signal (staff-signed-in walls now update live; paired kiosks still poll 60 s); supabase-js 2.43 to 2.45.
+- Follow-up (backend, not started): kiosk live updates need a server-minted short-lived Realtime JWT for display devices (needs the project JWT secret as a server env var).
+- Fixed a flaky e2e check in `tests/e2e/dashboards.spec.ts` ("carry no ids"): it now captures server-action bodies through `page.route`; it failed intermittently on unchanged master code and deps too. One unrelated "setting up page" timeout in `forbidden.spec.ts` passed on rerun.

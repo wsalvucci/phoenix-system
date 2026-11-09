@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Quicksand } from "next/font/google"
 import { useQuery } from "@tanstack/react-query";
 import { getAdminSchoolDashWithTimeframe } from "@/api/admin";
-import { useTheme } from "@/components/ThemeProvider";
 
 import { LoadingState } from "@/components/LoadingLayout";
 import { wrapServerAction } from "@/utils/serverActionWrapper";
@@ -24,7 +23,6 @@ const titleFont = Quicksand({
 
 
 export default function AdminPage({ params: { schoolId } }: { params: { schoolId: string } }) {
-    const { theme } = useTheme();
     const { selectedTimeframe } = useTimeframe();
     
     const {data: adminDashData, isLoading, error} = useQuery({
@@ -108,8 +106,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <p className="text-sm text-muted-foreground">Total Students</p>
                                     <p className="text-3xl font-bold">{totalStudents}</p>
                                 </div>
-                                <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
-                                    <FontAwesomeIcon icon={faUserGraduate} className="text-blue-600 dark:text-blue-400 text-xl" />
+                                <div className="bg-primary/10 p-3 rounded-full">
+                                    <FontAwesomeIcon icon={faUserGraduate} className="text-primary text-xl" />
                                 </div>
                             </div>
                         </div>
@@ -120,8 +118,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <p className="text-sm text-muted-foreground">Student Groups</p>
                                     <p className="text-3xl font-bold">{totalGroups}</p>
                                 </div>
-                                <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full">
-                                    <FontAwesomeIcon icon={faUsers} className="text-green-600 dark:text-green-400 text-xl" />
+                                <div className="bg-success-soft p-3 rounded-full">
+                                    <FontAwesomeIcon icon={faUsers} className="text-success-ink text-xl" />
                                 </div>
                             </div>
                         </div>
@@ -132,8 +130,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <p className="text-sm text-muted-foreground">Point Categories</p>
                                     <p className="text-3xl font-bold">{totalPointTypes}</p>
                                 </div>
-                                <div className="bg-purple-100 dark:bg-purple-900 p-3 rounded-full">
-                                    <FontAwesomeIcon icon={faStar} className="text-purple-600 dark:text-purple-400 text-xl" />
+                                <div className="bg-primary/10 p-3 rounded-full">
+                                    <FontAwesomeIcon icon={faStar} className="text-primary text-xl" />
                                 </div>
                             </div>
                         </div>
@@ -144,8 +142,8 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <p className="text-sm text-muted-foreground">Avg Points/Student</p>
                                     <p className="text-3xl font-bold">{averagePoints.toLocaleString()}</p>
                                 </div>
-                                <div className="bg-orange-100 dark:bg-orange-900 p-3 rounded-full">
-                                    <FontAwesomeIcon icon={faChartLine} className="text-orange-600 dark:text-orange-400 text-xl" />
+                                <div className="bg-warning-soft p-3 rounded-full">
+                                    <FontAwesomeIcon icon={faChartLine} className="text-warning-ink text-xl" />
                                 </div>
                             </div>
                         </div>
@@ -177,6 +175,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                     <YAxis hide dataKey="points" type="number" name="points" unit="pts" />
                                     <ZAxis dataKey="name" type="category" name="student" />
                                     <Tooltip 
+                                        contentStyle={{ background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
                                         cursor={{ strokeDasharray: '3 3' }}
                                         formatter={(value: unknown, name: unknown) => [String(value), String(name)]}
                                         labelFormatter={(label) => `Student: ${label}`}
@@ -185,7 +184,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                                         data={showAllStudents ? pointsDistribution : pointsDistribution.slice(-20)}
                                         shape={(props: unknown) => {
                                             const { cx, cy } = props as { cx: number; cy: number };
-                                            const color = theme === 'dark' ? "#9ca3af" : "#6b7280";
+                                            const color = "hsl(var(--chart-1))";
                                             return (
                                                 <circle
                                                     cx={cx}
@@ -208,10 +207,10 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             </h3>
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={gradeDistribution}>
-                                    <XAxis dataKey="grade" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Bar dataKey="students" fill="#8884d8" />
+                                    <XAxis dataKey="grade" stroke="hsl(var(--muted-foreground))" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                                    <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                                    <Tooltip contentStyle={{ background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} cursor={{ fill: "hsl(var(--accent))" }} />
+                                    <Bar dataKey="students" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -222,7 +221,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/students`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faUsers} className="text-blue-600 dark:text-blue-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faUsers} className="text-primary text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Student Management</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -234,7 +233,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/groups`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faUsersCog} className="text-green-600 dark:text-green-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faUsersCog} className="text-success-ink text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Group Management</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -246,7 +245,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/pointGroups`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faStar} className="text-purple-600 dark:text-purple-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faStar} className="text-primary text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Point Categories</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -258,7 +257,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/rankingGroups`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faTrophy} className="text-yellow-600 dark:text-yellow-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faTrophy} className="text-warning-ink text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Competitions</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -270,7 +269,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/teachers`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faGraduationCap} className="text-indigo-600 dark:text-indigo-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faGraduationCap} className="text-primary text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Teacher Management</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -282,7 +281,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                         <Link href={`/admin/school/${schoolId}/timeframes`}>
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
-                                    <FontAwesomeIcon icon={faCalendarAlt} className="text-red-600 dark:text-red-400 text-xl mr-3" />
+                                    <FontAwesomeIcon icon={faCalendarAlt} className="text-destructive-ink text-xl mr-3" />
                                     <h3 className="text-lg font-semibold">Timeframes</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
@@ -295,7 +294,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                     {/* Top Performers Section */}
                     <div className="bg-card border border-border rounded-lg p-6">
                         <h3 className="text-lg font-semibold mb-4 flex items-center">
-                            <FontAwesomeIcon icon={faTrophy} className="mr-2 text-yellow-600" />
+                            <FontAwesomeIcon icon={faTrophy} className="mr-2 text-warning-ink" />
                             Top Performers
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

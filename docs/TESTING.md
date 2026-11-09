@@ -100,6 +100,12 @@ School 1 has 40 students in grades 6 to 9, and school 2 has 5. Point totals in t
 | `05_display_devices` | pairing, single-use claim, who may approve, lapse when the pairer stops being staff, reconfirm, revoke |
 | `06_share_withdrawal` | editing a shared score un-shares it, one notice, read once, only for the owner |
 | `07_leader_letters` | letter thresholds, rule L8 (6 members, 0 or 3 or more at D and at E, more than half took part) on synthetic data |
+| `09_same_school_pairs` | no pair row (membership, leader, assistant, teacher, competition, event category, score, share) links two schools; a paired row cannot change school; same-school and ordinary edits still work |
+| `10_score_signal_and_indexes` | who may receive the private `school:<id>:scores` topic, one signal per school per statement with an empty payload, RLS on `realtime.messages` (no client send), the index-gap indexes |
+
+`tests/rls/scoreSignal.test.ts` checks the same signal through the running Realtime server: staff of the
+school subscribe, every other role and anon are refused, a browser cannot forge `sync` (private or public
+channel), and a score write reaches only that school's staff.
 
 Tests that need exact cohort sizes build a throwaway school inside the transaction; nothing persists.
 
@@ -222,12 +228,15 @@ school. Do not hand the codes out.
 `tests/rls/actionsAuthz.test.ts`). Admin actions now check the school that owns the row being changed
 (`app/supaApi/server/adminScope.ts`), teaching-assistant checks compare with the signed-in account's own student id
 instead of `user.id`, and `getStudentGroupsForTeachers` / `getRankingGroupsForTeachers` are no longer exported server
-actions. One item remains open and is backend-owned:
+actions.
 
-- No rule in the database stops a pair table (group membership, ranking group, leader, TA) from mixing two
-  schools. The actions above now refuse to create such a pair, but a database constraint or trigger is still the
-  durable fix. Until then, leader-letter and leaderboard reads would show names across schools if a mixed pair ever
-  appeared by another route.
+- ~~No rule in the database stops a pair table from mixing two schools.~~ **Fixed by migration
+  `20261109120100_same_school_pairs`** (triggers on every pair table and on the school_id of the paired rows;
+  `09_same_school_pairs`). It guards new writes only: rows that already exist are checked by query 3 in
+  `docs/schema/production_read_only_checks.sql`.
+
+The QA seed checks that an existing `qa-*` account reaches no other school (including the mobile-app
+`"user".student_id` / `teacher_id` links) before it resets that account's password.
 
 Tested only on the local stack: seed twice (the second run created 0 rows), signed in as all six accounts,
 `display_cut` publishes 4 names for the QA school and 0 for another school, teardown twice, and every other

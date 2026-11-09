@@ -11,7 +11,7 @@ function when(iso: string | null): string {
 
 function status(device: DisplayListItem): { text: string; tone: string } {
     if (device.revokedAt) return { text: "Removed", tone: "text-muted-foreground" };
-    if (!device.pairerActive) return { text: "Paused: the person who paired it is no longer staff here", tone: "text-amber-700 dark:text-amber-300" };
+    if (!device.pairerActive) return { text: "Paused: the person who paired it is no longer staff here", tone: "text-warning-ink" };
     return { text: "Showing displays", tone: "text-foreground" };
 }
 

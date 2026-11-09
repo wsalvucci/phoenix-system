@@ -23,7 +23,7 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
     if (userData === null) {
         return (
             <div>
-                <div className="flex items-center justify-center h-screen m-5 text-slate-700 dark:text-slate-300">
+                <div className="flex items-center justify-center h-screen m-5 text-foreground">
                     <div>
                         <div>
                             Fatal Error: User has an account but no user data. Contact support.
@@ -52,20 +52,20 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
     return (
         <TimeframeProvider schoolId={schoolId}>
             <div className="app-page">
-                <div className="flex min-h-dvh flex-col text-slate-700 dark:text-slate-300">
+                <div className="flex min-h-dvh flex-col text-foreground">
                     <header className="app-header min-h-20 w-full">
                         <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-4 sm:px-6">
                           <div>
-                            <Link href="/admin" className="text-sm font-medium text-slate-500 hover:text-slate-950 dark:hover:text-white">← Schools</Link>
-                            <h1 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">School Administration</h1>
+                            <Link href="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground">← Schools</Link>
+                            <h1 className="mt-1 text-xl font-bold text-foreground">School Administration</h1>
                           </div>
                           <div className="flex-1" />
                         </div>
                     </header>
-                    <div className="flex min-h-0 flex-grow flex-col bg-slate-50 dark:bg-slate-950 md:flex-row">
-                        <nav aria-label="School administration" className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900 md:w-56 md:flex-col md:border-b-0 md:border-r md:px-3 md:py-5">
+                    <div className="flex min-h-0 flex-grow flex-col bg-muted md:flex-row">
+                        <nav aria-label="School administration" className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2 md:w-56 md:flex-col md:border-b-0 md:border-r md:px-3 md:py-5">
                             {sideBarButton("Home", "")}
-                            <div className="mx-2 hidden h-px bg-slate-200 dark:bg-slate-800 md:block" />
+                            <div className="mx-2 hidden h-px bg-muted md:block" />
                             {sideBarButton("Student Groups", "groups")}
                             {sideBarButton("Students", "students")}
                             {sideBarButton("Teachers", "teachers")}

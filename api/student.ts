@@ -1,5 +1,5 @@
 "use server";
-import { Student, StudentMonthlyTrends, MonthlyTrendData, percentileToRating } from "@/types/domain";
+import { Student, percentileToRating } from "@/types/domain";
 import { getPhoenixUser } from "./user";
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
 import { createClient } from "@/utils/supabase/server";
@@ -182,53 +182,16 @@ export async function getStudentDashboardData(timeframeId?: number | null) {
             return null;
         }
 
-        // Get all students in the school for ranking calculations
-        const { data: allStudents } = await supabase
-            .from('student')
-            .select('id, first_name, last_name, grade')
-            .eq('school_id', student.schoolId);
-
-        if (!allStudents) {
-            logger.warn('No students found in school');
-            return null;
-        }
-
-        // Get point events and student points for the timeframe
-        const { data: pointEvents } = await supabase
-            .from('point_event')
-            .select(`
-                id,
-                name,
-                date,
-                max_input,
-                point_group!inner(id, name, color),
-                point_group_id,
-                student_point(id, student_id, point_value, input_score)
-            `)
-            .eq('point_group.school_id', student.schoolId)
-            .gte('date', timeframe.starts_at)
-            .lte('date', timeframe.ends_at);
-
+        // Only this student's own rows (and the bare scores of the events they took part in) are read.
+        const pointEvents = await loadOwnPointEvents(supabase, student, timeframe);
         if (!pointEvents) {
             logger.warn('No point events found');
             return null;
         }
 
-        // Get point groups for ranking calculations (include parent to roll up categories)
-        const { data: pointGroups } = await supabase
-            .from('point_group')
-            .select('id, name, color, parent_id')
-            .eq('school_id', student.schoolId);
-
-        if (!pointGroups) {
-            logger.warn('No point groups found');
-            return null;
-        }
-
-        // Calculate student statistics
-        const studentStats = calculateStudentStats(student, allStudents, pointEvents, pointGroups, timeframe);
+        const studentStats = calculateStudentStats(pointEvents);
         // D22: own ranks and "of N" come from SQL over the D19 cohort, not from the Node sort above.
-        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents, student.id);
+        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents);
         
         return {
             student,
@@ -520,86 +483,99 @@ export async function getStudentTeachingAssistantGroups(): Promise<{
 }
 
 /**
- * Helper function to calculate student statistics
+ * A point event with only the student's own row, plus the bare scores of everyone who took part
+ * (no student ids), which is all an event rank and "of N" need.
  */
-function calculateStudentStats(
-    student: Student, 
-    allStudents: any[], 
-    pointEvents: any[], 
-    pointGroups: any[],
-    timeframe: any
-) {
-    // Calculate total points for each student
-    const studentPoints = new Map<number, number>();
-    const studentPointGroups = new Map<number, Map<number, number>>();
-    
-    // Initialize maps
-    allStudents.forEach(s => {
-        studentPoints.set(s.id, 0);
-        studentPointGroups.set(s.id, new Map());
-    });
+type OwnPointEvent = {
+    id: number;
+    name: string | null;
+    date: string;
+    max_input: number;
+    point_group_id: number;
+    point_group: { id: number; name: string; color: string } | null;
+    own: { id: number; point_value: number };
+    participantScores: number[];
+};
 
-    // Build a quick lookup to roll up groups to their top-level parent (Academics/Athletics/Activities)
-    const groupById: Map<number, { id: number; name: string; color: string; parent_id: number | null }> = new Map();
-    pointGroups.forEach((g: any) => {
-        groupById.set(g.id, { id: g.id, name: g.name, color: g.color, parent_id: g.parent_id ?? null });
-    });
+const IN_CHUNK = 150;
+const PAGE = 1000;
 
-    function getTopLevelGroupId(groupId: number): number {
-        let current: { id: number; parent_id: number | null } | undefined = groupById.get(groupId);
-        const visited = new Set<number>();
-        while (current && current.parent_id && !visited.has(current.parent_id)) {
-            visited.add(current.id);
-            const parent = groupById.get(current.parent_id);
-            if (!parent) break;
-            current = parent as any;
+/**
+ * Loads the student's own point events for the timeframe without reading any other student's row
+ * by id: one query for the student's own student_point rows (scoped by student_id), then the bare
+ * point_value of the participants of those events only (needed for the per-event rank).
+ * TODO(backend): replace the second query with an SQL function that returns rank and count per
+ * event (docs/STUDENT_PAGE_EVENT_RANK_RPC.md).
+ */
+async function loadOwnPointEvents(
+    supabase: Awaited<ReturnType<typeof supabaseServiceClient>>,
+    student: Student,
+    timeframe: { starts_at: string; ends_at: string }
+): Promise<OwnPointEvent[] | null> {
+    const { data: events, error } = await supabase
+        .from('point_event')
+        .select(`
+            id,
+            name,
+            date,
+            max_input,
+            point_group!inner(id, name, color),
+            point_group_id,
+            student_point!inner(id, point_value)
+        `)
+        .eq('point_group.school_id', student.schoolId)
+        .eq('student_point.student_id', student.id)
+        .gte('date', timeframe.starts_at)
+        .lte('date', timeframe.ends_at);
+    if (error || !events) return null;
+
+    const eventIds = events.map((e: any) => e.id as number);
+    const scores = new Map<number, number[]>();
+    for (let i = 0; i < eventIds.length; i += IN_CHUNK) {
+        const chunk = eventIds.slice(i, i + IN_CHUNK);
+        for (let from = 0; ; from += PAGE) {
+            const { data: rows, error: scoreError } = await supabase
+                .from('student_point')
+                .select('point_event_id, point_value')
+                .in('point_event_id', chunk)
+                .order('id')
+                .range(from, from + PAGE - 1);
+            if (scoreError) return null;
+            (rows ?? []).forEach((r: any) => {
+                const list = scores.get(r.point_event_id) ?? [];
+                list.push(r.point_value);
+                scores.set(r.point_event_id, list);
+            });
+            if (!rows || rows.length < PAGE) break;
         }
-        return current ? current.id : groupId;
     }
 
-    // Calculate points from events, rolling up to top-level category
-    pointEvents.forEach(event => {
-        const rawGroupId = (event.point_group && event.point_group.id) || event.point_group_id;
-        const topLevelGroupId = typeof rawGroupId === 'number' ? getTopLevelGroupId(rawGroupId) : rawGroupId;
-        
-        event.student_point.forEach((sp: any) => {
-            const currentPoints = studentPoints.get(sp.student_id) || 0;
-            studentPoints.set(sp.student_id, currentPoints + sp.point_value);
-            
-            const groupPoints = studentPointGroups.get(sp.student_id);
-            if (groupPoints) {
-                const currentGroupPoints = groupPoints.get(topLevelGroupId) || 0;
-                groupPoints.set(topLevelGroupId, currentGroupPoints + sp.point_value);
-            }
-        });
-    });
+    return events.map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        max_input: e.max_input,
+        point_group_id: e.point_group_id,
+        point_group: e.point_group,
+        own: e.student_point[0],
+        participantScores: scores.get(e.id) ?? [],
+    }));
+}
 
-    // Calculate rankings
-    const sortedStudents = allStudents
-        .map(s => ({
-            ...s,
-            totalPoints: studentPoints.get(s.id) || 0
-        }))
-        .sort((a, b) => b.totalPoints - a.totalPoints);
-
-    const studentRank = sortedStudents.findIndex(s => s.id === student.id) + 1;
-    const gradeStudents = sortedStudents.filter(s => s.grade === student.grade);
-    const gradeRank = gradeStudents.findIndex(s => s.id === student.id) + 1;
-
-    // Calculate point group rankings
-    const pointGroupRankings = calculatePointGroupRankings(allStudents, studentPointGroups, student.id, pointGroups);
-
-    // Calculate point event rankings
-    const pointEventRankings = calculatePointEventRankings(pointEvents, student.id);
-
+/**
+ * Own total and own per-event standing. Overall, grade and point-group ranks come from SQL
+ * (applyOwnStanding) and start as null here.
+ */
+function calculateStudentStats(pointEvents: OwnPointEvent[]) {
+    const totalPoints = pointEvents.reduce((sum, e) => sum + e.own.point_value, 0);
     return {
-        totalPoints: studentPoints.get(student.id) || 0,
-        totalRank: studentRank as number | null,
-        totalOutOf: sortedStudents.length as number | null,
-        gradeRank: gradeRank as number | null,
-        gradeOutOf: gradeStudents.length as number | null,
-        pointGroupRankings,
-        pointEventRankings
+        totalPoints,
+        totalRank: null as number | null,
+        totalOutOf: null as number | null,
+        gradeRank: null as number | null,
+        gradeOutOf: null as number | null,
+        pointGroupRankings: [] as any[],
+        pointEventRankings: calculatePointEventRankings(pointEvents),
     };
 }
 
@@ -610,7 +586,7 @@ function calculateStudentStats(
  * Category points are the student's own raw point_value per point_event.point_group_id, the same
  * grouping the SQL cohort uses, so the figure beside each rank comes from the same computation.
  */
-function applyOwnStanding(stats: ReturnType<typeof calculateStudentStats>, standing: OwnStanding | null, pointEvents: any[], studentId: number): void {
+function applyOwnStanding(stats: ReturnType<typeof calculateStudentStats>, standing: OwnStanding | null, pointEvents: OwnPointEvent[]): void {
     stats.totalRank = standing?.overall?.rank ?? null;
     stats.totalOutOf = standing?.overall?.outOf ?? null;
     stats.gradeRank = standing?.grade?.rank ?? null;
@@ -618,9 +594,8 @@ function applyOwnStanding(stats: ReturnType<typeof calculateStudentStats>, stand
 
     const ownByGroup = new Map<number, number>();
     pointEvents.forEach((event) => {
-        const own = event.student_point.find((sp: any) => sp.student_id === studentId);
-        if (own && typeof event.point_group_id === 'number') {
-            ownByGroup.set(event.point_group_id, (ownByGroup.get(event.point_group_id) ?? 0) + own.point_value);
+        if (typeof event.point_group_id === 'number') {
+            ownByGroup.set(event.point_group_id, (ownByGroup.get(event.point_group_id) ?? 0) + event.own.point_value);
         }
     });
     stats.pointGroupRankings = (standing?.pointGroups ?? []).map((g) => ({
@@ -635,99 +610,33 @@ function applyOwnStanding(stats: ReturnType<typeof calculateStudentStats>, stand
 }
 
 /**
- * Calculate rankings for each point group
- */
-function calculatePointGroupRankings(
-    allStudents: any[], 
-    studentPointGroups: Map<number, Map<number, number>>, 
-    studentId: number,
-    pointGroups: any[]
-) {
-    const pointGroupRankings: any[] = [];
-    // Get all unique point group IDs
-    const allPointGroupIds = new Set<number>();
-    studentPointGroups.forEach(groupMap => {
-        groupMap.forEach((points, groupId) => {
-            allPointGroupIds.add(groupId);
-        });
-    });
-
-    // Calculate rankings for each point group
-    allPointGroupIds.forEach(groupId => {
-        // Get all students with points in this group
-        const studentsInGroup = allStudents
-            .map(s => ({
-                ...s,
-                points: studentPointGroups.get(s.id)?.get(groupId) || 0
-            }))
-            .filter(s => s.points > 0)
-            .sort((a, b) => b.points - a.points);
-
-        const studentRank = studentsInGroup.findIndex(s => s.id === studentId) + 1;
-        const studentPoints = studentsInGroup.find(s => s.id === studentId)?.points || 0;
-
-        const group = pointGroups.find((g: any) => g.id === groupId);
-
-        if (studentRank > 0 && group) {
-            // Calculate percentile for letter grade (1 = best, outOf = worst)
-            const percentile = 1 - (studentRank - 1) / studentsInGroup.length;
-            const letterGrade = percentileToRating(percentile);
-
-            pointGroupRankings.push({
-                pointGroupId: groupId,
-                pointGroupName: group.name,
-                pointGroupColor: group.color,
-                points: studentPoints,
-                rank: studentRank,
-                outOf: studentsInGroup.length,
-                letterGrade
-            });
-        }
-    });
-
-    return pointGroupRankings;
-}
-
-/**
  * Calculate rankings for each point event
  */
-function calculatePointEventRankings(pointEvents: any[], studentId: number) {
-    const pointEventRankings: any[] = [];
-
-    pointEvents.forEach(event => {
-        // Find if student participated in this event
-        const studentParticipation = event.student_point.find((sp: any) => sp.student_id === studentId);
-        
-        if (studentParticipation) {
-            const participantScores: number[] = event.student_point.map((sp: any) => sp.point_value);
-            const participantCount = participantScores.length;
-
-            // Tied scores share the better rank (§10.5).
-            // §10.12 floor: no rank and no "of N" below K_HIDDEN + 1 (4) participants.
-            const studentRank: number | null = participantCount >= 4
-                ? competitionRank(participantScores, studentParticipation.point_value)
-                : null;
-            const studentPoints = studentParticipation.point_value;
-
-            pointEventRankings.push({
-                eventId: event.id,
-                eventName: event.name || 'Unnamed Event',
-                eventDate: event.date,
-                maxPoints: event.max_input,
-                points: studentPoints,
-                rank: studentRank,
-                outOf: studentRank === null ? null : participantCount,
-                studentPointId: studentParticipation.id,
-                pointGroup: {
-                    id: (event.point_group && event.point_group.id) || event.point_group_id,
-                    name: event.point_group?.name || 'Unknown',
-                    color: event.point_group?.color || '#999999'
-                }
-            });
-        }
+function calculatePointEventRankings(pointEvents: OwnPointEvent[]) {
+    return pointEvents.map(event => {
+        const participantScores = event.participantScores;
+        const participantCount = participantScores.length;
+        // Tied scores share the better rank (§10.5).
+        // §10.12 floor: no rank and no "of N" below K_HIDDEN + 1 (4) participants.
+        const studentRank: number | null = participantCount >= 4
+            ? competitionRank(participantScores, event.own.point_value)
+            : null;
+        return {
+            eventId: event.id,
+            eventName: event.name || 'Unnamed Event',
+            eventDate: event.date,
+            maxPoints: event.max_input,
+            points: event.own.point_value,
+            rank: studentRank,
+            outOf: studentRank === null ? null : participantCount,
+            studentPointId: event.own.id,
+            pointGroup: {
+                id: (event.point_group && event.point_group.id) || event.point_group_id,
+                name: event.point_group?.name || 'Unknown',
+                color: event.point_group?.color || '#999999'
+            }
+        };
     });
-
-    return pointEventRankings;
 }
 
 /**
@@ -815,53 +724,16 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
             return null;
         }
 
-        // Get all students in the school for ranking calculations
-        const { data: allStudents } = await supabase
-            .from('student')
-            .select('id, first_name, last_name, grade')
-            .eq('school_id', student.schoolId);
-
-        if (!allStudents) {
-            logger.warn('No students found in school');
-            return null;
-        }
-
-        // Get point events and student points for the timeframe
-        const { data: pointEvents } = await supabase
-            .from('point_event')
-            .select(`
-                id,
-                name,
-                date,
-                max_input,
-                point_group!inner(id, name, color),
-                point_group_id,
-                student_point(id, student_id, point_value, input_score)
-            `)
-            .eq('point_group.school_id', student.schoolId)
-            .gte('date', timeframe.starts_at)
-            .lte('date', timeframe.ends_at);
-
+        // Only this student's own rows (and the bare scores of the events they took part in) are read.
+        const pointEvents = await loadOwnPointEvents(supabase, student, timeframe);
         if (!pointEvents) {
             logger.warn('No point events found');
             return null;
         }
 
-        // Get point groups for ranking calculations (include parent to roll up categories)
-        const { data: pointGroups } = await supabase
-            .from('point_group')
-            .select('id, name, color, parent_id')
-            .eq('school_id', student.schoolId);
-
-        if (!pointGroups) {
-            logger.warn('No point groups found');
-            return null;
-        }
-
-        // Calculate student statistics
-        const studentStats = calculateStudentStats(student, allStudents, pointEvents, pointGroups, timeframe);
+        const studentStats = calculateStudentStats(pointEvents);
         // D22: own ranks and "of N" come from SQL over the D19 cohort, not from the Node sort above.
-        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents, student.id);
+        applyOwnStanding(studentStats, await getOwnStanding(student.id, timeframe.id), pointEvents);
         
         return {
             student,
@@ -880,176 +752,6 @@ export async function getStudentDashboardDataById(studentId: number, timeframeId
         }, error instanceof Error ? error : undefined);
         return null;
     }
-}
-
-/**
- * Gets monthly trend data for the student
- */
-export async function getStudentMonthlyTrends(): Promise<StudentMonthlyTrends | null> {
-    const logger = createServerLogger({ component: 'StudentAPI', action: 'getStudentMonthlyTrends' });
-    
-    try {
-        const student = await getStudentDataWithContext();
-        if (!student) {
-            logger.warn('No student data found');
-            return null;
-        }
-
-        const supabase = await supabaseServiceClient();
-        
-        // Get the school's active timeframe
-        const { data: timeframe } = await supabase
-            .from('school_timeframes')
-            .select('*')
-            .eq('school_id', student.schoolId)
-            .eq('active', true)
-            .single();
-
-        if (!timeframe) {
-            logger.warn('No active timeframe found for school');
-            return null;
-        }
-        
-        // Get all students in the school for ranking calculations
-        const { data: allStudents } = await supabase
-            .from('student')
-            .select('id, first_name, last_name, grade')
-            .eq('school_id', student.schoolId);
-
-        if (!allStudents) {
-            logger.warn('No students found in school');
-            return null;
-        }
-
-        // Get point events for the active timeframe only
-        const { data: pointEvents } = await supabase
-            .from('point_event')
-            .select(`
-                id,
-                name,
-                date,
-                max_input,
-                point_group:point_group_id (id, name, color, school_id),
-                point_group_id,
-                student_point(student_id, point_value, input_score)
-            `)
-            .eq('point_group.school_id', student.schoolId)
-            .gte('date', timeframe.starts_at)
-            .lte('date', timeframe.ends_at);
-
-        if (!pointEvents || pointEvents.length === 0) {
-            logger.warn('No point events found in active timeframe');
-            return null;
-        }
-
-        // Calculate monthly trends
-        const trends = calculateMonthlyTrends(student, allStudents, pointEvents);
-        
-        if (trends.length === 0) {
-            logger.warn('No trend data available');
-            return null;
-        }
-
-        const currentMonth = trends[trends.length - 1];
-        const previousMonth = trends.length > 1 ? trends[trends.length - 2] : null;
-
-        return {
-            currentMonth,
-            previousMonth,
-            trends
-        };
-    } catch (error) {
-        logger.error('Failed to get student monthly trends', { 
-            error: error instanceof Error ? error.message : 'Unknown error' 
-        }, error instanceof Error ? error : undefined);
-        return null;
-    }
-}
-
-/**
- * Helper function to calculate monthly trends
- */
-function calculateMonthlyTrends(student: Student, allStudents: any[], pointEvents: any[]): MonthlyTrendData[] {
-    const trends: MonthlyTrendData[] = [];
-    const monthlyData = new Map<string, { studentPoints: Map<number, number> }>();
-    
-    // Group events by month
-    pointEvents.forEach(event => {
-        const eventDate = new Date(event.date);
-        const monthKey = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!monthlyData.has(monthKey)) {
-            monthlyData.set(monthKey, {
-                studentPoints: new Map()
-            });
-        }
-        
-        const monthData = monthlyData.get(monthKey)!;
-        
-        // Calculate points for each student in this event
-        event.student_point.forEach((sp: any) => {
-            const currentPoints = monthData.studentPoints.get(sp.student_id) || 0;
-            monthData.studentPoints.set(sp.student_id, currentPoints + sp.point_value);
-        });
-    });
-    
-    // Get current and previous month keys
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const previousMonthKey = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
-    
-    // Get points for current and previous month
-    const currentMonthPoints = monthlyData.get(currentMonthKey)?.studentPoints.get(student.id) || 0;
-    const previousMonthPoints = monthlyData.get(previousMonthKey)?.studentPoints.get(student.id) || 0;
-    
-    // Calculate changes for display in header
-    // We treat the monthly "increase" as points earned in the current month (never negative)
-    const pointIncrease = currentMonthPoints;
-    // Percentage is relative to previous month but never negative
-    const rawPct = previousMonthPoints > 0 ? ((currentMonthPoints / previousMonthPoints) - 1) * 100 : 0;
-    const percentageIncrease = Math.max(0, rawPct);
-    
-    // For ranking, we need to calculate cumulative points up to current month
-    const allStudentCumulativePoints = new Map<number, number>();
-    
-    // Calculate cumulative points for all students up to current month
-    const sortedMonths = Array.from(monthlyData.keys()).sort();
-    sortedMonths.forEach(monthKey => {
-        const monthData = monthlyData.get(monthKey)!;
-        monthData.studentPoints.forEach((points, studentId) => {
-            const current = allStudentCumulativePoints.get(studentId) || 0;
-            allStudentCumulativePoints.set(studentId, current + points);
-        });
-    });
-    
-    // Sort students by cumulative points for ranking
-    const studentPoints = Array.from(allStudentCumulativePoints.entries())
-        .map(([studentId, points]) => ({
-            studentId,
-            points,
-            student: allStudents.find(s => s.id === studentId)
-        }))
-        .filter(s => s.student)
-        .sort((a, b) => b.points - a.points);
-    
-    const currentRank = studentPoints.findIndex(s => s.studentId === student.id) + 1;
-    const totalPoints = allStudentCumulativePoints.get(student.id) || 0;
-    
-    // Only add trend data if there are points in the current month
-    if (currentMonthPoints > 0) {
-        trends.push({
-            month: currentMonthKey,
-            totalPoints,
-            rank: currentRank,
-            outOf: studentPoints.length,
-            pointIncrease,
-            percentageIncrease,
-            rankChange: 0 // We don't have previous rank data in this simplified approach
-        });
-    }
-    
-    return trends;
 }
 
 /**

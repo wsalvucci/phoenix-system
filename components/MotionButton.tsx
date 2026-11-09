@@ -42,9 +42,9 @@ export default function MotionButton({
 
   const variantClasses = {
     primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-    secondary: "bg-slate-700 text-white hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white",
-    outline: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-    ghost: "bg-transparent text-slate-600 shadow-none hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+    secondary: "bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90",
+    outline: "border border-input bg-card text-foreground hover:bg-accent",
+    ghost: "bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground",
   };
 
   const sizeClasses = {

@@ -1,8 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { createClient } from '@/utils/supabase/client';
 import type { DisplayBoards } from '@/app/supaApi/universal/displayTypes';
 import { WallStage } from '@/components/display/WallStage';
 import { BoardScene } from '@/components/display/BoardScene';
@@ -19,7 +17,6 @@ const TICK = 0.25;
 export default function AnimatedFeatured({ data, timeframe, onTimeframeChange, updatedAt, offline }: {
   data: DisplayBoards; timeframe: number | null; onTimeframeChange: (id: number | null) => void; updatedAt: number; refreshing: boolean; offline: boolean;
 }) {
-  const client = useQueryClient();
   const reducedMotion = !!useReducedMotion();
   const [sequence, setSequence] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -40,14 +37,7 @@ export default function AnimatedFeatured({ data, timeframe, onTimeframeChange, u
   const running = !paused && visible;
   const term = shown.timeframes.find(t => t.id === shown.timeframeId)?.name ?? null;
 
-  // Live updates: the existing broadcast refetches; the data swaps in at the next scene boundary.
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase.channel('student-points-channel').on('broadcast', { event: 'sync' }, () => {
-      void client.invalidateQueries({ queryKey: ['featured'] });
-    }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [client]);
+  // Live updates (useScoreSignal in the page) refetch; the data swaps in at the next scene boundary.
   useEffect(() => {
     const update = () => setVisible(!document.hidden);
     update();

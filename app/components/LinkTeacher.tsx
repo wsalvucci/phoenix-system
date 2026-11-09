@@ -9,7 +9,7 @@ export default function LinkTeacher({ user }: { user: LinkedTeacher | null }) {
                 user !== null ? (
                     <Link href={`teacher`}>
                         <button
-                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             Teacher Portal
                         </button>
@@ -17,7 +17,7 @@ export default function LinkTeacher({ user }: { user: LinkedTeacher | null }) {
                 ) : (
                     <Link href="/linkAccount/teacher">
                         <button
-                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             Link Teacher
                         </button>

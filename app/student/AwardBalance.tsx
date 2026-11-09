@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { WaxSeal } from './ui'
 
 interface AwardBalanceProps {
     studentId: number
@@ -13,7 +14,7 @@ const COUNT_MS = 700
 
 /**
  * The balance block. When the total is higher than the last one this browser showed for the
- * same student and timeframe, the number counts up and the gilt rule shimmers once.
+ * same student and timeframe, the number counts up, the gilt rule shimmers once and a wax seal stamps beside it.
  * First visits, unchanged totals and reduced-motion settings render the plain number.
  * Screen readers always get the final number, never the counting one.
  */
@@ -53,7 +54,8 @@ export default function AwardBalance({ studentId, timeframeId, timeframeName, to
 
     return (
         <>
-            <div className="py-4">
+            <div className="relative py-4">
+                {celebrate && <WaxSeal stamp size="lg" className="absolute right-0 top-4" />}
                 <p className="vic-label">Your points</p>
                 <p className="text-sm text-muted-foreground">{timeframeName}</p>
                 <p className="vic-numeral vic-balance mt-1">
