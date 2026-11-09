@@ -5,6 +5,18 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Added
+- Hallway displays opened by a signed-in admin or teacher (`/dashboard/featured`, the Hall of Honor and podium walls) now refresh within a few seconds of a score being entered or changed in their school. Paired display screens keep refreshing every minute.
+
+### Changed
+- Faster sign-in checks, school lists, scorebooks and group rosters on larger schools (new database indexes). Requires migration `20261109120000_index_gaps`.
+- Updated the Supabase client library (2.43 to 2.45) for private live-update channels.
+
+### Security
+- Nobody outside the school's staff can listen for or fake the "scores changed" signal any more; previously anyone with the public app key could make every hallway display reload at once.
+- The database itself now refuses to link a student, teacher, group, competition, category or score to records of a different school, and refuses to move a linked record to another school. The admin screens already refused this; scripts and direct database edits now cannot do it either.
+- Running the QA test-school setup again now checks that an existing QA account reaches no real school (including mobile-app links) before it resets that account's password.
+
 ## [2.1.0] - 2026-11-09
 
 ### Added

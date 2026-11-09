@@ -120,9 +120,9 @@ for (const who of ["admin", "teacher1"] as const) {
             const bodies = captureActions(page);
             await page.goto("/dashboard/global?school=1");
             await settle(page);
+            // Response bodies are read asynchronously and can land just after the board renders.
+            await expect.poll(() => bodies.join("\n"), { timeout: 10_000 }).toContain("Ada");
             const all = bodies.join("\n");
-            expect(all.length).toBeGreaterThan(0);
-            expect(all).toContain("Ada");
             expect(all, "student ids").not.toMatch(/student_?id/i);
             expect(all, "cohort sizes").not.toMatch(/cohort_?size|total_?students|participants|member_?count/i);
             expect(all, "cut internals").not.toMatch(/n_absolute|p_ratio|k_hidden|link_?code|supabase_?id/i);
