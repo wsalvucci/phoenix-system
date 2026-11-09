@@ -64,6 +64,20 @@ test.describe("signed out", () => {
         expect(decodeURIComponent(page.url())).toContain("/dashboard/global?school=1");
     });
 
+    test("signing in after that redirect returns to the screen they asked for, even after a typo", async ({ page }) => {
+        await page.goto("/dashboard/global?school=1");
+        await expect(page).toHaveURL(/\/login\?next=/);
+        await page.getByLabel("Email").fill(ACCOUNTS.teacher1);
+        await page.getByLabel("Password").fill(PASSWORD + "x");
+        await page.getByRole("button", { name: "Sign In" }).click();
+        await expect(page.getByText(/email and password do not match/i)).toBeVisible();
+        expect(decodeURIComponent(page.url())).toContain("/dashboard/global?school=1");
+        await page.getByLabel("Email").fill(ACCOUNTS.teacher1);
+        await page.getByLabel("Password").fill(PASSWORD);
+        await page.getByRole("button", { name: "Sign In" }).click();
+        await page.waitForURL(/\/dashboard\/global\?school=1/, { timeout: 60_000 });
+    });
+
     for (const route of ["/admin", "/admin/school/1", "/teacher", "/teacher/group/1", "/parent", "/parent/7", "/student"]) {
         test(`${route} shows no data to a signed-out visitor`, async ({ page }) => {
             await page.goto(route);

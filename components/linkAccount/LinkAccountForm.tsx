@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { redeemLinkCode, type LinkPurpose } from "@/app/supaApi/server/link/linkCodeActions";
+import { linkStudentToParent } from "@/app/supaApi/server/parent/parentApi";
 import { linkFailureMessage } from "@/lib/linkCode";
 
 export type LinkKind = "student" | "parent" | "teacher";
@@ -42,6 +43,17 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
         try {
             // One rate-limited RPC for all three roles (BACKEND_PLAN.md §6). The server resolves the
             // account from the session; the school number is only a match condition.
+            if (kind === "parent") {
+                // Same RPC; also reports which child was just linked so we can open that child's page.
+                const result = await linkStudentToParent(schoolId, cleanCode);
+                if (result.error) {
+                    setError({ text: result.error, hint: result.noMatch === true });
+                    setBusy(false);
+                    return;
+                }
+                window.location.href = result.studentId !== undefined ? `/parent/${result.studentId}` : copy.next;
+                return;
+            }
             const { status } = await redeemLinkCode(PURPOSE[kind], schoolId, cleanCode);
             if (status !== "linked") {
                 setError({ text: linkFailureMessage(status), hint: status === "no_match" });

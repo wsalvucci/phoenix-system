@@ -11,25 +11,12 @@ import NotAllowed from "@/components/NotAllowed";
 import MotionButton from "@/components/MotionButton";
 import { useState } from "react";
 import ThemeInput from "@/components/ThemeInput";
-import ThemeSelect from "@/components/ThemeSelect";
 
-enum SortType {
-    Name,
-    Id
-}
-
-enum SortDirection {
-    Ascending,
-    Descending
-}
+/** Search only earns its place once the list is long enough to need it. */
+const SEARCH_THRESHOLD = 8;
 
 export default function TeacherHome() {
     const [groupSearch, setGroupSearch] = useState<string>("");
-    const [groupSort, setGroupSort] = useState<SortType>(SortType.Name);
-    const [groupSortDirection, setGroupSortDirection] = useState<SortDirection>(SortDirection.Ascending);
-    const [rankingGroupSearch, setRankingGroupSearch] = useState<string>("");
-    const [rankingGroupSort, setRankingGroupSort] = useState<SortType>(SortType.Name);
-    const [rankingGroupSortDirection, setRankingGroupSortDirection] = useState<SortDirection>(SortDirection.Ascending);
     const [showArchivedGroups, setShowArchivedGroups] = useState(false);
 
     const { data, isLoading, error } = useQuery({
@@ -38,40 +25,14 @@ export default function TeacherHome() {
         retry: false
     });
 
-    const filteredAndSortedGroups = data?.studentGroups
+    const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+
+    const activeGroups = data?.studentGroups.filter(group => !group.archived) ?? [];
+    const archivedCount = (data?.studentGroups.length ?? 0) - activeGroups.length;
+    const groups = (data?.studentGroups ?? [])
         .filter(group => (showArchivedGroups || !group.archived) && group.name.toLowerCase().includes(groupSearch.toLowerCase()))
-        .sort((a, b) => {
-            switch (groupSort) {
-                case SortType.Name:
-                    return groupSortDirection === SortDirection.Ascending 
-                        ? a.name.localeCompare(b.name) 
-                        : b.name.localeCompare(a.name);
-                case SortType.Id:
-                    return groupSortDirection === SortDirection.Ascending 
-                        ? a.id - b.id 
-                        : b.id - a.id;
-                default:
-                    return a.name.localeCompare(b.name);
-            }
-        }) || [];
-
-    const filteredAndSortedRankingGroups = data?.rankingGroups
-        .filter(group => group.name.toLowerCase().includes(rankingGroupSearch.toLowerCase()))
-        .sort((a, b) => {
-            switch (rankingGroupSort) {
-                case SortType.Name:
-                    return rankingGroupSortDirection === SortDirection.Ascending 
-                        ? a.name.localeCompare(b.name) 
-                        : b.name.localeCompare(a.name);
-                case SortType.Id:
-                    return rankingGroupSortDirection === SortDirection.Ascending 
-                        ? a.id - b.id 
-                        : b.id - a.id;
-                default:
-                    return a.name.localeCompare(b.name);
-            }
-        }) || [];
-
+        .sort(byName);
+    const competitions = [...(data?.rankingGroups ?? [])].sort(byName);
 
     return (
         <LoadingState
@@ -92,165 +53,108 @@ export default function TeacherHome() {
                             <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">{data.teacher.firstName} {data.teacher.lastName}</p>
                         </div>
                     </header>
-                    
+
                     <div className="m-5">
-                        {/* Student Groups Section */}
-                        <div className="mb-8">
-                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                    <h2 className="text-2xl font-bold">Student Groups</h2>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                                        {filteredAndSortedGroups.length} shown · {data.studentGroups.filter(group => !group.archived).length} active
-                                    </p>
-                                </div>
-                                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={showArchivedGroups}
-                                        onChange={(event) => setShowArchivedGroups(event.target.checked)}
-                                        className="h-4 w-4 rounded"
-                                    />
-                                    Show archived
-                                </label>
+                        {data.studentGroups.length === 0 && competitions.length === 0 ? (
+                            <div className="mx-auto max-w-md py-12 text-center">
+                                <h2 className="text-2xl font-bold">You are not in any group yet</h2>
+                                <p className="mt-2 text-slate-600 dark:text-slate-400">
+                                    Your groups appear here once your school admin adds you to one. Ask them to add you, then reload this page.
+                                </p>
                             </div>
-                            
-                            {/* Search and Sort Controls */}
-                            <div className="mb-4">
-                                <ThemeInput
-                                    type="text"
-                                    placeholder="Search Groups"
-                                    fullWidth
-                                    onChange={(e) => setGroupSearch(e.target.value)}
-                                    className="mb-2"
-                                />
-                                <div className="grid grid-cols-2 gap-2">
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setGroupSort(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortType.Name}>Sort by name</option>
-                                        <option value={SortType.Id}>Sort by ID</option>
-                                    </ThemeSelect>
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setGroupSortDirection(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortDirection.Ascending}>A–Z / lowest first</option>
-                                        <option value={SortDirection.Descending}>Z–A / highest first</option>
-                                    </ThemeSelect>
-                                </div>
-                            </div>
+                        ) : (
+                            <>
+                                {/* Your groups: the thing a teacher came for */}
+                                <section className="mb-8">
+                                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-2xl font-bold">Your groups</h2>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">Pick a group to open its scorebook.</p>
+                                        </div>
+                                        {archivedCount > 0 && (
+                                            <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={showArchivedGroups}
+                                                    onChange={(event) => setShowArchivedGroups(event.target.checked)}
+                                                    className="h-4 w-4 rounded"
+                                                />
+                                                Show {archivedCount} archived
+                                            </label>
+                                        )}
+                                    </div>
 
-                            {/* Groups Grid */}
-                            {filteredAndSortedGroups.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {filteredAndSortedGroups.map((group) => (
-                                        <MotionButton 
-                                            href={`/teacher/group/${group.id}`} 
-                                            key={group.id}
-                                            variant="secondary"
-                                            className="bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-700 shadow-md transition-all duration-200 h-32"
-                                        >
-                                            <div className="flex flex-col items-center justify-center text-center w-full h-full p-4">
-                                                <div className="text-lg font-bold mb-2">{group.name}</div>
-                                                <div className="text-sm opacity-75 mb-2">Group ID: {group.id}</div>
-                                                {group.archived && (
-                                                    <div className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">
-                                                        Archived
+                                    {activeGroups.length >= SEARCH_THRESHOLD && (
+                                        <ThemeInput
+                                            type="search"
+                                            placeholder="Search your groups"
+                                            aria-label="Search your groups"
+                                            fullWidth
+                                            value={groupSearch}
+                                            onChange={(e) => setGroupSearch(e.target.value)}
+                                            className="mb-4"
+                                        />
+                                    )}
+
+                                    {groups.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                            {groups.map((group) => (
+                                                <MotionButton
+                                                    href={`/teacher/group/${group.id}`}
+                                                    key={group.id}
+                                                    variant="secondary"
+                                                    className="bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-700 shadow-md transition-all duration-200 h-28"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center text-center w-full h-full p-4">
+                                                        <div className="text-lg font-bold">{group.name}</div>
+                                                        {group.archived && (
+                                                            <div className="mt-2 text-xs bg-yellow-500 text-white px-2 py-1 rounded">
+                                                                Archived
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </MotionButton>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-600 dark:text-gray-400">
-                                        {groupSearch ? 'No groups match your search criteria.' : 'No groups found.'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                                                </MotionButton>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-600 dark:text-gray-400">
+                                                {groupSearch
+                                                    ? `No group matches "${groupSearch}". Clear the search to see all your groups.`
+                                                    : archivedCount > 0
+                                                        ? 'All your groups are archived. Tick "Show archived" to open them.'
+                                                        : 'You are not in any group yet. Ask your school admin to add you to one.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </section>
 
-                        {/* Ranking Groups Section */}
-                        <div className="mb-8">
-                            <h2 className="text-2xl font-bold mb-4">Your Ranking Groups ({filteredAndSortedRankingGroups.length})</h2>
-                            
-                            {/* Search and Sort Controls */}
-                            <div className="mb-4">
-                                <ThemeInput
-                                    type="text"
-                                    placeholder="Search Ranking Groups"
-                                    fullWidth
-                                    onChange={(e) => setRankingGroupSearch(e.target.value)}
-                                    className="mb-2"
-                                />
-                                <div className="grid grid-cols-2 gap-2">
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setRankingGroupSort(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortType.Name}>Name</option>
-                                        <option value={SortType.Id}>ID</option>
-                                    </ThemeSelect>
-                                    <ThemeSelect
-                                        fullWidth
-                                        onChange={(e) => setRankingGroupSortDirection(parseInt(e.target.value))}
-                                    >
-                                        <option value={SortDirection.Ascending}>ASC</option>
-                                        <option value={SortDirection.Descending}>DESC</option>
-                                    </ThemeSelect>
-                                </div>
-                            </div>
-
-                            {/* Ranking Groups Grid */}
-                            {filteredAndSortedRankingGroups.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {filteredAndSortedRankingGroups.map((rankingGroup) => (
-                                        <MotionButton 
-                                            href={`/teacher/rankingGroup/${rankingGroup.id}`} 
-                                            key={rankingGroup.id}
-                                            variant="secondary"
-                                            className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-md transition-all duration-200 h-32"
-                                        >
-                                            <div className="flex flex-col items-center justify-center text-center w-full h-full p-4">
-                                                <div className="text-lg font-bold mb-2">{rankingGroup.name}</div>
-                                                <div className="text-sm opacity-75 mb-2">Ranking Group ID: {rankingGroup.id}</div>
-                                                <div className="text-xs opacity-75">
-                                                    {rankingGroup.studentGroups.length} Student Group{rankingGroup.studentGroups.length !== 1 ? 's' : ''}
-                                                </div>
-                                            </div>
-                                        </MotionButton>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-600 dark:text-gray-400">
-                                        {rankingGroupSearch ? 'No ranking groups match your search criteria.' : 'No ranking groups found.'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Teacher ID</h3>
-                                <p className="text-3xl font-bold text-blue-600">{data.teacher.id}</p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">School ID</h3>
-                                <p className="text-3xl font-bold text-green-600">{data.teacher.schoolId}</p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Student Groups</h3>
-                                <p className="text-3xl font-bold text-purple-600">{data.studentGroups.length}</p>
-                            </div>
-                            <div className="bg-slate-200 dark:bg-slate-800 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-2">Ranking Groups</h3>
-                                <p className="text-3xl font-bold text-orange-600">{data.rankingGroups.length}</p>
-                            </div>
-                        </div>
+                                {/* Competitions: secondary, only when the teacher has some */}
+                                {competitions.length > 0 && (
+                                    <section className="mb-8">
+                                        <h2 className="text-2xl font-bold">Your competitions</h2>
+                                        <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">Events scored across several groups.</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                            {competitions.map((rankingGroup) => (
+                                                <MotionButton
+                                                    href={`/teacher/rankingGroup/${rankingGroup.id}`}
+                                                    key={rankingGroup.id}
+                                                    variant="secondary"
+                                                    className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 shadow-md transition-all duration-200 h-28"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center text-center w-full h-full p-4">
+                                                        <div className="text-lg font-bold mb-1">{rankingGroup.name}</div>
+                                                        <div className="text-xs opacity-75">
+                                                            {rankingGroup.studentGroups.length} group{rankingGroup.studentGroups.length !== 1 ? 's' : ''} competing
+                                                        </div>
+                                                    </div>
+                                                </MotionButton>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             )}

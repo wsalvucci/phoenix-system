@@ -156,10 +156,14 @@ test.describe("student with no points", () => {
 test.describe("parent", () => {
     test.use({ storageState: authFile("parent") });
 
-    test("lists the linked child and opens their page", async ({ page }) => {
-        const list = await openClean(page, "/parent");
+    test("a parent with one child goes straight to the child page", async ({ page }) => {
+        await page.goto("/parent");
+        await page.waitForURL(/\/parent\/7$/, { timeout: 30_000 });
+        const list = await openClean(page, "/parent?all");
         expect(list).toContain("Gus Placeholder");
+        expect(list).toContain("Add another child");
         const child = await openClean(page, "/parent/7");
+        expect(child).toContain("All my children");
         expect(child).toContain("Gus Placeholder");
         expect(child).toMatch(/70\s*points/);
         expect(child).toContain("Recent points");

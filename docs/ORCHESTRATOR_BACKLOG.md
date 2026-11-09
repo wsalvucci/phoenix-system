@@ -36,8 +36,8 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 ## UX follow-ups (from priority 1–2 build)
 - Wax-seal stamp on points award needs the seal moved out of a server component (designer wired count-up + shimmer only).
 - Human eyes: award animation light/dark, Victorian screens at 320/390/1024, 40px seal, Fraunces numerals.
-- `linkStudentToParent` returns no student id → parent lands on `/parent`, not the child page; one-child auto-redirect not built.
-- `/login?next=` return path from dashboard layout not wired; login sign-in/create-account mode split not built.
+- DONE (ux-wave3): parent one-child redirect and landing on the linked child (id found by diffing the parent's children; the RPC still returns only a status); `/login?next=` was already wired, now covered by an e2e. Login sign-in/create-account mode split still not built.
+- ux-wave3 leftovers: `alert()`/`confirm()` remain in admin timeframes/teachers/groups/pointGroups/rankingGroups/editGroup, teacher rankingGroup, scorebook CSV import and duplicate events; admin layout redirects to bare `/login` (no `next`). Pre-existing e2e failure on master: `dashboards.spec.ts:119` (action-body capture for the whole-school board).
 - `getDashboardSchools()` has no `fellBack` flag (page derives it).
 - School-number field on link screen stays until unique codes (150700) apply.
 

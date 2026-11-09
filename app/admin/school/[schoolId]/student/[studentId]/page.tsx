@@ -22,7 +22,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
     queryFn: () => wrapServerAction(getAdminStudentDataWithTimeframe)(parseInt(schoolId), parseInt(studentId), selectedTimeframe?.id || null)
   });
 
-  // Prepare chart data for point groups
+  // Prepare chart data for point categories
   const pointGroupChartData = studentData?.student.rankByPointGroup.map(group => ({
     name: group.name,
     points: group.points,
@@ -88,7 +88,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
           {/* Main Content Grid (scrollable) */}
           <div className="flex-1 min-h-0 overflow-y-auto py-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Point Groups Breakdown */}
+              {/* Point Categories Breakdown */}
               <div className="bg-card border border-border rounded-lg p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <FontAwesomeIcon icon={faChartPie} className="text-purple-500 text-xl" />

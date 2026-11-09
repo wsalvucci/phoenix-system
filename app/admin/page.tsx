@@ -150,7 +150,7 @@ export default function AdminHome() {
                                                     <dd className="font-semibold">{(schoolDetail as { studentGroups?: unknown[] })?.studentGroups?.length || 0}</dd>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
-                                                    <dt className="text-slate-600 dark:text-slate-400">Point groups</dt>
+                                                    <dt className="text-slate-600 dark:text-slate-400">Point categories</dt>
                                                     <dd className="font-semibold">{(schoolDetail as { pointTypes?: unknown[] })?.pointTypes?.length || 0}</dd>
                                                 </div>
                                             </dl>

@@ -76,7 +76,7 @@ test.describe.serial("linking", () => {
         test("after the lockout is cleared the right code links the child", async ({ page }) => {
             await db.from("link_attempt").delete().not("id", "is", null);
             await submit(page, "parent", "1", "PARENT7K3M");
-            await page.waitForURL(/\/parent$/, { timeout: 30_000 });
+            await page.waitForURL(/\/parent\/40$/, { timeout: 30_000 });
             await expect(page.locator("body")).toContainText("Nico Example", { timeout: 30_000 });
         });
     });
