@@ -2052,7 +2052,7 @@ METHOD:  Read every function body, and every server action that feeds a surface.
 | §7.4 #14, #15 mutators and fallback | **OPEN** | `dashboardFilters.ts:91-196`. Closed by deletion (D20). |
 | §7.4 #16 payload logging | **PARTLY RESOLVED** | The dashboard and `topCards` logs are gone. `teacherServerActions.ts:586` still writes each student id with input and value to stdout on every edit, and `:269` logs the access record. |
 | §7.4 #18 staff session on a kiosk | **OPEN** | The SQL half is live. There is no `/display` route, no `getDashboardViewer`, and no caller of `display_device_*`. See §11.4 #23 and D24. |
-| §7.4 #19 `isStaffOfSchool` as a whole-school scope | **OPEN** | `universalApi.ts:454-525`. `getAllTimeframePointEvents` still returns every per-event score in the school to any teacher. |
+| §7.4 #19 `isStaffOfSchool` as a whole-school scope | **PARTLY RESOLVED (agent/sd-wave3)**: `getAllTimeframePointEvents`, `getSchoolStudents`, `getRankingGroupPoints` deleted from `universalApi.ts` (no caller); `getStudent`, `getSchoolStudentGroups` staff branches remain. Original finding: | `universalApi.ts:454-525`. `getAllTimeframePointEvents` still returns every per-event score in the school to any teacher. |
 | §9.1 / §10.1 compare | **RESOLVED** | `app/student/compare/**` and `getSchoolGlobalStats` are deleted. |
 | §9.2 `studentDashGetGlobalStats`, `teacherDashGetGlobalStats` | **RESOLVED** | Both deleted. |
 | §9.3 / §10.2 nearby lists | **RESOLVED** | Removed from `calculateStudentStats` (`api/student.ts:592-600`) and from both pages. `pointsToNextRank` is not yet wired. That is a missing feature, not a violation. |

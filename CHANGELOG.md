@@ -14,9 +14,15 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - A parent with one child now opens straight to that child's page; "All my children" on that page shows the full list. Connecting a child with a school code lands on that child's page.
 - The teacher home lists only your groups and competitions: internal ID numbers and the stats row are gone, and the search box appears only once you have eight or more groups.
 - Deleting a student now asks in a dialog that names the student, and removing a teaching assistant or clearing their events asks the same way. Errors from these and from saving an assistant show in the page instead of a pop-up box.
+- Removed a leftover test lookup for one specific term number in the admin term list, and deleted unused older data-access code and the unused monthly-trend loader. Automatic checks now include lint and use a fixed Supabase CLI version.
 
 ### Fixed
 - Signing in after being sent to the login page from a hallway-display link is now covered by a test that returns you to the screen you asked for, including after a mistyped password.
+- The kiosk check that a paired display ignores a tampered cookie now always runs instead of being skipped.
+
+### Security
+- A teacher can no longer pull every student's per-assignment scores for the whole school: the unused school-wide score, student-list and competition-score lookups were removed. Teachers keep their own groups' scorebooks; whole-school figures stay admin-only.
+- Student and parent pages now read only that student's own scores (plus the bare scores of the events they took part in, for their event rank) instead of every point row in the school.
 
 ## [2.1.0] - 2026-11-09
 

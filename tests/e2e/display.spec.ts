@@ -172,9 +172,15 @@ test.describe.serial("display pairing", () => {
     });
 
     test("a paired screen cannot be made to use another school's data by editing its cookie", async () => {
-        const cookies = await kioskContext.cookies();
+        // Chromium stores Secure cookies on http://localhost, so the cookie must exist here. A missing
+        // cookie is a failure (it used to skip silently, which hid the whole check).
+        const cookies = await kioskContext.cookies(`http://localhost:${process.env.E2E_PORT ?? 3100}`);
         const display = cookies.find((c) => c.name === "__Host-phx_display");
-        test.skip(!display, "no display cookie in this browser (secure cookie not stored over http)");
+        expect(display, "paired kiosk should carry the __Host-phx_display cookie").toBeTruthy();
+        expect(display!.secure).toBe(true);
+        // Control: the genuine cookie renders the school's boards before it is tampered with.
+        await kiosk.goto("/dashboard");
+        await expect(kiosk.locator("body")).toContainText("Example Academy", { timeout: 30_000 });
         await kioskContext.addCookies([{ ...display!, value: "A".repeat(43) }]);
         await kiosk.goto("/dashboard/global?school=1");
         await kiosk.waitForURL(/\/display$/, { timeout: 30_000 });
