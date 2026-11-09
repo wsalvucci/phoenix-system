@@ -62,4 +62,4 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - Optional dashboard setting after deploy: Realtime > Settings > turn off "Allow public access".
 - Done: QA seed confines before password reset (also checks mobile links); DB same-school guard; private score signal (staff-signed-in walls now update live; paired kiosks still poll 60 s); supabase-js 2.43 to 2.45.
 - Follow-up (backend, not started): kiosk live updates need a server-minted short-lived Realtime JWT for display devices (needs the project JWT secret as a server env var).
-- Fixed a racy e2e assertion in `tests/e2e/dashboards.spec.ts` (failed on master components too).
+- Fixed a flaky e2e check in `tests/e2e/dashboards.spec.ts` ("carry no ids"): it now captures server-action bodies through `page.route`; it failed intermittently on unchanged master code and deps too. One unrelated "setting up page" timeout in `forbidden.spec.ts` passed on rerun.
