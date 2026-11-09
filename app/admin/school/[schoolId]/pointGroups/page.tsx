@@ -53,10 +53,10 @@ export default function PointGroupsNewPage() {
       setNewGroupRanked(false);
       setSelectedParentId(null);
       setIsAddGroupDialogOpen(false);
-      alert("Point group created successfully");
+      alert("Point category created successfully");
     } catch (error) {
-      alert("Failed to create point group");
-      console.error("Error creating point group:", error);
+      alert("Failed to create point category");
+      console.error("Error creating point category:", error);
     }
   };
 
@@ -72,10 +72,10 @@ export default function PointGroupsNewPage() {
       });
       
       setEditingGroup(null);
-      alert("Point group updated successfully");
+      alert("Point category updated successfully");
     } catch (error) {
-      alert("Failed to update point group");
-      console.error("Error updating point group:", error);
+      alert("Failed to update point category");
+      console.error("Error updating point category:", error);
     }
   };
 
@@ -175,7 +175,7 @@ export default function PointGroupsNewPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading point groups...</p>
+          <p className="text-muted-foreground">Loading point categories...</p>
         </div>
       </div>
     );
@@ -186,7 +186,7 @@ export default function PointGroupsNewPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="text-destructive text-2xl mb-4">⚠️</div>
-          <p className="text-destructive">Failed to load point groups</p>
+          <p className="text-destructive">Failed to load point categories</p>
         </div>
       </div>
     );
@@ -196,9 +196,9 @@ export default function PointGroupsNewPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Point Groups</h1>
+          <h1 className="text-3xl font-bold text-foreground">Point Categories</h1>
           <p className="text-muted-foreground">
-            Manage point groups and their hierarchy for organizing different types of points
+            Manage point categories and their hierarchy for organizing different types of points
           </p>
         </div>
         
@@ -209,16 +209,16 @@ export default function PointGroupsNewPage() {
             setIsAddGroupDialogOpen(true);
           }}
         >
-          + Add Point Group
+          + Add Point Category
         </button>
       </div>
 
       {pointGroups.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-12 text-center">
           <div className="text-4xl mb-4">🎯</div>
-          <h3 className="text-lg font-semibold mb-2 text-foreground">No point groups yet</h3>
+          <h3 className="text-lg font-semibold mb-2 text-foreground">No point categories yet</h3>
           <p className="text-muted-foreground mb-4">
-            Create your first point group to start organizing different types of points and achievements.
+            Create your first point category to start organizing different types of points and achievements.
           </p>
           <button 
             className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
@@ -227,7 +227,7 @@ export default function PointGroupsNewPage() {
               setIsAddGroupDialogOpen(true);
             }}
           >
-            + Create First Point Group
+            + Create First Point Category
           </button>
         </div>
       ) : (
@@ -241,7 +241,7 @@ export default function PointGroupsNewPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold mb-4 text-foreground">
-              {selectedParentId ? 'Create Child Point Group' : 'Create New Point Group'}
+              {selectedParentId ? 'Create Child Point Category' : 'Create New Point Category'}
             </h2>
             <div className="space-y-4">
               <div>
@@ -252,7 +252,7 @@ export default function PointGroupsNewPage() {
                   type="text"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Enter point group name"
+                  placeholder="Enter point category name"
                   className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {

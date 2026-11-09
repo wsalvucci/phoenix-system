@@ -411,7 +411,7 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-slate-300 dark:bg-slate-700 border p-6 rounded-lg">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-        <p className="mt-4 text-center">Loading ranking group data...</p>
+        <p className="mt-4 text-center">Loading competition data...</p>
       </div>
     </div>
   )
@@ -424,7 +424,7 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Ranking Group</h2>
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Competition</h2>
           <p className="text-gray-600 dark:text-gray-400">{error.message}</p>
         </div>
       </div>
@@ -448,7 +448,7 @@ export default function TeacherRankingGroup({ params: { groupId } }: { params: {
         
         <div className="flex items-center space-x-4">
           <div>
-            <h1 className="text-3xl font-bold">Ranking Group Scorebook</h1>
+            <h1 className="text-3xl font-bold">Competition Scorebook</h1>
             {rankingGroupData && (
               <div className="text-lg opacity-75">
                 {rankingGroupData.name}

@@ -69,8 +69,8 @@ export default async function AdminLayout({ children, params: { schoolId } }: { 
                             {sideBarButton("Student Groups", "groups")}
                             {sideBarButton("Students", "students")}
                             {sideBarButton("Teachers", "teachers")}
-                            {sideBarButton("Point Groups", "pointGroups")}
-                            {sideBarButton("Ranking Groups", "rankingGroups")}
+                            {sideBarButton("Point Categories", "pointGroups")}
+                            {sideBarButton("Competitions", "rankingGroups")}
                             {sideBarButton("Timeframes", "timeframes")}
                             {sideBarButton("Displays", "displays")}
                         </nav>

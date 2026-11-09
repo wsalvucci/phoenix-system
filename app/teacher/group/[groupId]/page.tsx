@@ -611,7 +611,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         <h2 className="text-xl font-bold mb-4">Add an assignment</h2>
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Point Group</label>
+            <label className="block text-sm font-medium mb-1">Point Category</label>
             <select
               value={newPointEventData.pointGroupId}
               onChange={(e) => updateNewPointEventData(
@@ -622,7 +622,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
               )}
               className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700"
             >
-              <option value={0}>Select a point group</option>
+              <option value={0}>Select a point category</option>
               {scorebookData?.pointGroups.map(pointGroup => (
                 <option key={pointGroup.id} value={pointGroup.id}>
                   {pointGroup.name}
@@ -912,9 +912,9 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                   <input id="duplicate-event-search" type="search" value={duplicateEventSearch} onChange={event => setDuplicateEventSearch(event.target.value)} placeholder="Search by event name" className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700" />
                 </div>
                 <div className="md:w-64">
-                  <label className="block text-sm font-medium mb-1" htmlFor="duplicate-point-group">Point group</label>
+                  <label className="block text-sm font-medium mb-1" htmlFor="duplicate-point-group">Point category</label>
                   <select id="duplicate-point-group" value={duplicatePointGroupFilter} onChange={event => setDuplicatePointGroupFilter(parseInt(event.target.value))} className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700">
-                    <option value={0}>All point groups</option>
+                    <option value={0}>All point categories</option>
                     {scorebookData.pointGroups.map(pointGroup => <option key={pointGroup.id} value={pointGroup.id}>{pointGroup.name}</option>)}
                   </select>
                 </div>
@@ -925,7 +925,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
               <div className="border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[44px_minmax(180px,1fr)_150px_150px_160px] gap-2 bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold uppercase tracking-wide min-w-[720px]">
-                  <span></span><span>Event</span><span>Point group</span><span>Original date</span><span>New date</span>
+                  <span></span><span>Event</span><span>Point category</span><span>Original date</span><span>New date</span>
                 </div>
                 <div className="max-h-72 overflow-auto min-w-[720px]">
                   {filteredEvents.map(event => {
@@ -1096,7 +1096,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
 
   const scorebookTable = () => {
     if (!scorebookData) return <div>No data</div>
-    // Filter point events by selected point group
+    // Filter point events by selected point category
     const filteredPointEvents = selectedPointGroupId
       ? scorebookData.pointEvents.filter(pe => pe.pointGroup.id.toString() === selectedPointGroupId)
       : scorebookData.pointEvents;
@@ -1113,7 +1113,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
         )}
         <div className="flex items-center gap-4 mb-4">
           <label className="text-sm font-medium">
-            Filter by Point Group:
+            Filter by Point Category:
             <select
               className="ml-2 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
               value={selectedPointGroupId}
@@ -1597,7 +1597,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Point Group</label>
+                <label className="block text-sm font-medium mb-1">Point Category</label>
                 <select
                   value={updatedPointEvent.pointGroup.id}
                   onChange={(e) => {
@@ -2271,7 +2271,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                     onChange={(e) => setSelectedPointGroupFilter(parseInt(e.target.value))}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-slate-700 text-sm"
                   >
-                    <option value={0}>All Point Groups</option>
+                    <option value={0}>All Point Categories</option>
                     {teachingAssistantData.pointGroups?.map(group => (
                       <option key={group.id} value={group.id}>
                         {group.name}
@@ -2287,7 +2287,7 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
                       const matchesSearch = pointEventSearchTerm === '' || 
                         event.name.toLowerCase().includes(pointEventSearchTerm.toLowerCase());
                       
-                      // Filter by point group
+                      // Filter by point category
                       const matchesGroup = selectedPointGroupFilter === 0 || 
                         event.pointGroupId === selectedPointGroupFilter;
                       

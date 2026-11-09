@@ -5,6 +5,19 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Added
+- The school admin home shows a "Get your school ready" checklist (term, point categories, student groups, students, teachers) with one "Next" button, until the basics are in place.
+- Teachers who are not in any group yet see a plain message telling them to ask their school admin, instead of an empty page.
+
+### Changed
+- Admin screens and the teacher scorebooks now say "Point categories" instead of "Point Groups" and "Competitions" instead of "Ranking Groups". Links and addresses are unchanged.
+- A parent with one child now opens straight to that child's page; "All my children" on that page shows the full list. Connecting a child with a school code lands on that child's page.
+- The teacher home lists only your groups and competitions: internal ID numbers and the stats row are gone, and the search box appears only once you have eight or more groups.
+- Deleting a student now asks in a dialog that names the student, and removing a teaching assistant or clearing their events asks the same way. Errors from these and from saving an assistant show in the page instead of a pop-up box.
+
+### Fixed
+- Signing in after being sent to the login page from a hallway-display link is now covered by a test that returns you to the screen you asked for, including after a mistyped password.
+
 ## [2.1.0] - 2026-11-09
 
 ### Added

@@ -76,10 +76,10 @@ export default function RankingGroupsNewPage() {
       setNewGroupName("");
       setNewGroupTimeframeId(null);
       setIsAddGroupDialogOpen(false);
-      alert("Ranking group created successfully");
+      alert("Competition created successfully");
     } catch (error) {
-      alert("Failed to create ranking group");
-      console.error("Error creating ranking group:", error);
+      alert("Failed to create competition");
+      console.error("Error creating competition:", error);
     }
   };
 
@@ -94,9 +94,9 @@ export default function RankingGroupsNewPage() {
       
       setIsAddStudentGroupDialogOpen(false);
       setSelectedRankingGroup(null);
-      alert("Student group added to ranking group");
+      alert("Student group added to the competition");
     } catch (error) {
-      alert("Failed to add student group to ranking group");
+      alert("Failed to add student group to the competition");
       console.error("Error adding student group:", error);
     }
   };
@@ -108,9 +108,9 @@ export default function RankingGroupsNewPage() {
         rankingGroupId
       });
       
-      alert("Student group removed from ranking group");
+      alert("Student group removed from the competition");
     } catch (error) {
-      alert("Failed to remove student group from ranking group");
+      alert("Failed to remove student group from the competition");
       console.error("Error removing student group:", error);
     }
   };
@@ -136,9 +136,9 @@ export default function RankingGroupsNewPage() {
       
       setIsAddTeacherDialogOpen(false);
       setSelectedRankingGroup(null);
-      alert("Teacher added to ranking group");
+      alert("Teacher added to the competition");
     } catch (error) {
-      alert("Failed to add teacher to ranking group");
+      alert("Failed to add teacher to the competition");
       console.error("Error adding teacher:", error);
     }
   };
@@ -150,9 +150,9 @@ export default function RankingGroupsNewPage() {
         rankingGroupId
       });
       
-      alert("Teacher removed from ranking group");
+      alert("Teacher removed from the competition");
     } catch (error) {
-      alert("Failed to remove teacher from ranking group");
+      alert("Failed to remove teacher from the competition");
       console.error("Error removing teacher:", error);
     }
   };
@@ -218,7 +218,7 @@ export default function RankingGroupsNewPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading ranking groups...</p>
+          <p className="text-muted-foreground">Loading competitions...</p>
         </div>
       </div>
     );
@@ -229,7 +229,7 @@ export default function RankingGroupsNewPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="text-destructive text-2xl mb-4">⚠️</div>
-          <p className="text-destructive">Failed to load ranking groups</p>
+          <p className="text-destructive">Failed to load competitions</p>
         </div>
       </div>
     );
@@ -239,9 +239,9 @@ export default function RankingGroupsNewPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Ranking Groups</h1>
+          <h1 className="text-3xl font-bold text-foreground">Competitions</h1>
           <p className="text-muted-foreground">
-            Manage ranking groups and assign student groups to them
+            Manage competitions and assign student groups to them
           </p>
         </div>
         
@@ -249,22 +249,22 @@ export default function RankingGroupsNewPage() {
           className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
           onClick={() => setIsAddGroupDialogOpen(true)}
         >
-          + Add Ranking Group
+          + Add Competition
         </button>
       </div>
 
       {rankingGroups.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-12 text-center">
           <div className="text-4xl mb-4">👥</div>
-          <h3 className="text-lg font-semibold mb-2 text-foreground">No ranking groups yet</h3>
+          <h3 className="text-lg font-semibold mb-2 text-foreground">No competitions yet</h3>
           <p className="text-muted-foreground mb-4">
-            Create your first ranking group to start organizing student groups for competitions and rankings.
+            Create your first competition to let student groups compete and be ranked against each other.
           </p>
           <button 
             className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
             onClick={() => setIsAddGroupDialogOpen(true)}
           >
-            + Create First Ranking Group
+            + Create First Competition
           </button>
         </div>
       ) : (
@@ -322,12 +322,12 @@ export default function RankingGroupsNewPage() {
                   </div>
                 </div>
               </div>
-              {/* List all student groups in this ranking group */}
+              {/* List all student groups in this competition */}
               <div className="p-4 space-y-2">
                 <div className="mb-4">
                   <h4 className="font-semibold text-foreground mb-2">Student Groups</h4>
                   {rankingGroup.studentGroups.length === 0 ? (
-                    <div className="text-muted-foreground italic">No student groups in this ranking group.</div>
+                    <div className="text-muted-foreground italic">No student groups in this competition.</div>
                   ) : (
                     rankingGroup.studentGroups.map((group) => (
                       <div key={group.id} className="flex items-center justify-between p-2 rounded border border-border bg-muted">
@@ -353,7 +353,7 @@ export default function RankingGroupsNewPage() {
                 <div>
                   <h4 className="font-semibold text-foreground mb-2">Teachers</h4>
                   {rankingGroup.teachers.length === 0 ? (
-                    <div className="text-muted-foreground italic">No teachers assigned to this ranking group.</div>
+                    <div className="text-muted-foreground italic">No teachers assigned to this competition.</div>
                   ) : (
                     rankingGroup.teachers.map((teacher) => (
                       <div key={teacher.id} className="flex items-center justify-between p-2 rounded border border-border bg-muted">
@@ -382,7 +382,7 @@ export default function RankingGroupsNewPage() {
       {isAddGroupDialogOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Create New Ranking Group</h2>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Create New Competition</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-foreground">
@@ -392,7 +392,7 @@ export default function RankingGroupsNewPage() {
                   type="text"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Enter ranking group name"
+                  placeholder="Enter competition name"
                   className="w-full p-2 border border-input rounded bg-background text-foreground focus:border-ring focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -473,7 +473,7 @@ export default function RankingGroupsNewPage() {
               Add Teachers to &quot;{selectedRankingGroup.name}&quot;
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Select teachers to assign to this ranking group.
+              Select teachers to assign to this competition.
             </p>
             <div className="max-h-[60vh] overflow-y-auto">
               <div className="space-y-2">
@@ -500,7 +500,7 @@ export default function RankingGroupsNewPage() {
                   ))}
                 {teachers.filter(teacher => !selectedRankingGroup.teacherIds.includes(teacher.id)).length === 0 && (
                   <div className="text-muted-foreground italic text-center py-4">
-                    All teachers are already assigned to this ranking group.
+                    All teachers are already assigned to this competition.
                   </div>
                 )}
               </div>

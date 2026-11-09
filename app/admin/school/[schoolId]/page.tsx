@@ -12,6 +12,7 @@ import { wrapServerAction } from "@/utils/serverActionWrapper";
 import { faUsers, faGraduationCap, faTrophy, faChartLine, faCalendarAlt, faUserGraduate, faUsersCog, faChartBar, faStar } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useTimeframe } from "./TimeframeProvider";
+import SetupChecklist from "@/components/admin/SetupChecklist";
 
 
 
@@ -95,6 +96,9 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             </Link>
                         </div>
                     </div>
+
+                    {/* First-run guide: shows only until the school has the basics in place */}
+                    <SetupChecklist schoolId={schoolId} />
 
                     {/* Key Metrics Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -255,7 +259,7 @@ export default function AdminPage({ params: { schoolId } }: { params: { schoolId
                             <div className="bg-card border border-border rounded-lg p-6 hover:bg-accent/50 transition-colors cursor-pointer">
                                 <div className="flex items-center mb-3">
                                     <FontAwesomeIcon icon={faTrophy} className="text-yellow-600 dark:text-yellow-400 text-xl mr-3" />
-                                    <h3 className="text-lg font-semibold">Ranking Groups</h3>
+                                    <h3 className="text-lg font-semibold">Competitions</h3>
                                 </div>
                                 <p className="text-muted-foreground text-sm">
                                     Set up competitive rankings and leaderboards
