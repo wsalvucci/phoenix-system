@@ -63,3 +63,10 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - Done: QA seed confines before password reset (also checks mobile links); DB same-school guard; private score signal (staff-signed-in walls now update live; paired kiosks still poll 60 s); supabase-js 2.43 to 2.45.
 - Follow-up (backend, not started): kiosk live updates need a server-minted short-lived Realtime JWT for display devices (needs the project JWT secret as a server env var).
 - Fixed a flaky e2e check in `tests/e2e/dashboards.spec.ts` ("carry no ids"): it now captures server-action bodies through `page.route`; it failed intermittently on unchanged master code and deps too. One unrelated "setting up page" timeout in `forbidden.spec.ts` passed on rerun.
+
+## 2026-11-09 wave 3 (merged to local master, not pushed)
+- ux-wave3, sd-wave3, backend-wave3, design-wave3 merged after QA PASS-WITH-NOTES (pgTAP 206, RLS 498, e2e 145 on prod build). Release would be **2.2.0**.
+- **Owner, before push:** run `docs/schema/production_read_only_checks.sql` (read-only); then apply `20261109120000_index_gaps` → `20261109120100_same_school_pairs` → `20261109120200_private_score_signal` (confirm hosted role can create the `realtime.messages` policy). Until 120200 applies, staff-opened walls fall back to no live signal. Afterwards optionally disable Realtime "Allow public access".
+- Owner to accept: student event rank reads other participants' bare `point_value` via service role (no ids); SQL RPC proposal in `docs/STUDENT_PAGE_EVENT_RANK_RPC.md`.
+- Human eyes: dark-mode contrast of new tokens, 320px header, seal stamp animation, tokenized admin pages in dark.
+- Leftovers: remaining `alert()` in admin timeframes/teachers/groups/pointGroups/rankingGroups + scorebook CSV; teacher pages (~220 raw colors) untokenized; `getStudent`/`getSchoolStudentGroups` staff branches still any-teacher (#19 partial); kiosk live updates need server-minted Realtime token; `@supabase/ssr` still "latest".
