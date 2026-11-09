@@ -5,6 +5,16 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Security
+- A teacher can no longer pull every student's per-assignment scores for the whole school: the unused school-wide score, student-list and competition-score lookups were removed. Teachers keep their own groups' scorebooks; whole-school figures stay admin-only.
+- Student and parent pages now read only that student's own scores (plus the bare scores of the events they took part in, for their event rank) instead of every point row in the school.
+
+### Fixed
+- The kiosk check that a paired display ignores a tampered cookie now always runs instead of being skipped.
+
+### Changed
+- Removed a leftover test lookup for one specific term number in the admin term list, and deleted unused older data-access code and the unused monthly-trend loader. Automatic checks now include lint and use a fixed Supabase CLI version.
+
 ## [2.1.0] - 2026-11-09
 
 ### Added
