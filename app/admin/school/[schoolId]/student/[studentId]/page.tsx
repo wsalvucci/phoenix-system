@@ -70,16 +70,16 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
             </div>
             
             {/* Overall Ranking */}
-            <div className="mt-4 flex items-center gap-4">
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faTrophy} className="text-warning-ink text-xl" />
-                <span className="text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rank, data.student.outOf)}>
+                <span className="whitespace-nowrap text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rank, data.student.outOf)}>
                   Rank: {numberToOrdinal(data.student.rank)} / {data.student.outOf}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faGraduationCap} className="text-primary text-xl" />
-                <span className="text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rankByGrade.rank, data.student.rankByGrade.outOf)}>
+                <span className="whitespace-nowrap text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rankByGrade.rank, data.student.rankByGrade.outOf)}>
                   Grade Rank: {numberToOrdinal(data.student.rankByGrade.rank)} / {data.student.rankByGrade.outOf}
                 </span>
               </div>

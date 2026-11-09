@@ -5,6 +5,18 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Added
+- When a student's points go up, a wax seal now stamps beside the animated total (not shown with reduced motion).
+- The admin student page colors each rank by tier (gold, silver, bronze and the top 20), matching the student and Honor Board views.
+
+### Changed
+- Color cleanup across the home, sign-in, link-account, parent, admin and display-device screens: they now use the shared light and dark palette, so alert banners, buttons, loading placeholders and charts keep readable contrast in both modes.
+- Nested group stripes on the admin Groups page use five consistent, readable colors instead of twenty pastels.
+
+### Fixed
+- A long first or last name no longer breaks mid-word in the student page header on the narrowest phones (320px).
+- Rank lines on the admin student page wrap cleanly on phones.
+
 ## [2.1.0] - 2026-11-09
 
 ### Added
