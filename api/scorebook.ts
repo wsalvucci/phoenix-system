@@ -1,6 +1,7 @@
 "use server";
 
 import supabaseServiceClient from "@/app/supaApi/server/supabaseServiceClient";
+import { getOwnStudent } from "@/app/supaApi/server/sessionActor";
 import { createClient } from "@/utils/supabase/server";
 import { DuplicateScorebookEventsInput, DuplicateScorebookEventsResult, NewScorebookData, NewScorebookPointEvent, TeacherTimeframe } from "@/types/domain";
 import {
@@ -36,11 +37,15 @@ export async function getScorebookAccess(studentGroupId: number): Promise<Scoreb
     .single();
   if (!userRow) return { role: "none", allowedPointEventIds: null };
 
+  // teaching_assistant.student_id is a student id: use the student this account owns, not user.id.
+  const ownStudent = await getOwnStudent(userRow.id);
+  if (!ownStudent) return { role: "none", allowedPointEventIds: null };
+
   const { data: assistant } = await supabase
     .from("teaching_assistant")
     .select("id, full_access")
     .eq("group_id", studentGroupId)
-    .eq("student_id", userRow.id)
+    .eq("student_id", ownStudent.id)
     .single();
   if (!assistant) return { role: "none", allowedPointEventIds: null };
   if (assistant.full_access) return { role: "assistantFull", allowedPointEventIds: null };

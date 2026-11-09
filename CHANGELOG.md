@@ -5,6 +5,16 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 
 ## [Unreleased]
 
+### Added
+- Operators can create and later remove a clearly fictional "QA Test School (not real)" with six test sign-in accounts for checking hosted deploys (`scripts/qa-school/`, see `docs/TESTING.md`).
+
+### Security
+- An admin of one school can no longer change or delete another school's point categories, terms or competitions (ranking groups), or add and remove their teachers and groups, by row number. Every admin change is now checked against the school that owns the record.
+- Creating a competition or point category no longer works for someone who is not an admin of that school.
+- A teacher can no longer open another group's teaching-assistant roster or scorebook by having an account number that matches a student's number. Assistant access is checked against the student linked to the signed-in account.
+- Granting a teaching assistant access, scoring a competition event, or choosing a point category now rejects groups, events and categories that belong to a different group or school.
+- Editing a teacher from the admin screens can change only the name. Unlinking a teacher's account is a separate, admin-checked action, and the old open-ended teacher update, the unused own-teacher lookup that returned link codes, and several score-payload log lines were removed.
+
 ## [2.0.0] - 2026-10-15
 
 ### Added

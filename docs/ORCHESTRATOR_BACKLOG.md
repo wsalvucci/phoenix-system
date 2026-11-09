@@ -3,6 +3,10 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
+- **QA test accounts on hosted previews (owner wants this, 2026-10-15):** proposed separate Supabase staging project seeded from `supabase/seed.sql` (fictional school + 11 accounts), Vercel Preview env pointed at it. Awaiting go-ahead (new project; may cost).
+- **Production web is stale:** the last prod build of master (8b390a9) failed on Node 20; live site is an older deployment.
+- **Preview:** `preview/v2.0.0` pushed 2026-10-15 (commit 022dafb, tag not pushed). Owner adding Preview `LINK_RATE_LIMIT_SECRET`, then redeploy preview; then role click-through.
+- **Dependabot:** GitHub reports 44 vulnerabilities on the default branch (2 critical, 23 high) — triage dependency upgrades.
 - DONE 2026-10-14: `20261014230655` (revoke API-role table writes) applied by owner; verified 0 anon/authenticated write grants, 0 anon-executable functions; 230700 still held.
 - **Drop legacy `point_conversion_rule*` tables + template columns** (BACKEND_PLAN §9) — destructive; code no longer uses them after P-3/D20. Needs owner approval + a backup first.
 - ~~P-3~~ ANSWERED 2026-10-14: stored totals everywhere; legacy conversion rule removed; only per-event direct formulas (rarely used). Backend doing D20.

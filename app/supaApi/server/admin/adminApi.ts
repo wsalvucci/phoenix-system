@@ -1,6 +1,7 @@
 "use server";
 import { DateTime } from "luxon";
 import checkAdminSchoolAccess from "./schools/checkAdminSchoolAccess";
+import { assertRowsInSchool } from "../adminScope";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { AdminDashboardData, AdminStudentDashboardData, SchoolTimeframe } from "@/app/dataClasses";
 
@@ -106,6 +107,8 @@ export async function addPointGroupToSchool(
 ): Promise<void> {
     const schoolAccess = await checkAdminSchoolAccess(schoolId);
     if (!schoolAccess) throw new Error("Unauthorized school access");
+
+    if (parentId !== null) await assertRowsInSchool("point_group", [parentId], schoolId);
 
     const supabase = await supabaseServiceClient();
 

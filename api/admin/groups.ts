@@ -1,5 +1,6 @@
 "use server";
 
+import { assertRowsInSchool } from '@/app/supaApi/server/adminScope';
 import supabaseServiceClient from '@/app/supaApi/server/supabaseServiceClient';
 import { createClient } from '@/utils/supabase/server';
 import { AdminGroupData } from '@/types/domain';
@@ -339,6 +340,9 @@ export async function removeStudentFromGroup(schoolId: number, groupId: number, 
       throw new Error('Access denied - admin does not have access to this school');
     }
 
+    // The group must belong to the school this call was authorized for
+    await assertRowsInSchool('student_group', [groupId], schoolId);
+
     // Remove student from group
     const { error: deleteError } = await serviceClient
       .from('student_group_pair')
@@ -532,6 +536,9 @@ export async function removeTeacherFromGroup(schoolId: number, groupId: number, 
       throw new Error('Access denied - admin does not have access to this school');
     }
 
+    // The group must belong to the school this call was authorized for
+    await assertRowsInSchool('student_group', [groupId], schoolId);
+
     // Remove teacher from group
     const { error: deleteError } = await serviceClient
       .from('teacher_student_group_pair')
@@ -703,6 +710,9 @@ export async function createGroup(schoolId: number, groupData: {
       });
       throw new Error('Access denied - admin does not have access to this school');
     }
+
+    // A parent group must be in the same school
+    if (groupData.parentId != null) await assertRowsInSchool('student_group', [groupData.parentId], schoolId);
 
     // Create group
     const { data: newGroup, error: createError } = await serviceClient
@@ -1292,6 +1302,9 @@ export async function removeStudentLeaderFromGroup(schoolId: number, groupId: nu
       });
       throw new Error('Access denied - admin does not have access to this school');
     }
+
+    // The group must belong to the school this call was authorized for
+    await assertRowsInSchool('student_group', [groupId], schoolId);
 
     // Remove student leader from group
     const { error: deleteError } = await serviceClient

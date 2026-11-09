@@ -152,6 +152,87 @@ run, and they will tell you when they are fixed.
    have access" state (`components/NotAllowed.tsx`).
 5. **Fixed:** a negative score rendered as "+-5"; `lib/formatPoints.ts` formats the sign.
 
+## Hosted QA accounts
+
+For hand checks of a hosted (Vercel) deploy, which talks to the **production** database, there is one
+fictional school with six sign-in accounts. Unlike `supabase/seed.sql`, these scripts are built to be pointed at
+a remote project, so they are fenced in by design, and only the product owner runs them against production.
+
+| Account | Role |
+|---|---|
+| `qa-admin@example.test` | Admin of "QA Test School (not real)" |
+| `qa-teacher@example.test` | Teacher of QA Homeroom A and QA Club, and of the QA Houses ranking group |
+| `qa-student@example.test` | Student #5 Eli Example, rank 5 (just below the published 4) |
+| `qa-parent@example.test` | Parent of student #5 |
+| `qa-leader@example.test` | Student #2 Ben Sample, leader of QA Homeroom A |
+| `qa-ta@example.test` | Student #3 Cora Testcase, teaching assistant (full access) for QA Homeroom A |
+
+The school has 15 students in grades 6 to 8, three groups (Homeroom B belongs to an unlinked teacher, so the QA
+teacher can check they cannot open it), Kindness and Effort (ranked) and Attendance (unranked), an active term
+of 60 days either side of the first run, one event per category and homeroom, and a pinned share. Totals are
+100, 94, ... 28 for students 1 to 13, a 0 row for 14 and nothing for 15, so the overall board publishes 4 names.
+The school is too small for leader-letter columns (they need 30 participants).
+
+**Setup.** Put the configuration in a gitignored `.env.qa` (any `.env.qa*` name is ignored). Nothing is read
+from `.env.local`, and the `QA_` prefix means its variables are never picked up by mistake:
+
+```bash
+QA_SUPABASE_URL=https://<project-ref>.supabase.co
+QA_SUPABASE_SERVICE_ROLE_KEY=<service role key>   # never printed or logged
+QA_PASSWORD=<12+ characters, not the local seed password>
+```
+
+**Run** (the owner, against production):
+
+```bash
+node scripts/qa-school/seed.mjs --env-file .env.qa --confirm-school "QA Test School (not real)" --dry-run
+node scripts/qa-school/seed.mjs --env-file .env.qa --confirm-school "QA Test School (not real)" --credentials-out .env.qa.credentials
+# when finished
+node scripts/qa-school/teardown.mjs --env-file .env.qa --confirm-school "QA Test School (not real)" --dry-run
+node scripts/qa-school/teardown.mjs --env-file .env.qa --confirm-school "QA Test School (not real)"
+```
+
+**Safety rails** (both scripts):
+
+- Each prints the target project ref before doing anything. Read it.
+- `--confirm-school` must be exactly `QA Test School (not real)`. The only school either script touches is the one
+  with that exact name. If there are two, they refuse. The name is checked again before every delete.
+- Only auth users matching `qa-*@example.test` are created, changed or deleted. Seed refuses to reuse such an
+  account if it already holds a role in another school. Teardown keeps such an account and says so.
+- Seed is idempotent. Rows are found by natural key (school + name, school + PowerSchool id 99000001 to 99000015,
+  student + event) and created only if missing. Existing rows, including QA edits, are left alone. Re-running
+  resets the six passwords to `QA_PASSWORD`. To get back to the initial state, run teardown and then seed.
+- `--credentials-out` writes the e-mails and password with mode 0600. Inside the repository, it refuses any path
+  git does not ignore.
+- The only shared row the seed relies on is the first `point_template_type`. It is reused, never created.
+- Teardown deletes children first, then the school. It removes the scorebook copy log, leader letters, display
+  devices and pairing requests, events (with their scores and shares), students, teachers, groups, classes, the
+  school (cascading timeframes, point and ranking groups, admin pairs), the QA auth users (cascading their
+  `user` rows), and admin rows used only by them. It also clears `"user".student_id` on any account that points at
+  a QA student (that column has no foreign key). Nothing else outside the school is changed.
+- Neither script runs in a transaction, because PostgREST cannot span one. A run that stops part way only ever
+  leaves QA rows behind, and running the script again finishes it.
+
+**What real users can see of it.** Every app path is scoped to the caller's own school, so the QA school does not
+show up for real staff, students or parents. An admin sees the QA school only after being paired to it. One
+thing to know: a link code of a QA student or teacher can be redeemed by any signed-in account, as with any
+school. Do not hand the codes out.
+
+**Authorization bugs from the 2026-10-15 audit: fixed in 2.0.1** (branch `agent/sd-authz-holes`; covered by
+`tests/rls/actionsAuthz.test.ts`). Admin actions now check the school that owns the row being changed
+(`app/supaApi/server/adminScope.ts`), teaching-assistant checks compare with the signed-in account's own student id
+instead of `user.id`, and `getStudentGroupsForTeachers` / `getRankingGroupsForTeachers` are no longer exported server
+actions. One item remains open and is backend-owned:
+
+- No rule in the database stops a pair table (group membership, ranking group, leader, TA) from mixing two
+  schools. The actions above now refuse to create such a pair, but a database constraint or trigger is still the
+  durable fix. Until then, leader-letter and leaderboard reads would show names across schools if a mixed pair ever
+  appeared by another route.
+
+Tested only on the local stack: seed twice (the second run created 0 rows), signed in as all six accounts,
+`display_cut` publishes 4 names for the QA school and 0 for another school, teardown twice, and every other
+school's row counts came out unchanged.
+
 ## Adding tests
 
 - SQL behavior: add `supabase/tests/database/NN_name.test.sql` (begin; plan; ...; finish; rollback). Prefer a

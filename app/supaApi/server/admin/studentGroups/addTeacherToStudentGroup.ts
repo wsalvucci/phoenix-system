@@ -1,4 +1,5 @@
 "use server";
+import { requireSameSchoolAdmin } from "../../adminScope";
 import supabaseServiceClient from "../../supabaseServiceClient";
 import checkAdminTeacherAccess from "../teachers/checkAdminTeacherAccess";
 import checkAdminStudentGroupAccess from "./checkAdminStudentGroupAccess";
@@ -11,6 +12,13 @@ export default async function addTeacherToStudentGroup(teacherId: number, studen
     const adminTeacherAccess = await checkAdminTeacherAccess(teacherId);
 
     if (!adminTeacherAccess) return false;
+
+    // Both records must be in one school the caller administers (no cross-school pairs)
+    try {
+        await requireSameSchoolAdmin([["teacher", teacherId], ["student_group", studentGroupId]]);
+    } catch {
+        return false;
+    }
 
     const supabase = await supabaseServiceClient();
 

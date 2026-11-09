@@ -1,5 +1,6 @@
 "use server";
 
+import { requireSameSchoolAdmin } from "../../adminScope";
 import supabaseServiceClient from "../../supabaseServiceClient";
 import checkAdminRankingGroupAccess from "./checkAdminRankingGroupAccess";
 
@@ -7,6 +8,13 @@ export default async function addStudentGroupToRankingGroup(studentGroupId: numb
     const adminAccess = await checkAdminRankingGroupAccess(rankingGroupId);
 
     if (!adminAccess) return false;
+
+    // Both records must be in one school the caller administers (no cross-school pairs)
+    try {
+        await requireSameSchoolAdmin([["student_group", studentGroupId], ["ranking_group", rankingGroupId]]);
+    } catch {
+        return false;
+    }
 
     const supabase = await supabaseServiceClient();
 

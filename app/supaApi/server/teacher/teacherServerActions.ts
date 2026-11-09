@@ -1,11 +1,25 @@
 "use server";
 
+import { assertRowsInSchool } from "../adminScope";
 import supabaseServiceClient from "../supabaseServiceClient";
 import { NewScorebookData, NewScorebookPointEvent, ClassConfigurationData, RankingGroupData, RankingGroupScorebookData, ImportedScorebook, TeacherTimeframe, DuplicateScorebookEventsInput, DuplicateScorebookEventsResult } from "@/types/domain";
 import { DateTime } from "luxon";
 import { checkTeacherAccessToStudentGroup } from "./studentGroups/checkTeacherAccessToStudentGroup";
 import { createClient } from "@/utils/supabase/server";
 import { evaluatePointConversionFormula, validatePointConversionFormula } from "@/lib/pointConversionFormula";
+
+/** A point group id from the browser must belong to the same school as the student group it is used in. */
+async function pointGroupFitsStudentGroup(studentGroupId: number, pointGroupId: number): Promise<boolean> {
+        const supabase = await supabaseServiceClient();
+        const { data: group, error } = await supabase.from("student_group").select("school_id").eq("id", studentGroupId).maybeSingle();
+        if (error || !group || group.school_id === null) return false;
+        try {
+                await assertRowsInSchool("point_group", [pointGroupId], group.school_id);
+                return true;
+        } catch {
+                return false;
+        }
+}
 
 export async function createPointEvent(
         studentGroupId: number,
@@ -18,6 +32,7 @@ export async function createPointEvent(
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
         if (!teacherAccess) return false;
+        if (!(await pointGroupFitsStudentGroup(studentGroupId, pointGroupId))) return false;
 
         const supabase = await supabaseServiceClient();
         const formulaValidation = validatePointConversionFormula(conversionFormula);
@@ -266,7 +281,6 @@ export async function checkTeacherAccessToPointEvent(pointEventId: number): Prom
 export async function deletePointEvent(pointEventId: number): Promise<boolean> {
         console.log("Deleting point event", pointEventId);
         const teacherAccess = await checkTeacherAccessToPointEvent(pointEventId);
-        console.log(teacherAccess);
         if (!teacherAccess) return false;
 
         const supabase = await supabaseServiceClient();
@@ -583,10 +597,10 @@ export async function updateStudentPointsByAssistant(
 }
 
 export async function editPointEvent(scorebookPointEvent: NewScorebookPointEvent, studentGroupId: number): Promise<boolean> {
-        console.log(scorebookPointEvent.studentPoints.map((studentPoint) => studentPoint.student.id + " " + studentPoint.pointData.input + " : " + studentPoint.pointData.value))
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
         if (!teacherAccess) return false;
+        if (!(await pointGroupFitsStudentGroup(studentGroupId, scorebookPointEvent.pointGroup.id))) return false;
 
         const supabase = await supabaseServiceClient();
         const formulaValidation = validatePointConversionFormula(scorebookPointEvent.conversionFormula);
@@ -699,6 +713,7 @@ export async function createPointTemplate(
         const teacherAccess = await checkTeacherAccessToStudentGroup(studentGroupId);
 
         if (!teacherAccess) return false;
+        if (!(await pointGroupFitsStudentGroup(studentGroupId, pointGroupId))) return false;
 
         const supabase = await supabaseServiceClient();
 
@@ -984,8 +999,6 @@ export async function editRankingGroupPointEvent(
                         }
                 }
         })
-
-        console.log(newPoints);
 
         const { data: updateStudentGroupPointsData, error: updateStudentGroupPointsError } = await supabase.from("student_group_point").upsert(
                 newPoints
