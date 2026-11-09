@@ -86,39 +86,39 @@ function StudentLeadersDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={handleDialogClick}>
-      <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50" onClick={handleDialogClick}>
+      <div className="bg-card rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">
           Manage Student Leaders: {group.name}
         </h3>
 
         {/* Current Leaders */}
         <div className="mb-6">
-          <h4 className="text-md font-medium mb-3 text-slate-900 dark:text-slate-100">
+          <h4 className="text-md font-medium mb-3 text-foreground">
             Current Leaders ({currentLeaders?.length || 0})
           </h4>
           {isLoadingLeaders ? (
-            <div className="text-slate-500 dark:text-slate-400">Loading leaders...</div>
+            <div className="text-muted-foreground">Loading leaders...</div>
           ) : currentLeaders && currentLeaders.length > 0 ? (
             <div className="space-y-2">
               {currentLeaders.map(leader => (
-                <div key={leader.id} className="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                <div key={leader.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div>
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                    <span className="font-medium text-foreground">
                       {leader.firstName} {leader.lastName}
                     </span>
-                    <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">
+                    <span className="text-sm text-muted-foreground ml-2">
                       Grade {leader.grade}
                     </span>
                     {leader.powerschoolId && (
-                      <span className="text-sm text-slate-500 dark:text-slate-500 ml-2">
+                      <span className="text-sm text-muted-foreground ml-2">
                         (ID: {leader.powerschoolId})
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleRemoveLeader(leader.id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-500 transition-colors"
+                    className="px-3 py-1 bg-destructive text-destructive-foreground rounded text-sm hover:bg-destructive/90 transition-colors"
                   >
                     Remove
                   </button>
@@ -126,7 +126,7 @@ function StudentLeadersDialog({
               ))}
             </div>
           ) : (
-            <div className="text-slate-500 dark:text-slate-400 p-3 bg-slate-100 dark:bg-slate-700 rounded-lg">
+            <div className="text-muted-foreground p-3 bg-muted rounded-lg">
               No student leaders assigned to this group.
             </div>
           )}
@@ -134,7 +134,7 @@ function StudentLeadersDialog({
 
         {/* Add New Leader */}
         <div className="mb-6">
-          <h4 className="text-md font-medium mb-3 text-slate-900 dark:text-slate-100">
+          <h4 className="text-md font-medium mb-3 text-foreground">
             Add New Leader
           </h4>
           <div className="relative" onClick={handleSearchContainerClick}>
@@ -148,25 +148,25 @@ function StudentLeadersDialog({
             
             {/* Search Results Dropdown */}
             {showSearchResults && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-10">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-input rounded-lg shadow-lg max-h-60 overflow-y-auto z-10">
                 {filteredStudents.length > 0 ? (
                   filteredStudents.map(student => (
                     <button
                       key={student.id}
                       onClick={() => handleAddLeader(student.id)}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                      className="w-full px-4 py-3 text-left hover:bg-muted transition-colors border-b border-border last:border-b-0"
                     >
-                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                      <div className="font-medium text-foreground">
                         {student.firstName} {student.lastName}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                      <div className="text-sm text-muted-foreground">
                         Grade {student.grade}
                         {student.powerschoolId && ` • ID: ${student.powerschoolId}`}
                       </div>
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm">
+                  <div className="px-4 py-3 text-muted-foreground text-sm">
                     {searchTerm.length > 0 ? 'No students found matching your search.' : 'Start typing to search for students...'}
                   </div>
                 )}
@@ -175,7 +175,7 @@ function StudentLeadersDialog({
           </div>
           
           {availableStudents.length === 0 && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               All students are already leaders of this group.
             </p>
           )}
@@ -185,7 +185,7 @@ function StudentLeadersDialog({
         <div className="flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
           >
             Close
           </button>
@@ -384,15 +384,9 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
     }
   };
 
-  // Generate border color based on level
+  // Nesting stripe color by level: the five chart tokens, so every stripe passes 3:1 against the card in both modes.
   const getLevelColor = (level: number): string => {
-    const colors = [
-      '#FFC0CB', '#FFD700', '#98FB98', '#87CEEB', '#FFA07A', 
-      '#DDA0DD', '#87CEFA', '#FF69B4', '#FF6347', '#F0E68C', 
-      '#FFA500', '#20B2AA', '#00FF7F', '#7B68EE', '#FF4500', 
-      '#9370DB', '#32CD32', '#40E0D0', '#FF1493', '#00BFFF'
-    ];
-    return colors[level % colors.length];
+    return `hsl(var(--chart-${(level % 5) + 1}))`;
   };
 
   // Render group row recursively
@@ -404,27 +398,27 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
 
     return (
       <div key={group.id}>
-        <div className="grid grid-cols-8 gap-4 py-3 px-6 border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <div className="grid grid-cols-8 gap-4 py-3 px-6 border-b border-border hover:bg-muted transition-colors">
           <div className="flex items-center" style={indentStyle}>
             <Link 
               href={`/admin/school/${schoolId}/editGroup/${group.id}`}
-              className="font-medium text-slate-900 dark:text-slate-100 hover:underline"
+              className="font-medium text-foreground hover:underline"
             >
               {group.name}
               {group.archived && (
-                <span className="ml-2 px-2 py-1 text-xs bg-gray-500 text-white rounded">
+                <span className="ml-2 px-2 py-1 text-xs bg-secondary-foreground text-secondary rounded">
                   Archived
                 </span>
               )}
             </Link>
           </div>
           <div className="flex items-center justify-center">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-muted-foreground">
               {group.teacherCount}
             </span>
           </div>
           <div className="flex items-center justify-center">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-muted-foreground">
               {group.studentCount}
             </span>
           </div>
@@ -434,7 +428,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 group,
                 show: true
               })}
-              className="px-3 py-2 bg-purple-600 text-white rounded-lg font-medium text-sm hover:bg-purple-500 transition-colors"
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
             >
               Manage Leaders
             </button>
@@ -446,7 +440,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 setCreateForm({ ...createForm, parentId: group.id });
                 setShowCreateForm(true);
               }}
-              className="px-3 py-2 bg-gray-600 text-white rounded-lg font-medium text-sm hover:bg-gray-500 transition-colors"
+              className="px-3 py-2 bg-secondary-foreground text-secondary rounded-lg font-medium text-sm hover:bg-secondary-foreground/90 transition-colors"
             >
               Add Child
             </button>
@@ -458,7 +452,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 group,
                 show: true
               })}
-              className="px-3 py-2 bg-yellow-600 text-white rounded-lg font-medium text-sm hover:bg-yellow-500 transition-colors"
+              className="px-3 py-2 bg-warning text-warning-foreground rounded-lg font-medium text-sm hover:bg-warning/90 transition-colors"
               disabled={group.archived}
             >
               {group.archived ? 'Archived' : 'Archive'}
@@ -476,7 +470,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                   show: true
                 });
               }}
-              className="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-500 transition-colors"
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
             >
               Edit
             </button>
@@ -488,7 +482,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 group,
                 show: true
               })}
-              className="px-3 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-500 transition-colors"
+              className="px-3 py-2 bg-destructive text-destructive-foreground rounded-lg font-medium text-sm hover:bg-destructive/90 transition-colors"
             >
               Delete
             </button>
@@ -504,14 +498,14 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
 
       {/* Edit Group Dialog */}
       {editDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">
               Edit Group: {editDialog.group.name}
             </h3>
             <form onSubmit={handleUpdateGroup} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Group Name *
                 </label>
                 <ThemeInput
@@ -522,13 +516,13 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                   minLength={3}
                 />
                 {editForm.name.length > 0 && editForm.name.length < 3 && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-destructive-ink text-sm mt-1">
                     Group name must be at least 3 characters long
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Parent Group
                 </label>
                 <select
@@ -537,7 +531,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                     ...editForm, 
                     parentId: e.target.value ? parseInt(e.target.value) : null 
                   })}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-card text-foreground"
                 >
                   <option value="">No Parent (Top Level)</option>
                   {(() => {
@@ -597,13 +591,13 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                     setEditDialog(null);
                     setEditForm({ name: '', parentId: undefined });
                   }}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={updateGroupMutation.isPending || editForm.name.length < 3}
                 >
                   {updateGroupMutation.isPending ? 'Updating...' : 'Update Group'}
@@ -637,18 +631,18 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
 
       {/* Create Group Form */}
       {showCreateForm && (
-        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg mb-6">
+        <div className="bg-muted p-6 rounded-lg mb-6">
           <h2 className="text-xl font-semibold mb-4">
             Add New Group
             {newGroupParent && (
-              <span className="text-slate-600 dark:text-slate-400 font-normal">
+              <span className="text-muted-foreground font-normal">
                 {' '}to &quot;{newGroupParent.name}&quot;
               </span>
             )}
           </h2>
           <form onSubmit={handleCreateGroup} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Group Name *
               </label>
               <ThemeInput
@@ -659,7 +653,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 minLength={3}
               />
               {createForm.name.length > 0 && createForm.name.length < 3 && (
-                <p className="text-red-500 text-sm mt-1">
+                <p className="text-destructive-ink text-sm mt-1">
                   Group name must be at least 3 characters long
                 </p>
               )}
@@ -667,7 +661,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={createGroupMutation.isPending || createForm.name.length < 3}
               >
                 {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
@@ -701,9 +695,9 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
               type="checkbox"
               checked={showArchived}
               onChange={(e) => setShowArchived(e.target.checked)}
-              className="rounded border-slate-300 dark:border-slate-600"
+              className="rounded border-input"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-foreground">
               Show archived groups
             </span>
           </label>
@@ -718,41 +712,41 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
         errorFallback={(err) => <div>Error loading groups: {err.message}</div>}
       >
         {() => (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-card rounded-lg shadow overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-8 gap-4 py-4 px-6 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-              <div className="font-semibold text-slate-900 dark:text-slate-100">
+            <div className="grid grid-cols-8 gap-4 py-4 px-6 bg-muted border-b border-border">
+              <div className="font-semibold text-foreground">
                 Group Name
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Teachers
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Students
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Leaders
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Add Child
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Archive
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Edit
               </div>
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-center">
+              <div className="font-semibold text-foreground text-center">
                 Delete
               </div>
             </div>
 
             {/* Table Body */}
-            <div className="divide-y divide-slate-200 dark:divide-slate-600">
+            <div className="divide-y divide-border">
               {filteredGroups.length > 0 ? (
                 filteredGroups.map(group => renderGroupRow(group))
               ) : (
-                <div className="py-8 text-center text-slate-500 dark:text-slate-400">
+                <div className="py-8 text-center text-muted-foreground">
                   {searchTerm ? 'No groups found matching your search.' : 'No groups found.'}
                 </div>
               )}
@@ -762,7 +756,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
       </LoadingState>
 
       {/* Summary */}
-      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
+      <div className="mt-6 text-sm text-muted-foreground">
         {searchTerm ? (
           `Showing ${filteredGroups.length} of ${groups?.length || 0} groups`
         ) : (
@@ -772,17 +766,17 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
 
       {/* Confirmation Dialog */}
       {confirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">
               {confirmDialog.type === 'archive' ? 'Archive Group' : 'Delete Group'}
             </h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               {confirmDialog.type === 'archive' ? (
                 <>
                   Are you sure you want to archive &quot;{confirmDialog.group.name}&quot;?
                   {confirmDialog.group.childGroups && confirmDialog.group.childGroups.length > 0 && (
-                    <span className="block mt-2 text-red-600 dark:text-red-400">
+                    <span className="block mt-2 text-destructive-ink">
                       Warning: This will also hide all child groups from the default view, even if they aren&apos;t archived.
                     </span>
                   )}
@@ -791,16 +785,16 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                 <>
                   Are you sure you want to delete &quot;{confirmDialog.group.name}&quot;?
                   {confirmDialog.group.childGroups && confirmDialog.group.childGroups.length > 0 && (
-                    <span className="block mt-2 text-blue-600 dark:text-blue-400">
+                    <span className="block mt-2 text-primary">
                       Note: {confirmDialog.group.childGroups.length} child group{confirmDialog.group.childGroups.length === 1 ? '' : 's'} will become top-level group{confirmDialog.group.childGroups.length === 1 ? '' : 's'}.
                     </span>
                   )}
                   {(confirmDialog.group.studentCount > 0 || confirmDialog.group.teacherCount > 0) && (
-                    <span className="block mt-2 text-orange-600 dark:text-orange-400">
+                    <span className="block mt-2 text-warning-ink">
                       Warning: {confirmDialog.group.studentCount} student{confirmDialog.group.studentCount === 1 ? '' : 's'} and {confirmDialog.group.teacherCount} teacher{confirmDialog.group.teacherCount === 1 ? '' : 's'} will be removed from this group.
                     </span>
                   )}
-                  <span className="block mt-2 text-red-600 dark:text-red-400">
+                  <span className="block mt-2 text-destructive-ink">
                     This action cannot be undone.
                   </span>
                 </>
@@ -809,7 +803,7 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDialog(null)}
-                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -821,10 +815,10 @@ export default function StudentGroupsManagementPage({ params: { schoolId } }: { 
                     handleDeleteGroup(confirmDialog.group);
                   }
                 }}
-                className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                className={`px-4 py-2 rounded-lg transition-colors ${
                   confirmDialog.type === 'archive' 
-                    ? 'bg-yellow-600 hover:bg-yellow-500' 
-                    : 'bg-red-600 hover:bg-red-500'
+                    ? 'bg-warning text-warning-foreground hover:bg-warning/90' 
+                    : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                 }`}
                 disabled={archiveGroupMutation.isPending || deleteGroupMutation.isPending}
               >

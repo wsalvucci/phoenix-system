@@ -97,7 +97,7 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
 
       {/* Create Teacher Form */}
       {showCreateForm && (
-        <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-lg mb-6">
+        <div className="bg-muted p-6 rounded-lg mb-6">
           <h2 className="text-xl font-semibold mb-4">Add New Teacher</h2>
           <form onSubmit={handleCreateTeacher} className="grid grid-cols-2 gap-4">
             <ThemeInput
@@ -115,7 +115,7 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
             <div className="col-span-2 flex gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={createTeacherMutation.isPending}
               >
                 {createTeacherMutation.isPending ? 'Creating...' : 'Create Teacher'}
@@ -163,28 +163,28 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
         errorFallback={(err) => <div>Error loading teachers: {err.message}</div>}
       >
         {(data) => (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-card rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 dark:bg-slate-700">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Groups
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                <tbody className="bg-card divide-y divide-border">
                   {filteredAndSortedTeachers.map((teacher) => (
-                    <tr key={teacher.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                    <tr key={teacher.id} className="hover:bg-muted">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        <div className="text-sm font-medium text-foreground">
                           {teacher.lastName}, {teacher.firstName}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         <div className="flex flex-wrap gap-1">
                           {teacher.groupIds && teacher.groupIds.length > 0 ? (
                             teacher.groupIds.map((groupId) => {
@@ -192,14 +192,14 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
                               return (
                                 <span
                                   key={groupId}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-soft text-success-ink"
                                 >
                                   {group ? group.name : `Group #${groupId}`}
                                 </span>
                               );
                             })
                           ) : (
-                            <span className="text-slate-400 text-xs">No groups assigned</span>
+                            <span className="text-muted-foreground text-xs">No groups assigned</span>
                           )}
                         </div>
                       </td>
@@ -213,7 +213,7 @@ export default function TeachersManagementPage({ params: { schoolId } }: { param
       </LoadingState>
 
       {/* Summary */}
-      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
+      <div className="mt-6 text-sm text-muted-foreground">
         Showing {filteredAndSortedTeachers.length} of {teachers?.length || 0} teachers
       </div>
     </div>

@@ -9,7 +9,7 @@ export default function LinkStudent({ user }: { user: Student | null }) {
                 user !== null ? (
                     <Link href={`student`}>
                         <button
-                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             Student Portal
                         </button>
@@ -17,7 +17,7 @@ export default function LinkStudent({ user }: { user: Student | null }) {
                 ) : (
                     <Link href="/linkAccount/student">
                         <button
-                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-blue-300 dark:bg-blue-700"
+                            className="w-full py-2 px-3 flex justify-center text-2xl rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                             Link Student
                         </button>

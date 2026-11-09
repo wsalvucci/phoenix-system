@@ -461,7 +461,7 @@ export default function EditGroupPage({ params: { schoolId, groupId } }: { param
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50"
             onClick={() => setShowAddStudentsModal(false)}
           >
             <motion.div
@@ -555,7 +555,7 @@ export default function EditGroupPage({ params: { schoolId, groupId } }: { param
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50"
             onClick={() => setShowAddTeachersModal(false)}
           >
             <motion.div

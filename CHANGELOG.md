@@ -9,6 +9,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - The school admin home shows a "Get your school ready" checklist (term, point categories, student groups, students, teachers) with one "Next" button, until the basics are in place.
 - Teachers who are not in any group yet see a plain message telling them to ask their school admin, instead of an empty page.
 - Hallway displays opened by a signed-in admin or teacher (`/dashboard/featured`, the Hall of Honor and podium walls) now refresh within a few seconds of a score being entered or changed in their school. Paired display screens keep refreshing every minute.
+- When a student's points go up, a wax seal now stamps beside the animated total (not shown with reduced motion).
+- The admin student page colors each rank by tier (gold, silver, bronze and the top 20), matching the student and Honor Board views.
 
 ### Changed
 - Admin screens and the teacher scorebooks now say "Point categories" instead of "Point Groups" and "Competitions" instead of "Ranking Groups". Links and addresses are unchanged.
@@ -18,10 +20,14 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Removed a leftover test lookup for one specific term number in the admin term list, and deleted unused older data-access code and the unused monthly-trend loader. Automatic checks now include lint and use a fixed Supabase CLI version.
 - Faster sign-in checks, school lists, scorebooks and group rosters on larger schools (new database indexes). Requires migration `20261109120000_index_gaps`.
 - Updated the Supabase client library (2.43 to 2.45) for private live-update channels.
+- Color cleanup across the home, sign-in, link-account, parent, admin and display-device screens: they now use the shared light and dark palette, so alert banners, buttons, loading placeholders and charts keep readable contrast in both modes.
+- Nested group stripes on the admin Groups page use five consistent, readable colors instead of twenty pastels.
 
 ### Fixed
 - Signing in after being sent to the login page from a hallway-display link is now covered by a test that returns you to the screen you asked for, including after a mistyped password.
 - The kiosk check that a paired display ignores a tampered cookie now always runs instead of being skipped.
+- A long first or last name no longer breaks mid-word in the student page header on the narrowest phones (320px).
+- Rank lines on the admin student page wrap cleanly on phones.
 
 ### Security
 - A teacher can no longer pull every student's per-assignment scores for the whole school: the unused school-wide score, student-list and competition-score lookups were removed. Teachers keep their own groups' scorebooks; whole-school figures stay admin-only.

@@ -191,7 +191,7 @@ export default function RankingGroupsNewPage() {
                 Student Group
               </span>
               {level > 0 && (
-                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                   Child Group
                 </span>
               )}
@@ -278,15 +278,15 @@ export default function RankingGroupsNewPage() {
                     <span className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-sm">
                       {rankingGroup.studentGroups.length} groups
                     </span>
-                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                    <span className="bg-primary/10 text-primary px-2 py-1 rounded text-sm">
                       {rankingGroup.teachers.length} teachers
                     </span>
                     {rankingGroup.timeframe ? (
-                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                      <span className="bg-success-soft text-success-ink px-2 py-1 rounded text-sm">
                         {rankingGroup.timeframe.name}
                       </span>
                     ) : (
-                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm">
+                      <span className="bg-muted text-foreground px-2 py-1 rounded text-sm">
                         No timeframe
                       </span>
                     )}
@@ -334,13 +334,13 @@ export default function RankingGroupsNewPage() {
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-foreground">{group.name}</div>
                           {group.archived && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                            <span className="text-xs bg-warning-soft text-warning-ink px-2 py-1 rounded">
                               Archived
                             </span>
                           )}
                         </div>
                         <button
-                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive hover:text-white transition-colors"
+                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive/90 hover:text-white transition-colors"
                           onClick={() => handleRemoveStudentGroup(group.id, rankingGroup.id)}
                         >
                           Remove
@@ -363,7 +363,7 @@ export default function RankingGroupsNewPage() {
                           </div>
                         </div>
                         <button
-                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive hover:text-white transition-colors"
+                          className="text-destructive border border-destructive px-2 py-1 rounded hover:bg-destructive/90 hover:text-white transition-colors"
                           onClick={() => handleRemoveTeacher(teacher.id, rankingGroup.id)}
                         >
                           Remove
@@ -380,7 +380,7 @@ export default function RankingGroupsNewPage() {
 
       {/* Add Group Dialog */}
       {isAddGroupDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold mb-4 text-foreground">Create New Competition</h2>
             <div className="space-y-4">
@@ -440,7 +440,7 @@ export default function RankingGroupsNewPage() {
 
       {/* Add Student Group Dialog */}
       {isAddStudentGroupDialogOpen && selectedRankingGroup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-2xl max-h-[80vh] overflow-hidden">
             <h2 className="text-xl font-semibold mb-4 text-foreground">
               Add Student Groups to &quot;{selectedRankingGroup.name}&quot;
@@ -467,7 +467,7 @@ export default function RankingGroupsNewPage() {
 
       {/* Add Teacher Dialog */}
       {isAddTeacherDialogOpen && selectedRankingGroup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-2xl max-h-[80vh] overflow-hidden">
             <h2 className="text-xl font-semibold mb-4 text-foreground">
               Add Teachers to &quot;{selectedRankingGroup.name}&quot;

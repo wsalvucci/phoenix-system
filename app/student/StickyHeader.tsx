@@ -26,7 +26,7 @@ export default function StickyHeader({ student, totalPoints, gradeRank, gradeOut
             </div>
             <Frame className="vic-enter relative">
                 <WaxSeal className="absolute right-3 top-3 z-10" />
-                <div className="flex items-center gap-3 pr-14 sm:gap-4">
+                <div className="flex items-center gap-3 pr-12 min-[360px]:pr-14 sm:gap-4">
                     <div
                         aria-hidden="true"
                         className="vic-numeral flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-lg text-secondary-foreground sm:h-14 sm:w-14 sm:text-xl"
@@ -34,7 +34,7 @@ export default function StickyHeader({ student, totalPoints, gradeRank, gradeOut
                         {student.firstName?.[0]}{student.lastName?.[0]}
                     </div>
                     <div className="min-w-0">
-                        <h1 className="font-display text-2xl font-semibold leading-tight text-foreground [overflow-wrap:anywhere] min-[390px]:text-3xl sm:text-4xl">{student.firstName} {student.lastName}</h1>
+                        <h1 className="font-display text-xl font-semibold leading-tight text-foreground [overflow-wrap:anywhere] min-[360px]:text-2xl min-[390px]:text-3xl sm:text-4xl">{student.firstName} {student.lastName}</h1>
                         <p className="vic-label mt-1 flex flex-wrap gap-x-4 gap-y-1">
                             <span>Grade <strong className="font-semibold text-foreground">{student.grade}</strong></span>
                             <span>{timeframe.name}</span>

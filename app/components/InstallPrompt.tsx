@@ -18,10 +18,10 @@ export default function InstallPrompt() {
     }
    
     return (isIOS && (
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-6 max-w-sm mx-auto">
+      <div className="bg-primary rounded-lg shadow-3 p-6 max-w-sm mx-auto">
         
-        <h3 className="text-2xl font-bold text-white mb-4">Install App</h3>
-          <p className="text-white text-sm">
+        <h3 className="text-2xl font-bold text-primary-foreground mb-4">Install App</h3>
+          <p className="text-primary-foreground text-sm">
             To install this app on your iOS device, tap the share button and then &quot;Add to Home Screen&quot;
             <span role="img" aria-label="plus icon" className="inline-block ml-1">
               ➕
