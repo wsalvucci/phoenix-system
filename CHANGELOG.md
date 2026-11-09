@@ -8,6 +8,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 ### Added
 - The school admin home shows a "Get your school ready" checklist (term, point categories, student groups, students, teachers) with one "Next" button, until the basics are in place.
 - Teachers who are not in any group yet see a plain message telling them to ask their school admin, instead of an empty page.
+- Hallway displays opened by a signed-in admin or teacher (`/dashboard/featured`, the Hall of Honor and podium walls) now refresh within a few seconds of a score being entered or changed in their school. Paired display screens keep refreshing every minute.
 
 ### Changed
 - Admin screens and the teacher scorebooks now say "Point categories" instead of "Point Groups" and "Competitions" instead of "Ranking Groups". Links and addresses are unchanged.
@@ -15,6 +16,8 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - The teacher home lists only your groups and competitions: internal ID numbers and the stats row are gone, and the search box appears only once you have eight or more groups.
 - Deleting a student now asks in a dialog that names the student, and removing a teaching assistant or clearing their events asks the same way. Errors from these and from saving an assistant show in the page instead of a pop-up box.
 - Removed a leftover test lookup for one specific term number in the admin term list, and deleted unused older data-access code and the unused monthly-trend loader. Automatic checks now include lint and use a fixed Supabase CLI version.
+- Faster sign-in checks, school lists, scorebooks and group rosters on larger schools (new database indexes). Requires migration `20261109120000_index_gaps`.
+- Updated the Supabase client library (2.43 to 2.45) for private live-update channels.
 
 ### Fixed
 - Signing in after being sent to the login page from a hallway-display link is now covered by a test that returns you to the screen you asked for, including after a mistyped password.
@@ -23,6 +26,9 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 ### Security
 - A teacher can no longer pull every student's per-assignment scores for the whole school: the unused school-wide score, student-list and competition-score lookups were removed. Teachers keep their own groups' scorebooks; whole-school figures stay admin-only.
 - Student and parent pages now read only that student's own scores (plus the bare scores of the events they took part in, for their event rank) instead of every point row in the school.
+- Nobody outside the school's staff can listen for or fake the "scores changed" signal any more; previously anyone with the public app key could make every hallway display reload at once.
+- The database itself now refuses to link a student, teacher, group, competition, category or score to records of a different school, and refuses to move a linked record to another school. The admin screens already refused this; scripts and direct database edits now cannot do it either.
+- Running the QA test-school setup again now checks that an existing QA account reaches no real school (including mobile-app links) before it resets that account's password.
 
 ## [2.1.0] - 2026-11-09
 

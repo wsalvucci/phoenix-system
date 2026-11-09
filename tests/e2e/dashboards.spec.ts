@@ -36,15 +36,15 @@ async function truth() {
 }
 
 /** Collects the body of every server-action response the page receives. */
-function captureActions(page: Page): string[] {
+// Routed rather than read from the "response" event: Chromium sometimes drops a body before
+// res.text() runs, which made the "carry no ids" check flaky (it failed on master too).
+async function captureActions(page: Page): Promise<string[]> {
     const bodies: string[] = [];
-    page.on("response", async (res) => {
-        if (res.request().method() !== "POST") return;
-        try {
-            bodies.push(await res.text());
-        } catch {
-            // body not available (redirect, aborted)
-        }
+    await page.route("**/*", async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        const response = await route.fetch();
+        bodies.push(await response.text());
+        await route.fulfill({ response });
     });
     return bodies;
 }
@@ -117,12 +117,11 @@ for (const who of ["admin", "teacher1"] as const) {
         });
 
         test("server responses behind the whole-school board carry no ids or counts", async ({ page }) => {
-            const bodies = captureActions(page);
+            const bodies = await captureActions(page);
             await page.goto("/dashboard/global?school=1");
             await settle(page);
+            await expect.poll(() => bodies.join("\n"), { timeout: 10_000 }).toContain("Ada");
             const all = bodies.join("\n");
-            expect(all.length).toBeGreaterThan(0);
-            expect(all).toContain("Ada");
             expect(all, "student ids").not.toMatch(/student_?id/i);
             expect(all, "cohort sizes").not.toMatch(/cohort_?size|total_?students|participants|member_?count/i);
             expect(all, "cut internals").not.toMatch(/n_absolute|p_ratio|k_hidden|link_?code|supabase_?id/i);

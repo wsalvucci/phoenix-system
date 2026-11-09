@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDisplayBoards } from '@/app/supaApi/server/dashboard/displayBoards';
-import { createClient } from '@/utils/supabase/client';
+import { useScoreSignal } from './useScoreSignal';
 import { buildSlides } from '@/app/dashboard/featured/screens/displayData';
 import { WallStage } from './WallStage';
 import { BoardScene } from './BoardScene';
@@ -21,11 +21,7 @@ export function OverallWall({ queryName }: { queryName: string }) {
     if (!data) throw new Error('No dashboard data available');
     return data;
   }, refetchInterval: 60_000 });
-  useEffect(() => {
-    const supabase = createClient();
-    const pointsChannel = supabase.channel('student-points-channel').on('broadcast', { event: 'sync' }, () => void queryClient.invalidateQueries({ queryKey: [queryName] })).subscribe();
-    return () => { void supabase.removeChannel(pointsChannel); };
-  }, [queryClient, queryName]);
+  useScoreSignal(schoolId, () => void queryClient.invalidateQueries({ queryKey: [queryName] }));
 
   // A live update replays the divider shimmer once.
   const first = useRef(true);

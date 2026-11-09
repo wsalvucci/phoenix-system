@@ -322,7 +322,7 @@ export type OwnLedLetters = { groupId: number; groupName: string;
 export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters[]>; // student or linked parent
 ```
 
-## 8. Index gaps (proposals only, not built)
+## 8. Index gaps (built 2026-11-09: `20261109120000_index_gaps.sql`, plus TA, competition and admin-pair indexes)
 | Index | Serves |
 |---|---|
 | `UNIQUE "user"(supabase_id)` | every request: `getOwnUserData`, `get_user_data()`, `auth_current_student()`. Check for duplicates first. |
@@ -347,7 +347,7 @@ export async function getOwnLedLetters(studentId: number): Promise<OwnLedLetters
   `auth_current_student`). Likewise `teacher.linked_user` and `user.teacher_id`
   (`app/linkAccount/serverActions.ts`). Pick one and backfill. The new RPCs follow the web model.
 - The Realtime broadcast `student-points-channel` is public. Anyone with the anon key can send
-  `sync` and force every display to refetch. Make it private once display tokens exist.
+  `sync` and force every display to refetch. DONE 2026-11-09 (`20261109120200`): replaced by the private topic `school:<id>:scores`, sent only by DB triggers, received only by staff of that school (RLS on `realtime.messages`). Paired displays (no Supabase session) poll every 60 s; kiosk live updates would need a server-minted Realtime JWT.
 - `ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` would stop new functions
   being born callable by anon. It is global to the role and can affect extensions, so it is
   proposed, not done. Until then, every new function revokes explicitly (all files here do).
@@ -477,7 +477,7 @@ Consequences, binding on everyone:
 |---|---|---|
 | Web server code | service client (`service_role`) | all; unchanged |
 | Web cookie client | `auth.getUser/signIn/signOut/exchangeCodeForSession`, Realtime broadcast | none |
-| Web browser bundle | Realtime broadcast `student-points-channel`, password reset (`auth.*`) | none |
+| Web browser bundle | Realtime private broadcast `school:<id>:scores` (receive only, staff), password reset (`auth.*`) | none |
 | Phoenix Student Mobile | 14 `postgrest.rpc("get_*")` calls, no `from(...)`, no Realtime | none (all SECURITY DEFINER) |
 | Auth trigger | `handle_new_user`, SECURITY DEFINER owned by `postgres` | none for API roles |
 
