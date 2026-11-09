@@ -47,3 +47,11 @@ Things the main session wants to tell or ask the product owner, surfaced one at 
 - A sibling **Phoenix Student Mobile** app calls 14 student RPCs as `authenticated`; grants preserved.
 - Concept art in `docs/design/concepts/`; brand primary moved burgundy → ink sapphire.
 - Leftovers: `api/v2`/`api/core` nearby lists (unused); `loadSchoolTimeframes` hardcoded timeframe 7; index gaps + legacy tables proposed in BACKEND_PLAN §8–9.
+
+## 2026-11-09 resume
+- Merged `agent/sd-authz-holes` (cross-school authz fixes + QA-school seed/teardown) to local master after QA PASS-WITH-NOTES (tsc, 66 unit, 157 pgTAP, 490 RLS, 144 e2e, build). Not pushed.
+- **Release level:** the QA-scripts "Added" entry makes this **2.1.0**, not 2.0.1 (QA recommends 2.1.0). Needs owner OK to cut + push.
+- **Before release:** check production for student TAs linked only via mobile `user.student_id` (no `student.linkedUser`); they now lose TA access.
+- Nit (backlog for backend): `scripts/qa-school/seed.mjs` resets a QA user's password before `assertUserConfinedToSchool`; swap order.
+- Backend-owned: no DB constraint stops pair tables mixing two schools (actions refuse it now).
+- **Worktree cleanup blocked:** removing 15 clean, merged agent worktrees + merged branches was denied by the auto-mode classifier; needs owner to allow or run `git worktree remove` themselves.
