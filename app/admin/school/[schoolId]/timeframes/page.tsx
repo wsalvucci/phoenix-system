@@ -138,13 +138,13 @@ export default function TimeframesNewPage() {
     const endDate = new Date(timeframe.endsAt);
 
     if (timeframe.active) {
-      return { status: "Active", color: "bg-green-100 text-green-800" };
+      return { status: "Active", color: "bg-success-soft text-success-ink" };
     } else if (now < startDate) {
-      return { status: "Upcoming", color: "bg-blue-100 text-blue-800" };
+      return { status: "Upcoming", color: "bg-primary/10 text-primary" };
     } else if (now >= startDate && now <= endDate) {
-      return { status: "In Progress", color: "bg-yellow-100 text-yellow-800" };
+      return { status: "In Progress", color: "bg-warning-soft text-warning-ink" };
     } else {
-      return { status: "Ended", color: "bg-gray-100 text-gray-800" };
+      return { status: "Ended", color: "bg-muted text-foreground" };
     }
   };
 
@@ -215,7 +215,7 @@ export default function TimeframesNewPage() {
                       {status.status}
                     </span>
                     {timeframe.active && (
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                      <span className="text-xs bg-success-soft text-success-ink px-2 py-1 rounded">
                         Currently Active
                       </span>
                     )}
@@ -223,7 +223,7 @@ export default function TimeframesNewPage() {
                   <div className="flex items-center gap-2">
                     {!timeframe.active && (
                       <button
-                        className="text-green-600 hover:bg-green-50 px-2 py-1 rounded text-sm transition-colors"
+                        className="text-success-ink hover:bg-success-soft px-2 py-1 rounded text-sm transition-colors"
                         onClick={() => handleActivateTimeframe(timeframe.id)}
                       >
                         Activate
@@ -260,7 +260,7 @@ export default function TimeframesNewPage() {
 
       {/* Add Timeframe Dialog */}
       {isAddTimeframeDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold mb-4 text-foreground">Create New Timeframe</h2>
             <div className="space-y-4">
@@ -328,7 +328,7 @@ export default function TimeframesNewPage() {
 
       {/* Edit Timeframe Dialog */}
       {isEditDialogOpen && editingTimeframe && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold mb-4 text-foreground">Edit Timeframe</h2>
             <div className="space-y-4">

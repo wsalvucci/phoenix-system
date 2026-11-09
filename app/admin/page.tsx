@@ -88,7 +88,7 @@ export default function AdminHome() {
                       </header>
                       <main className="page-container">
                         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{sortedSchools.length} {sortedSchools.length === 1 ? "school" : "schools"}</p>
+                            <p className="text-sm font-medium text-muted-foreground">{sortedSchools.length} {sortedSchools.length === 1 ? "school" : "schools"}</p>
                             <div className="flex flex-col gap-3 sm:flex-row">
                                 <input
                                     type="text"
@@ -129,36 +129,36 @@ export default function AdminHome() {
                                 return (
                                     <article key={school.id} className="surface flex flex-col p-6 transition hover:-translate-y-0.5 hover:shadow-md">
                                         <div className="flex justify-between items-start mb-4">
-                                            <h2 className="text-xl font-semibold text-slate-950 dark:text-white">{school.name}</h2>
-                                            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-300">ID {school.id}</span>
+                                            <h2 className="text-xl font-semibold text-foreground">{school.name}</h2>
+                                            <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">ID {school.id}</span>
                                         </div>
                                         
                                         {isLoadingDetail ? (
                                             <div className="space-y-2">
-                                                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-                                                <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
-                                                <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                                                <div className="h-4 bg-muted rounded animate-pulse"></div>
+                                                <div className="h-4 bg-muted rounded animate-pulse w-3/4"></div>
+                                                <div className="h-4 bg-muted rounded animate-pulse w-1/2"></div>
                                             </div>
                                         ) : schoolDetail ? (
                                             <dl className="space-y-3">
                                                 <div className="flex justify-between text-sm">
-                                                    <dt className="text-slate-600 dark:text-slate-400">Students</dt>
+                                                    <dt className="text-muted-foreground">Students</dt>
                                                     <dd className="font-semibold">{(schoolDetail as { students?: unknown[] })?.students?.length || 0}</dd>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
-                                                    <dt className="text-slate-600 dark:text-slate-400">Groups</dt>
+                                                    <dt className="text-muted-foreground">Groups</dt>
                                                     <dd className="font-semibold">{(schoolDetail as { studentGroups?: unknown[] })?.studentGroups?.length || 0}</dd>
                                                 </div>
                                                 <div className="flex justify-between text-sm">
-                                                    <dt className="text-slate-600 dark:text-slate-400">Point groups</dt>
+                                                    <dt className="text-muted-foreground">Point groups</dt>
                                                     <dd className="font-semibold">{(schoolDetail as { pointTypes?: unknown[] })?.pointTypes?.length || 0}</dd>
                                                 </div>
                                             </dl>
                                         ) : (
-                                            <p className="text-gray-500 text-sm">Failed to load details</p>
+                                            <p className="text-muted-foreground text-sm">Failed to load details</p>
                                         )}
                                         
-                                        <div className="mt-auto border-t border-slate-200 pt-4 dark:border-slate-800">
+                                        <div className="mt-auto border-t border-border pt-4">
                                             <MotionButton 
                                                 href={`/admin/school/${school.id}`}
                                                 variant="primary"
@@ -174,7 +174,7 @@ export default function AdminHome() {
 
                         {sortedSchools.length === 0 && (
                             <div className="surface border-dashed py-12 text-center">
-                                <p className="text-slate-500">No schools match your search.</p>
+                                <p className="text-muted-foreground">No schools match your search.</p>
                             </div>
                         )}
                       </main>

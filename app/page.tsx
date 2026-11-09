@@ -31,7 +31,7 @@ export default async function Index() {
       <nav className="app-header flex h-16 w-full justify-center">
         <div className="flex w-full max-w-6xl items-center justify-between px-4 text-sm sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 font-bold tracking-[0.18em]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg text-white shadow-sm">P</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-lg text-primary-foreground shadow-1">P</span>
             PHOENIX
           </div>
           {isSupabaseConnected && <AuthButton />}
@@ -44,10 +44,10 @@ export default async function Index() {
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <section>
             <p className="eyebrow">Student recognition and progress</p>
-            <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-slate-950 sm:text-6xl dark:text-white">
+            <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
               Every point tells a story of progress.
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+            <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
               Phoenix gives students, families, teachers, and administrators one place to recognize achievement and follow growth.
             </p>
           </section>

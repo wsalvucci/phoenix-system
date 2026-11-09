@@ -43,11 +43,11 @@ export default async function ParentStudentDashboard({ params: { studentId } }: 
         <div className="app-page">
             <header className="app-header">
                 <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6">
-                    <Link className="inline-flex min-h-11 items-center text-sm font-medium text-slate-500 hover:text-slate-950 dark:hover:text-white" href="/parent">← Your children</Link>
+                    <Link className="inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground hover:text-foreground" href="/parent">← Your children</Link>
                     <h1 className="page-title mt-1">{student.firstName} {student.lastName}</h1>
                     <p className="page-description">Grade {student.grade}{timeframe?.name ? ` · ${timeframe.name}` : ""}</p>
                     <p className="mt-4 text-5xl font-bold tracking-tight">{totalPoints.toLocaleString()}</p>
-                    <p className="text-sm text-slate-500">points</p>
+                    <p className="text-sm text-muted-foreground">points</p>
                     <p className="mt-3 flex items-center gap-2 text-sm font-semibold">
                         {isRanked(gradeRank, gradeOutOf) ? (
                             <>

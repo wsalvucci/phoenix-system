@@ -71,7 +71,7 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
                     spellCheck={false}
                     autoFocus
                 />
-                <span className="text-xs font-normal text-slate-600 dark:text-slate-400">
+                <span className="text-xs font-normal text-muted-foreground">
                     Your school gave you this on a letter or email.
                 </span>
             </label>
@@ -98,7 +98,7 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
             )}
 
             {error && (
-                <div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+                <div role="alert" className="mt-4 rounded-lg border border-destructive-ink/40 bg-destructive-soft p-3 text-sm text-destructive-ink">
                     {error.text}{error.hint && " Check for look-alike letters (O and 0, I and 1) or ask your school for a new code."}
                 </div>
             )}
@@ -106,7 +106,7 @@ export default function LinkAccountForm({ kind }: { kind: LinkKind }) {
             <button type="submit" disabled={busy || missing !== null} className="button-primary mt-5 min-h-[44px] w-full">
                 {busy ? copy.sending : copy.button}
             </button>
-            {missing && !busy && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{missing}</p>}
+            {missing && !busy && <p className="mt-2 text-xs text-muted-foreground">{missing}</p>}
             <Link href="/" className="mt-3 inline-flex min-h-[44px] items-center text-sm underline">Back to home</Link>
         </form>
     );

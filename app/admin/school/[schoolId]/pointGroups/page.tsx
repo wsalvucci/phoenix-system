@@ -115,7 +115,7 @@ export default function PointGroupsNewPage() {
                   ></span>
                   <span className="font-medium text-foreground">{group.name}</span>
                   {group.ranked && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                    <span className="text-xs bg-success-soft text-success-ink px-2 py-1 rounded">
                       Ranked
                     </span>
                   )}
@@ -148,7 +148,7 @@ export default function PointGroupsNewPage() {
                     ✏️
                   </button>
                   <button
-                    className="text-green-600 hover:bg-green-50 p-1 rounded transition-colors"
+                    className="text-success-ink hover:bg-success-soft p-1 rounded transition-colors"
                     onClick={() => {
                       setSelectedParentId(group.id);
                       setIsAddGroupDialogOpen(true);
@@ -238,7 +238,7 @@ export default function PointGroupsNewPage() {
 
       {/* Add Group Dialog */}
       {isAddGroupDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50">
           <div className="bg-card border border-border rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold mb-4 text-foreground">
               {selectedParentId ? 'Create Child Point Group' : 'Create New Point Group'}

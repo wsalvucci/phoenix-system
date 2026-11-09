@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faChartPie, faCalendarAlt, faStar, faGraduationCap, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { DateTime } from "luxon";
 import Color from "color";
+import { rankTier } from "@/lib/rankTier";
 import { ParentLinksPanel } from "@/components/admin/ParentLinksPanel";
 
 export default function AdminStudentPage({ params: { schoolId, studentId } }: { params: { schoolId: string, studentId: string } }) {
@@ -71,14 +72,14 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
             {/* Overall Ranking */}
             <div className="mt-4 flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faTrophy} className="text-yellow-500 text-xl" />
-                <span className="text-lg font-semibold text-foreground">
+                <FontAwesomeIcon icon={faTrophy} className="text-warning-ink text-xl" />
+                <span className="text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rank, data.student.outOf)}>
                   Rank: {numberToOrdinal(data.student.rank)} / {data.student.outOf}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faGraduationCap} className="text-blue-500 text-xl" />
-                <span className="text-lg font-semibold text-foreground">
+                <FontAwesomeIcon icon={faGraduationCap} className="text-primary text-xl" />
+                <span className="text-lg font-semibold text-rank-ink" data-rank-tier={rankTier(data.student.rankByGrade.rank, data.student.rankByGrade.outOf)}>
                   Grade Rank: {numberToOrdinal(data.student.rankByGrade.rank)} / {data.student.rankByGrade.outOf}
                 </span>
               </div>
@@ -91,7 +92,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
               {/* Point Groups Breakdown */}
               <div className="bg-card border border-border rounded-lg p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <FontAwesomeIcon icon={faChartPie} className="text-purple-500 text-xl" />
+                  <FontAwesomeIcon icon={faChartPie} className="text-chart-5 text-xl" />
                   <h2 className="text-xl font-semibold text-foreground">Points by Category</h2>
                 </div>
                 
@@ -117,6 +118,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                           ))}
                         </Pie>
                         <Tooltip 
+                          contentStyle={{ background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
                           formatter={(value: unknown) => [String(value).toLocaleString(), 'Points']}
                         />
                       </PieChart>
@@ -144,7 +146,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold text-foreground">
+                          <div className="font-semibold text-rank-ink" data-rank-tier={rankTier(group.rank, group.outOf)}>
                             {numberToOrdinal(group.rank)}
                           </div>
                           <div className="text-sm text-muted-foreground">
@@ -160,7 +162,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
               {/* Recent Activity */}
               <div className="bg-card border border-border rounded-lg p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <FontAwesomeIcon icon={faCalendarAlt} className="text-green-500 text-xl" />
+                  <FontAwesomeIcon icon={faCalendarAlt} className="text-success-ink text-xl" />
                   <h2 className="text-xl font-semibold text-foreground">Recent Activity</h2>
                 </div>
                 
@@ -202,7 +204,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
             {data.student.rankByRankingGroup.length > 0 && (
               <div className="bg-card border border-border rounded-lg p-6 mt-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <FontAwesomeIcon icon={faUsers} className="text-indigo-500 text-xl" />
+                  <FontAwesomeIcon icon={faUsers} className="text-chart-1 text-xl" />
                   <h2 className="text-xl font-semibold text-foreground">Student Groups</h2>
                 </div>
                 
@@ -213,7 +215,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                       className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faUsers} className="text-indigo-500" />
+                        <FontAwesomeIcon icon={faUsers} className="text-chart-1" />
                         <div>
                           <div className="font-medium text-foreground">{group.name}</div>
                           <div className="text-sm text-muted-foreground">
@@ -222,7 +224,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-foreground">
+                        <div className="font-semibold text-rank-ink" data-rank-tier={rankTier(group.rank, group.outOf)}>
                           {numberToOrdinal(group.rank)}
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -240,7 +242,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
             {/* All Point Events (detailed list with rank) */}
             <div className="bg-card border border-border rounded-lg p-6 mt-6">
               <div className="flex items-center gap-2 mb-4">
-                <FontAwesomeIcon icon={faStar} className="text-orange-500 text-xl" />
+                <FontAwesomeIcon icon={faStar} className="text-chart-2 text-xl" />
                 <h2 className="text-xl font-semibold text-foreground">All Point Events (Timeframe)</h2>
               </div>
               <div className="overflow-x-auto">
@@ -281,7 +283,7 @@ export default function AdminStudentPage({ params: { schoolId, studentId } }: { 
                             {formatSignedPoints(event.pointsEarned.value)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-foreground">
+                        <td className="px-4 py-3 font-medium text-rank-ink" data-rank-tier={event.rank > 0 ? rankTier(event.rank, event.outOf) : "none"}>
                           {event.rank > 0 ? `${numberToOrdinal(event.rank)} / ${event.outOf}` : '-'}
                         </td>
                       </tr>

@@ -18,7 +18,7 @@ type Roles = {
     children: number;
 };
 
-const SKELETON = "h-16 w-full animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800";
+const SKELETON = "h-16 w-full animate-pulse rounded-lg bg-muted";
 
 /**
  * Signed-in home. One question for someone with no role yet ("Who is using Phoenix?"),
