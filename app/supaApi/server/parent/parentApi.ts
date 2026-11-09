@@ -31,12 +31,21 @@ export async function getStudentsOfParent(): Promise<{ id: number, fullName: str
 
 // Delegates to the rate-limited, uniform-failure redeem_link_code RPC (BACKEND_PLAN.md §6.3,
 // DATA_DISCLOSURE.md §10.11). The code is never echoed or logged.
+// `studentId` is the child this call just linked, so the caller can open that child's page; `noMatch`
+// lets the form add its look-alike-letters hint. The RPC only answers a status, so the new id is found
+// by diffing this parent's linked children before and after (no schema change).
 export async function linkStudentToParent(
     schoolId: number,
     linkCode: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; studentId?: number; noMatch?: boolean }> {
+    const before = new Set((await getStudentsOfParent().catch(() => [])).map(student => student.id))
     const { status } = await redeemLinkCode("parent_link", schoolId, linkCode)
-    return status === "linked" ? {} : { error: linkFailureMessage(status) }
+    if (status !== "linked") {
+        return { error: linkFailureMessage(status), noMatch: status === "no_match" }
+    }
+    const after = await getStudentsOfParent().catch(() => [])
+    const added = after.find(student => !before.has(student.id))
+    return added ? { studentId: added.id } : {}
 }
 
 export async function deleteStudentFromParent(

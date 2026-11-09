@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { deleteStudentFromParent, getStudentsOfParent } from "../supaApi/server/parent/parentApi";
 
 export const dynamic = "force-static";
@@ -13,9 +14,18 @@ export default function ParentDashboard() {
     const [feedback, setFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
     const [confirmDisconnectData, setConfirmDisconnectData] = useState<LinkedStudent | null>(null);
 
+    const router = useRouter();
+
     function retrieveStudents() {
         getStudentsOfParent().then(students => {
-            setLinkedStudents(students.map(student => ({ id: student.id, name: student.fullName })));
+            const list = students.map(student => ({ id: student.id, name: student.fullName }));
+            // One child: skip the chooser and go straight to their progress. "?all" (the child page's
+            // "All my children" link) opts out so the chooser, Add another and Disconnect stay reachable.
+            if (list.length === 1 && !new URLSearchParams(window.location.search).has("all")) {
+                router.replace(`/parent/${list[0].id}`);
+                return;
+            }
+            setLinkedStudents(list);
         }).catch(() => {
             setLinkedStudents(current => current ?? []);
             setFeedback({ tone: "error", text: "We could not load your children. Reload the page to try again." });
