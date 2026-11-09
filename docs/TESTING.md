@@ -218,22 +218,16 @@ show up for real staff, students or parents. An admin sees the QA school only af
 thing to know: a link code of a QA student or teacher can be redeemed by any signed-in account, as with any
 school. Do not hand the codes out.
 
-**Fix these before seeding production.** The 2026-10-15 audit found existing authorization bugs. A QA account
-whose password is shared around makes each of them easier to exploit:
+**Authorization bugs from the 2026-10-15 audit: fixed in 2.0.1** (branch `agent/sd-authz-holes`; covered by
+`tests/rls/actionsAuthz.test.ts`). Admin actions now check the school that owns the row being changed
+(`app/supaApi/server/adminScope.ts`), teaching-assistant checks compare with the signed-in account's own student id
+instead of `user.id`, and `getStudentGroupsForTeachers` / `getRankingGroupsForTeachers` are no longer exported server
+actions. One item remains open and is backend-owned:
 
-- `api/admin/rankingGroups.ts` (add or remove a student group or teacher in a ranking group),
-  `api/admin/pointGroups.ts` `updatePointGroup`, and `api/admin/timeframes.ts` `updateTimeframe` and `deleteTimeframe`
-  check only that the caller is an admin of *some* school. They do not check the school of the row being changed.
-  `qa-admin` could change or read rows in a real school by id.
-- `api/admin/groups.ts` `removeStudentFromGroup`, `removeTeacherFromGroup` and `removeStudentLeaderFromGroup` do not
-  check that the group belongs to the `schoolId` they authorize.
-- `api/teacher.ts` `getTeachingAssistantData` compares `teaching_assistant.student_id` with `user.id`. A new
-  account whose `user.id` equals the student id of a real TA can open that TA's group roster. Every QA account
-  the seed creates gets a new `user.id`. `api/scorebook.ts` `getScorebookAccess` has the same mistake.
-- `api/teacher.ts` `getStudentGroupsForTeachers` and `getRankingGroupsForTeachers` are exported from a
-  `"use server"` file with no authorization check.
 - No rule in the database stops a pair table (group membership, ranking group, leader, TA) from mixing two
-  schools. Once a pair like that exists, leader-letter and leaderboard reads show names across the two schools.
+  schools. The actions above now refuse to create such a pair, but a database constraint or trigger is still the
+  durable fix. Until then, leader-letter and leaderboard reads would show names across schools if a mixed pair ever
+  appeared by another route.
 
 Tested only on the local stack: seed twice (the second run created 0 rows), signed in as all six accounts,
 `display_cut` publishes 4 names for the QA school and 0 for another school, teardown twice, and every other
