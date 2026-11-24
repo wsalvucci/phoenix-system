@@ -51,10 +51,7 @@ jobs:
       - name: Start local Supabase
         run: supabase start
 
-      # Non-blocking until duplicate_scorebook_events is fixed (timestamptz + integer); then drop
-      # continue-on-error so a schema error fails the run.
       - name: Lint the schema
-        continue-on-error: true
         run: supabase db lint --local --level error --fail-on error
 
       - name: Write .env.test.local from the local stack

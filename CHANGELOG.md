@@ -24,6 +24,7 @@ versioning: [SemVer](https://semver.org/). Rules for writing entries: `docs/RELE
 - Nested group stripes on the admin Groups page use five consistent, readable colors instead of twenty pastels.
 
 ### Fixed
+- Duplicating a teacher scorebook with "Advance by" in days works again (it failed with an error). Copies shifted by days, months or years now keep each event's time, and an event late on the last day of a term is no longer left out.
 - Signing in after being sent to the login page from a hallway-display link is now covered by a test that returns you to the screen you asked for, including after a mistyped password.
 - The kiosk check that a paired display ignores a tampered cookie now always runs instead of being skipped.
 - A long first or last name no longer breaks mid-word in the student page header on the narrowest phones (320px).
