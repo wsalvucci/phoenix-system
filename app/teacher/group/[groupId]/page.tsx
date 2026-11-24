@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { DateTime } from "luxon"
+import { isWithinTimeframe, shiftScorebookEventDate } from "@/lib/scorebookDateShift"
 import CSVReader from "react-csv-reader"
 import Papa from 'papaparse';
 import { newGetScorebookData, editPointEvent, deletePointEvent, createPointEvent, getTeacherSchoolTimeframes } from "@/app/supaApi/server/teacher/teacherServerActions"
@@ -717,21 +718,9 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     </button>
   )
 
-  const shiftEventDate = (date: string) => {
-    const source = DateTime.fromISO(date)
-    if (!source.isValid) return { date, adjusted: false }
-
-    const parsedAmount = Number(duplicateShiftAmount)
-    if (!Number.isInteger(parsedAmount) || parsedAmount < 1) return { date, adjusted: false }
-    const amount = parsedAmount
-    const shifted = source.plus({ [duplicateShiftUnit]: amount })
-    const calendarAdjusted = duplicateShiftUnit !== "days" && shifted.day !== source.day
-
-    return {
-      date: shifted.toISODate() ?? date,
-      adjusted: calendarAdjusted
-    }
-  }
+  // Same arithmetic as public.duplicate_scorebook_events (UTC wall clock, time kept, month-end clamp).
+  const shiftEventDate = (date: string) =>
+    shiftScorebookEventDate(date, Number(duplicateShiftAmount), duplicateShiftUnit)
 
   const openDuplicateEventsModal = () => {
     if (!selectedTimeframe || !scorebookData) return
@@ -746,10 +735,10 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
     setDuplicateError(null)
 
     const firstShiftedDate = scorebookData.pointEvents[0]
-      ? DateTime.fromISO(scorebookData.pointEvents[0].date).plus({ years: 1 }).toISODate()
+      ? shiftScorebookEventDate(scorebookData.pointEvents[0].date, 1, "years").date
       : null
     const likelyDestination = firstShiftedDate
-      ? timeframes.find(timeframe => firstShiftedDate >= timeframe.startsAt && firstShiftedDate <= timeframe.endsAt)
+      ? timeframes.find(timeframe => isWithinTimeframe(firstShiftedDate, timeframe.startsAt, timeframe.endsAt))
       : undefined
     setDuplicateDestinationTimeframeId(likelyDestination?.id ?? null)
     setDuplicateEventsModalOpen(true)
@@ -820,11 +809,13 @@ export default function TeacherGroup({ params: { groupId } }: { params: { groupI
       const matchesPointGroup = duplicatePointGroupFilter === 0 || event.pointGroup.id === duplicatePointGroupFilter
       return matchesSearch && matchesPointGroup
     })
-    const shiftedSelectedDates = selectedEvents.map(event => shiftEventDate(event.date).date).sort()
+    const shiftedSelectedDates = selectedEvents
+      .map(event => shiftEventDate(event.date).date)
+      .sort((a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis())
     const outsideDestinationCount = destinationTimeframe
       ? selectedEvents.filter(event => {
           const shiftedDate = shiftEventDate(event.date).date
-          return shiftedDate < destinationTimeframe.startsAt || shiftedDate > destinationTimeframe.endsAt
+          return !isWithinTimeframe(shiftedDate, destinationTimeframe.startsAt, destinationTimeframe.endsAt)
         }).length
       : 0
     const allVisibleSelected = filteredEvents.length > 0 && filteredEvents.every(event => !duplicateExcludedEventIds.has(event.id))
