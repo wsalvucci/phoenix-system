@@ -51,8 +51,8 @@ Playwright e2e. What it lacks is the review/merge loop, the PR contract, and a w
 ### 0. Make CI green (prerequisite)
 - `supabase/config.toml`: rename `[inbucket]` to `[local_smtp]` (check the keys still apply).
 - Add `supabase db lint --local --level error --fail-on error` after `supabase start` (Lounge has it).
-  It currently finds a real bug in `duplicate_scorebook_events` (`timestamptz + integer` on the
-  "days" shift), so the step is `continue-on-error` until that is fixed.
+  It found a real bug in `duplicate_scorebook_events` (`timestamptz + integer` on the "days" shift),
+  fixed by migration `20261124120000`; the step is now blocking.
 - Optional: Node 20 → 22 in `test.yml` (runner deprecation warning).
 - Push `master` so CI runs on current code.
 
