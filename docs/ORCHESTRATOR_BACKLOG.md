@@ -3,6 +3,8 @@
 Things the main session wants to tell or ask the product owner, surfaced one at a time. Most urgent first.
 
 ## Decisions needed
+- **CI reviewer (branch `agent/ci-reviewer`, 2026-11-24):** needs owner go-ahead to push; then secret `CLAUDE_CODE_OAUTH_TOKEN`, Actions "create and approve PRs", auto-merge + delete head branches, branch protection on the 3 checks, then repo var `CLAUDE_AUTO_MERGE=true`. Proposal: `docs/CI_PROPOSAL.md`. Agents switching to the PR flow needs a standing OK to push `agent/*` branches.
+- **Bug: `duplicate_scorebook_events` "shift by days" errors** (`timestamptz + integer`; `point_events.date` became timestamptz after `20260912215436`). Found by `supabase db lint`; lint step is non-blocking in CI until fixed. Backend fix + migration.
 - **QA test accounts on hosted previews (owner wants this, 2026-10-15):** proposed separate Supabase staging project seeded from `supabase/seed.sql` (fictional school + 11 accounts), Vercel Preview env pointed at it. Awaiting go-ahead (new project; may cost).
 - **Production web is stale:** the last prod build of master (8b390a9) failed on Node 20; live site is an older deployment.
 - **Preview:** `preview/v2.0.0` pushed 2026-10-15 (commit 022dafb, tag not pushed). Owner adding Preview `LINK_RATE_LIMIT_SECRET`, then redeploy preview; then role click-through.
